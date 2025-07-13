@@ -1,0 +1,200 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_curseforge:
+        description: 'Publish to CurseForge'
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Extract version from .toc file
+      id: version
+      run: |
+        VERSION=$(grep "^## Version:" Crosspaths.toc | cut -d' ' -f3)
+        INTERFACE=$(grep "^## Interface:" Crosspaths.toc | cut -d' ' -f3)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "interface=$INTERFACE" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+        echo "Extracted interface: $INTERFACE"
+        
+    - name: Get previous version tag
+      id: prev_version
+      run: |
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -z "$PREV_TAG" ]; then
+          echo "No previous tag found, this might be the first release"
+          echo "prev_tag=initial" >> $GITHUB_OUTPUT
+        else
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+        fi
+        echo "Previous version tag: $PREV_TAG"
+        
+    - name: Check if tag already exists
+      id: check_tag
+      run: |
+        if git tag -l | grep -q "^v${{ steps.version.outputs.version }}$"; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Tag v${{ steps.version.outputs.version }} already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Tag v${{ steps.version.outputs.version }} does not exist"
+        fi
+        
+    - name: Create Git tag
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "v${{ steps.version.outputs.version }}" -m "Release version ${{ steps.version.outputs.version }}"
+        git push origin "v${{ steps.version.outputs.version }}"
+        
+    - name: Create addon package
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        mkdir -p dist/Crosspaths
+        
+        # Copy addon files to package directory
+        cp *.lua dist/Crosspaths/
+        cp Crosspaths.toc dist/Crosspaths/
+        cp README.md dist/Crosspaths/
+        cp LICENSE dist/Crosspaths/
+        cp CHANGELOG.md dist/Crosspaths/
+        
+        # Create zip file
+        cd dist
+        zip -r "../Crosspaths-${{ steps.version.outputs.version }}.zip" Crosspaths/
+        cd ..
+        
+        # Create files list for release notes
+        echo "## Files included in this release:" > release_notes.md
+        echo "" >> release_notes.md
+        echo "- All Lua addon files" >> release_notes.md
+        echo "- Crosspaths.toc (addon metadata)" >> release_notes.md
+        echo "- README.md, LICENSE, CHANGELOG.md" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "## Installation:" >> release_notes.md
+        echo "1. Download the \`Crosspaths-${{ steps.version.outputs.version }}.zip\` file" >> release_notes.md
+        echo "2. Extract to your WoW \`Interface/AddOns/\` directory" >> release_notes.md
+        echo "3. Enable the addon in-game" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "See README.md for detailed instructions and usage." >> release_notes.md
+        
+        # Extract changelog for this version if it exists
+        if grep -q "## \[${{ steps.version.outputs.version }}\]" CHANGELOG.md; then
+          echo "" >> release_notes.md
+          echo "## Changelog:" >> release_notes.md
+          echo "" >> release_notes.md
+          # Extract changelog section for this version
+          sed -n "/## \[${{ steps.version.outputs.version }}\]/,/## \[/p" CHANGELOG.md | head -n -1 >> release_notes.md
+        fi
+        
+    - name: Create GitHub Release
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Crosspaths v${{ steps.version.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: Crosspaths-${{ steps.version.outputs.version }}.zip
+        
+    - name: Convert interface version to game version
+      if: steps.check_tag.outputs.exists == 'false'
+      id: game_version
+      run: |
+        # Function to convert WoW interface version to game version
+        convert_interface_version() {
+          local interface="$1"
+          
+          # WoW interface versions follow format: MMNNPP or MNNPP
+          # MM/M = major, NN = minor, PP = patch
+          if [[ $interface =~ ^([0-9]+)$ ]] && [ ${#interface} -ge 5 ] && [ ${#interface} -le 6 ]; then
+            if [ ${#interface} -eq 6 ]; then
+              # 6 digits: MMNNPP (e.g., 110107 -> 11.0.7)
+              local major="${interface:0:2}"
+              local minor_raw="${interface:2:2}"
+              local patch_raw="${interface:4:2}"
+            else
+              # 5 digits: MNNPP (e.g., 90205 -> 9.2.5)
+              local major="${interface:0:1}"
+              local minor_raw="${interface:1:2}"
+              local patch_raw="${interface:3:2}"
+            fi
+            
+            # Convert to decimal, handling leading zeros
+            local minor="$((10#$minor_raw))"
+            local patch="$((10#$patch_raw))"
+            
+            # Generic rule: if minor raw is "01", it represents 0
+            if [ "$minor_raw" = "01" ]; then
+              minor="0"
+            fi
+            
+            echo "${major}.${minor}.${patch}"
+          else
+            # Fallback: try to extract numeric major version or use current retail
+            if [[ $interface =~ ^([0-9]+) ]]; then
+              local major_fallback="${BASH_REMATCH[1]}"
+              if [ ${#major_fallback} -gt 2 ]; then
+                major_fallback="${major_fallback:0:2}"
+              fi
+              echo "${major_fallback}.0.0"
+            else
+              echo "11.0.7"  # Hard fallback to current retail
+            fi
+          fi
+        }
+        
+        INTERFACE="${{ steps.version.outputs.interface }}"
+        GAME_VERSION=$(convert_interface_version "$INTERFACE")
+        
+        echo "game_version=$GAME_VERSION" >> $GITHUB_OUTPUT
+        echo "Using game version: $GAME_VERSION for interface $INTERFACE"
+        
+    - name: Read release notes for CurseForge
+      if: steps.check_tag.outputs.exists == 'false'
+      id: release_notes
+      run: |
+        if [ -f "release_notes.md" ]; then
+          # Read the content and handle multiline output properly
+          {
+            echo "content<<EOF"
+            cat release_notes.md
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        else
+          echo "content=No release notes available" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Upload to CurseForge
+      if: steps.check_tag.outputs.exists == 'false' && (github.event_name == 'push' || github.event.inputs.publish_to_curseforge == 'true') && secrets.CURSEFORGE_TOKEN != '' && secrets.CURSEFORGE_PROJECT_ID != ''
+      uses: itsmeow/curseforge-upload@v3
+      with:
+        token: ${{ secrets.CURSEFORGE_TOKEN }}
+        project_id: ${{ secrets.CURSEFORGE_PROJECT_ID }}
+        game_endpoint: wow
+        file_path: Crosspaths-${{ steps.version.outputs.version }}.zip
+        display_name: v${{ steps.version.outputs.version }}
+        changelog_type: markdown
+        changelog: ${{ steps.release_notes.outputs.content }}
+        game_versions: ${{ steps.game_version.outputs.game_version }}
+        release_type: release

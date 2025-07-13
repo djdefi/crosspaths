@@ -1,0 +1,15 @@
+## Interface: 110107
+## Title: Crosspaths
+## Notes: Social memory tracker for World of Warcraft
+## Author: djdefi
+## Version: 0.1.0
+## SavedVariables: CrosspathsDB
+## DefaultState: enabled
+
+# Core files
+Core.lua
+Logging.lua
+Tracker.lua
+Engine.lua
+UI.lua
+Config.lua
