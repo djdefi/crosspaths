@@ -62,13 +62,10 @@ function Tracker:HandleGroupRosterUpdate()
     
     if IsInGroup() then
         local numMembers = GetNumGroupMembers()
-        for i = 1, numMembers do
+        for i = 1, numMembers - 1 do
             local unit = IsInRaid() and "raid" .. i or "party" .. i
-            if i == 1 and not IsInRaid() then
-                unit = "player" -- Handle party leader case
-            end
             
-            if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+            if UnitExists(unit) then
                 local name, realm = UnitNameUnmodified(unit)
                 if name and name ~= "" then
                     local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
