@@ -193,9 +193,11 @@ function Tracker:FindUnitTokenForPlayer(playerName)
     if IsInGroup() then
         local numMembers = GetNumGroupMembers()
         for i = 1, numMembers do
-            local unit = IsInRaid() and "raid" .. i or "party" .. i
+            local unit
             if i == 1 and not IsInRaid() then
                 unit = "player"
+            else
+                unit = IsInRaid() and "raid" .. i or "party" .. i
             end
             
             if UnitExists(unit) then
