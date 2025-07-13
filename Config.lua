@@ -402,8 +402,49 @@ StaticPopupDialogs["CROSSPATHS_RESET_SETTINGS"] = {
     button2 = "No",
     OnAccept = function()
         if Crosspaths.db then
-            Crosspaths.db.settings = nil
-            Crosspaths:InitializeDB()
+            -- Safe reset: replace settings with defaults instead of setting to nil
+            local defaults = {
+                enabled = true,
+                debug = false,
+                ui = {
+                    scale = 1.0,
+                    x = 0,
+                    y = 0,
+                    locked = false,
+                    showNotifications = true,
+                    notificationDuration = 3,
+                },
+                tracking = {
+                    enableGroupTracking = true,
+                    enableNameplateTracking = true,
+                    enableCityTracking = true,
+                    throttleMs = 500,
+                    pruneAfterDays = 180,
+                    maxPlayers = 10000,
+                },
+                notifications = {
+                    notifyRepeatEncounters = true,
+                    notifyFrequentPlayers = true,
+                    notifyPreviousGroupMembers = true,
+                    frequentPlayerThreshold = 10,
+                }
+            }
+            
+            -- Replace settings with fresh defaults
+            for key, value in pairs(defaults) do
+                if type(value) == "table" then
+                    Crosspaths.db.settings[key] = {}
+                    for subkey, subvalue in pairs(value) do
+                        Crosspaths.db.settings[key][subkey] = subvalue
+                    end
+                else
+                    Crosspaths.db.settings[key] = value
+                end
+            end
+            
+            -- Update debug flag
+            Crosspaths.debug = Crosspaths.db.settings.debug
+            
             Crosspaths:Message("Settings reset to defaults!")
             if Crosspaths.Config and Crosspaths.Config.configFrame then
                 Crosspaths.Config:RefreshSettings()

@@ -224,7 +224,7 @@ function UI:CreatePlayersTab()
     searchBox:SetPoint("TOPLEFT", 10, -10)
     searchBox:SetAutoFocus(false)
     searchBox:SetScript("OnEnterPressed", function(self)
-        UI:SearchPlayers(self:GetText())
+        UI:ShowSearchResults(self:GetText())
         self:ClearFocus()
     end)
     
@@ -444,6 +444,37 @@ function UI:ShowTopPlayers()
     for i, player in ipairs(topPlayers) do
         Crosspaths:Message(string.format("%d. %s - %d encounters", i, player.name, player.count))
     end
+end
+
+-- Search players and update the players tab
+function UI:SearchPlayers(query)
+    if not query or query == "" then
+        -- If empty query, show top players
+        self:RefreshPlayersTab()
+        return
+    end
+    
+    if not self.tabContent.players then
+        return
+    end
+    
+    local results = Crosspaths.Engine:SearchPlayers(query, 20)
+    local lines = {}
+    
+    table.insert(lines, "|cFFFFD700Search results for '" .. query .. "':|r")
+    table.insert(lines, "")
+    
+    if #results == 0 then
+        table.insert(lines, "No players found matching your search.")
+    else
+        for i, player in ipairs(results) do
+            local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
+            local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
+            table.insert(lines, string.format("%d. %s%s%s - %d encounters", i, player.name, groupedText, guildText, player.count))
+        end
+    end
+    
+    self.tabContent.players.resultsText:SetText(table.concat(lines, "\n"))
 end
 
 function UI:ShowStats()

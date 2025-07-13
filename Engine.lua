@@ -412,21 +412,34 @@ function Engine:ExportJSON()
         return "{}"
     end
     
-    -- Simple JSON export (manually constructed for compatibility)
+    -- Helper function to escape JSON strings
+    local function escapeJsonString(str)
+        if not str then return '""' end
+        str = tostring(str)
+        -- Escape special JSON characters
+        str = string.gsub(str, '\\', '\\\\')  -- Escape backslashes first
+        str = string.gsub(str, '"', '\\"')    -- Escape quotes
+        str = string.gsub(str, '\n', '\\n')   -- Escape newlines
+        str = string.gsub(str, '\r', '\\r')   -- Escape carriage returns
+        str = string.gsub(str, '\t', '\\t')   -- Escape tabs
+        return '"' .. str .. '"'
+    end
+    
+    -- Simple JSON export with proper escaping
     local lines = {}
     table.insert(lines, "{")
-    table.insert(lines, '  "version": "' .. (Crosspaths.version or "unknown") .. '",')
+    table.insert(lines, '  "version": ' .. escapeJsonString(Crosspaths.version or "unknown") .. ',')
     table.insert(lines, '  "exportTime": ' .. time() .. ',')
     table.insert(lines, '  "totalPlayers": ' .. self:GetStatsSummary().totalPlayers .. ',')
     table.insert(lines, '  "players": {')
     
     local playerLines = {}
     for name, player in pairs(Crosspaths.db.players or {}) do
-        local playerJson = '    "' .. name .. '": {'
+        local playerJson = '    ' .. escapeJsonString(name) .. ': {'
         playerJson = playerJson .. '"count": ' .. player.count .. ','
         playerJson = playerJson .. '"firstSeen": ' .. (player.firstSeen or 0) .. ','
         playerJson = playerJson .. '"lastSeen": ' .. (player.lastSeen or 0) .. ','
-        playerJson = playerJson .. '"guild": "' .. (player.guild or "") .. '",'
+        playerJson = playerJson .. '"guild": ' .. escapeJsonString(player.guild or "") .. ','
         playerJson = playerJson .. '"grouped": ' .. tostring(player.grouped or false)
         playerJson = playerJson .. '}'
         table.insert(playerLines, playerJson)
@@ -441,17 +454,29 @@ end
 
 -- Export as CSV
 function Engine:ExportCSV()
+    -- Helper function to escape CSV fields
+    local function escapeCsvField(str)
+        if not str then return '""' end
+        str = tostring(str)
+        -- If field contains quotes, commas, or newlines, wrap in quotes and escape internal quotes
+        if string.find(str, '[",\n\r]') then
+            str = string.gsub(str, '"', '""')  -- Escape quotes by doubling them
+            str = '"' .. str .. '"'
+        end
+        return str
+    end
+    
     local lines = {}
     table.insert(lines, "Name,Count,FirstSeen,LastSeen,Guild,Grouped")
     
     if Crosspaths.db and Crosspaths.db.players then
         for name, player in pairs(Crosspaths.db.players) do
-            local line = string.format('%s,%d,%d,%d,"%s",%s',
-                name,
+            local line = string.format('%s,%d,%d,%d,%s,%s',
+                escapeCsvField(name),
                 player.count,
                 player.firstSeen or 0,
                 player.lastSeen or 0,
-                player.guild or "",
+                escapeCsvField(player.guild or ""),
                 tostring(player.grouped or false)
             )
             table.insert(lines, line)
