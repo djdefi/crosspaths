@@ -15,6 +15,9 @@ function UI:Initialize()
     -- Create slash commands
     self:RegisterSlashCommands()
     
+    -- Initialize tooltip system
+    self:InitializeTooltips()
+    
     Crosspaths:DebugLog("UI initialized", "INFO")
 end
 
@@ -526,5 +529,184 @@ function UI:ShowHelp()
     
     for _, line in ipairs(help) do
         Crosspaths:Message(line)
+    end
+end
+
+-- Initialize tooltip functionality
+function UI:InitializeTooltips()
+    -- Create custom tooltip frame for showing player encounter history
+    if not self.tooltip then
+        self.tooltip = CreateFrame("GameTooltip", "CrosspathsTooltip", UIParent, "GameTooltipTemplate")
+        self.tooltip:SetFrameStrata("TOOLTIP")
+    end
+    
+    -- Hook into the game's tooltip system to show encounter info
+    self:HookGameTooltips()
+end
+
+-- Hook into game tooltips to show encounter data
+function UI:HookGameTooltips()
+    -- Hook GameTooltip for unit tooltips (nameplates, target frames, etc.)
+    GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip)
+        self:AddEncounterInfoToTooltip(tooltip)
+    end)
+end
+
+-- Add encounter information to game tooltips
+function UI:AddEncounterInfoToTooltip(tooltip)
+    if not Crosspaths.db or not Crosspaths.db.settings.enabled then
+        return
+    end
+    
+    local unit = select(2, tooltip:GetUnit())
+    if not unit or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        return
+    end
+    
+    local name, realm = UnitNameUnmodified(unit)
+    if not name or name == "" then
+        return
+    end
+    
+    local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
+    local playerData = Crosspaths.db.players[fullName]
+    
+    if playerData and playerData.encounters and #playerData.encounters > 0 then
+        local encounterCount = #playerData.encounters
+        local lastEncounter = playerData.encounters[encounterCount]
+        
+        -- Add a separator line
+        tooltip:AddLine(" ")
+        
+        -- Add Crosspaths header
+        tooltip:AddLine("|cFF7B68EECrosspaths|r", 0.4, 0.4, 1)
+        
+        -- Add encounter count
+        tooltip:AddDoubleLine("Encounters:", tostring(encounterCount), 0.8, 0.8, 0.8, 1, 1, 1)
+        
+        -- Add last seen info
+        if lastEncounter then
+            local timeAgo = self:FormatTimeAgo(lastEncounter.timestamp)
+            tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
+            
+            if lastEncounter.zone then
+                tooltip:AddDoubleLine("Zone:", lastEncounter.zone, 0.8, 0.8, 0.8, 0.6, 0.8, 0.6)
+            end
+            
+            if lastEncounter.context and lastEncounter.context ~= "nameplate" then
+                local contextText = lastEncounter.context
+                if contextText == "party" then
+                    contextText = "Group"
+                elseif contextText == "raid" then
+                    contextText = "Raid"
+                elseif contextText == "instance" then
+                    contextText = "Instance"
+                elseif contextText == "world" then
+                    contextText = "World"
+                end
+                tooltip:AddDoubleLine("Context:", contextText, 0.8, 0.8, 0.8, 0.6, 0.8, 1)
+            end
+        end
+        
+        -- Add guild info if available
+        if playerData.guild then
+            tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
+        end
+        
+        -- Add notes if available (truncated for tooltip)
+        if playerData.notes and playerData.notes ~= "" then
+            local notes = playerData.notes
+            if string.len(notes) > 40 then
+                notes = string.sub(notes, 1, 37) .. "..."
+            end
+            tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
+        end
+        
+        tooltip:Show()
+    end
+end
+
+-- Show player encounter tooltip
+function UI:ShowPlayerTooltip(playerName, anchor)
+    if not self.tooltip or not Crosspaths.db then
+        return
+    end
+    
+    local playerData = Crosspaths.db.players[playerName]
+    if not playerData then
+        return
+    end
+    
+    self.tooltip:SetOwner(anchor, "ANCHOR_RIGHT")
+    self.tooltip:ClearLines()
+    
+    -- Player name header
+    self.tooltip:AddLine(playerName, 1, 1, 1)
+    
+    -- Basic encounter info
+    local encounterCount = #(playerData.encounters or {})
+    if encounterCount > 0 then
+        self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
+        
+        -- Show last encounter info
+        local lastEncounter = playerData.encounters[encounterCount]
+        if lastEncounter then
+            local timeAgo = self:FormatTimeAgo(lastEncounter.timestamp)
+            self.tooltip:AddLine("Last seen: " .. timeAgo, 0.8, 0.8, 0.8)
+            
+            if lastEncounter.zone then
+                self.tooltip:AddLine("Zone: " .. lastEncounter.zone, 0.6, 0.8, 0.6)
+            end
+            
+            if lastEncounter.context then
+                self.tooltip:AddLine("Context: " .. lastEncounter.context, 0.6, 0.8, 1)
+            end
+        end
+        
+        -- Show guild if available
+        if playerData.guild then
+            self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
+        end
+        
+        -- Show notes if available  
+        if playerData.notes and playerData.notes ~= "" then
+            self.tooltip:AddLine(" ", 1, 1, 1)  -- Blank line
+            self.tooltip:AddLine("Notes:", 0.8, 0.8, 1)
+            self.tooltip:AddLine(playerData.notes, 1, 1, 0.8, true)  -- Wrap text
+        end
+    else
+        self.tooltip:AddLine("No encounter data", 0.5, 0.5, 0.5)
+    end
+    
+    self.tooltip:Show()
+end
+
+-- Hide player tooltip
+function UI:HidePlayerTooltip()
+    if self.tooltip then
+        self.tooltip:Hide()
+    end
+end
+
+-- Format time ago helper
+function UI:FormatTimeAgo(timestamp)
+    if not timestamp then
+        return "Unknown"
+    end
+    
+    local now = time()
+    local diff = now - timestamp
+    
+    if diff < 60 then
+        return "Just now"
+    elseif diff < 3600 then
+        local minutes = math.floor(diff / 60)
+        return minutes .. " minute" .. (minutes ~= 1 and "s" or "") .. " ago"
+    elseif diff < 86400 then
+        local hours = math.floor(diff / 3600)
+        return hours .. " hour" .. (hours ~= 1 and "s" or "") .. " ago"
+    else
+        local days = math.floor(diff / 86400)
+        return days .. " day" .. (days ~= 1 and "s" or "") .. " ago"
     end
 end
