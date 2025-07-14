@@ -131,68 +131,16 @@ end
 -- Create tab buttons
 function UI:CreateTabButtons(parent)
     local tabs = {
-        {id = "summary", text = "Summary"},
-        {id = "players", text = "Players"},
-        {id = "guilds", text = "Guilds"},
-        {id = "encounters", text = "Encounters"},
+        {id = "summary", text = "Summary", tooltip = "View overall statistics and summary"},
+        {id = "players", text = "Players", tooltip = "Browse and search tracked players"},
+        {id = "guilds", text = "Guilds", tooltip = "View guild statistics and members"},
+        {id = "encounters", text = "Encounters", tooltip = "Browse encounter history by zone"},
     }
     
     parent.tabs = {}
     
     for i, tab in ipairs(tabs) do
-        local button = CreateFrame("Button", nil, parent)
-        button:SetID(i)
-        button:SetSize(90, 25)
-        button:SetText(tab.text)
-        button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (i-1) * 100 + 10, 30)
-        
-        -- Create tab button styling manually
-        button:SetNormalFontObject("GameFontNormalSmall")
-        button:SetHighlightFontObject("GameFontHighlightSmall")
-        
-        -- Create background textures
-        local normalTexture = button:CreateTexture(nil, "BACKGROUND")
-        normalTexture:SetAllPoints()
-        normalTexture:SetColorTexture(0.2, 0.2, 0.2, 0.8)
-        button:SetNormalTexture(normalTexture)
-        
-        local highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
-        highlightTexture:SetAllPoints()
-        highlightTexture:SetColorTexture(0.3, 0.3, 0.3, 0.8)
-        button:SetHighlightTexture(highlightTexture)
-        
-        local pushedTexture = button:CreateTexture(nil, "ARTWORK")
-        pushedTexture:SetAllPoints()
-        pushedTexture:SetColorTexture(0.1, 0.1, 0.1, 0.8)
-        button:SetPushedTexture(pushedTexture)
-        
-        -- Add checked state functionality
-        local checkedTexture = button:CreateTexture(nil, "ARTWORK")
-        checkedTexture:SetAllPoints()
-        checkedTexture:SetColorTexture(0.4, 0.4, 0.8, 0.9)
-        button.checkedTexture = checkedTexture
-        button.isChecked = false
-        
-        function button:SetChecked(checked)
-            self.isChecked = checked
-            if checked then
-                self.checkedTexture:Show()
-            else
-                self.checkedTexture:Hide()
-            end
-        end
-        
-        function button:GetChecked()
-            return self.isChecked
-        end
-        
-        -- Initially hide checked texture
-        checkedTexture:Hide()
-        
-        button:SetScript("OnClick", function()
-            self:SelectTab(tab.id)
-        end)
-        
+        local button = self:CreateTabButton(parent, i, tab)
         parent.tabs[tab.id] = button
     end
     
@@ -200,31 +148,157 @@ function UI:CreateTabButtons(parent)
     self:SelectTab("summary")
 end
 
--- Select tab
+-- Create individual tab button with modern styling
+function UI:CreateTabButton(parent, index, tabData)
+    -- Use UIPanelButtonTemplate as a more stable base than manual creation
+    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetID(index)
+    button:SetSize(95, 28) -- Slightly larger for better readability
+    button:SetText(tabData.text)
+    button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * 105 + 10, 32)
+    
+    -- Apply modern tab styling
+    self:StyleTabButton(button)
+    
+    -- Add tooltip for accessibility
+    if tabData.tooltip then
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(tabData.tooltip, 1, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", function(self)
+            GameTooltip:Hide()
+        end)
+    end
+    
+    -- Tab selection behavior
+    button:SetScript("OnClick", function()
+        UI:SelectTab(tabData.id)
+        PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+    end)
+    
+    -- Store tab data
+    button.tabId = tabData.id
+    button.isChecked = false
+    
+    return button
+end
+
+-- Apply modern styling to tab buttons
+function UI:StyleTabButton(button)
+    -- Use WoW's standard font objects
+    button:SetNormalFontObject("GameFontNormal")
+    button:SetHighlightFontObject("GameFontHighlight")
+    button:SetDisabledFontObject("GameFontDisable")
+    
+    -- Modern color scheme matching WoW UI
+    local normalColor = {0.25, 0.25, 0.25, 0.9}     -- Dark gray
+    local hoverColor = {0.4, 0.4, 0.4, 0.9}         -- Medium gray
+    local pressedColor = {0.15, 0.15, 0.15, 0.9}    -- Darker gray
+    local selectedColor = {0.2, 0.4, 0.8, 0.95}     -- Blue accent
+    
+    -- Create background textures with modern styling
+    local normalTexture = button:CreateTexture(nil, "BACKGROUND")
+    normalTexture:SetAllPoints()
+    normalTexture:SetColorTexture(unpack(normalColor))
+    button:SetNormalTexture(normalTexture)
+    
+    local highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
+    highlightTexture:SetAllPoints()
+    highlightTexture:SetColorTexture(unpack(hoverColor))
+    button:SetHighlightTexture(highlightTexture)
+    
+    local pushedTexture = button:CreateTexture(nil, "ARTWORK")
+    pushedTexture:SetAllPoints()
+    pushedTexture:SetColorTexture(unpack(pressedColor))
+    button:SetPushedTexture(pushedTexture)
+    
+    -- Add border for modern look
+    local border = button:CreateTexture(nil, "BORDER")
+    border:SetAllPoints()
+    border:SetColorTexture(0.6, 0.6, 0.6, 0.8)
+    border:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
+    border:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
+    
+    -- Selected state texture
+    local checkedTexture = button:CreateTexture(nil, "ARTWORK")
+    checkedTexture:SetAllPoints()
+    checkedTexture:SetColorTexture(unpack(selectedColor))
+    checkedTexture:Hide()
+    
+    -- Store textures and colors for state management
+    button.normalTexture = normalTexture
+    button.checkedTexture = checkedTexture
+    button.borderTexture = border
+    button.selectedColor = selectedColor
+    button.normalColor = normalColor
+    
+    -- Modern checked state implementation
+    function button:SetChecked(checked)
+        self.isChecked = checked
+        if checked then
+            self.checkedTexture:Show()
+            -- Brighten border when selected
+            self.borderTexture:SetColorTexture(0.8, 0.8, 0.8, 1.0)
+        else
+            self.checkedTexture:Hide()
+            -- Normal border when not selected
+            self.borderTexture:SetColorTexture(0.6, 0.6, 0.6, 0.8)
+        end
+    end
+    
+    function button:GetChecked()
+        return self.isChecked
+    end
+end
+
+-- Select tab with improved error handling and validation
 function UI:SelectTab(tabId)
     if not self.mainFrame or not self.mainFrame.tabs then
+        Crosspaths:DebugLog("Cannot select tab: mainFrame or tabs not initialized", "WARNING")
         return
     end
     
-    -- Update button states
+    -- Validate tabId exists
+    if not self.mainFrame.tabs[tabId] then
+        Crosspaths:DebugLog("Invalid tab ID: " .. tostring(tabId), "WARNING")
+        return
+    end
+    
+    -- Update button states with animation feedback
     for id, button in pairs(self.mainFrame.tabs) do
-        if id == tabId then
-            button:SetChecked(true)
-        else
-            button:SetChecked(false)
+        if button and button.SetChecked then
+            if id == tabId then
+                button:SetChecked(true)
+            else
+                button:SetChecked(false)
+            end
         end
     end
     
-    -- Show/hide content
+    -- Show/hide content with fade effect (if content exists)
     for id, content in pairs(self.tabContent or {}) do
-        if id == tabId then
-            content:Show()
-        else
-            content:Hide()
+        if content then
+            if id == tabId then
+                content:Show()
+                -- Smooth fade-in effect
+                content:SetAlpha(0)
+                UIFrameFadeIn(content, 0.15, 0, 1)
+            else
+                content:Hide()
+            end
         end
     end
     
+    local previousTab = self.currentTab
     self.currentTab = tabId
+    
+    -- Log tab change for debugging
+    if previousTab ~= tabId then
+        Crosspaths:DebugLog("Tab changed from " .. tostring(previousTab) .. " to " .. tostring(tabId), "INFO")
+    end
+    
     self:RefreshCurrentTab()
 end
 
