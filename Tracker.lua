@@ -35,9 +35,9 @@ function Tracker:Initialize()
     -- Validate tracking settings
     if Crosspaths.db.settings and Crosspaths.db.settings.tracking then
         local tracking = Crosspaths.db.settings.tracking
-        Crosspaths:DebugLog("Tracking settings: groupTracking=" .. tostring(tracking.enableGroupTracking) .. 
-                           ", nameplateTracking=" .. tostring(tracking.enableNameplateTracking) .. 
-                           ", cityTracking=" .. tostring(tracking.enableCityTracking) .. 
+        Crosspaths:DebugLog("Tracking settings: groupTracking=" .. tostring(tracking.enableGroupTracking) ..
+                           ", nameplateTracking=" .. tostring(tracking.enableNameplateTracking) ..
+                           ", cityTracking=" .. tostring(tracking.enableCityTracking) ..
                            ", throttleMs=" .. tostring(tracking.throttleMs), "INFO")
     else
         Crosspaths:DebugLog("Tracking settings not found or incomplete", "WARN")
