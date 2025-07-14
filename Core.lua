@@ -24,7 +24,9 @@ local defaults = {
         enableGroupTracking = true,
         enableNameplateTracking = true,
         enableCityTracking = true,
+        locationBasedThrottling = true,
         throttleMs = 500, -- Throttle encounter updates
+        minimumMoveDistance = 0.01, -- Minimum distance player must move (0-1 map coordinates)
         pruneAfterDays = 180,
         maxPlayers = 10000, -- Maximum players to track
     },

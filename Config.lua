@@ -151,6 +151,37 @@ function Config:CreateTrackingSettings(parent)
     parent.cityCheck = cityCheck
     yOffset = yOffset - 25
     
+    -- Location-based throttling
+    local locationCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    locationCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    locationCheck.Text:SetText("Enable Location-Based Duplicate Detection")
+    locationCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.tracking.locationBasedThrottling = self:GetChecked()
+    end)
+    parent.locationCheck = locationCheck
+    yOffset = yOffset - 25
+    
+    -- Minimum move distance
+    local distanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    distanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    distanceLabel:SetText("Minimum move distance (0.001-0.1):")
+    yOffset = yOffset - 20
+    
+    local distanceEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    distanceEditBox:SetSize(80, 20)
+    distanceEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    distanceEditBox:SetAutoFocus(false)
+    distanceEditBox:SetScript("OnEnterPressed", function(self)
+        local value = tonumber(self:GetText()) or 0.01
+        if value < 0.001 then value = 0.001 end
+        if value > 0.1 then value = 0.1 end
+        Crosspaths.db.settings.tracking.minimumMoveDistance = value
+        self:SetText(string.format("%.3f", value))
+        self:ClearFocus()
+    end)
+    parent.distanceEditBox = distanceEditBox
+    yOffset = yOffset - 35
+    
     -- Pruning settings
     local pruneLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     pruneLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
@@ -352,6 +383,12 @@ function Config:RefreshSettings()
     if content.cityCheck then
         content.cityCheck:SetChecked(Crosspaths.db.settings.tracking.enableCityTracking)
     end
+    if content.locationCheck then
+        content.locationCheck:SetChecked(Crosspaths.db.settings.tracking.locationBasedThrottling)
+    end
+    if content.distanceEditBox then
+        content.distanceEditBox:SetText(string.format("%.3f", Crosspaths.db.settings.tracking.minimumMoveDistance or 0.01))
+    end
     if content.pruneEditBox then
         content.pruneEditBox:SetText(tostring(Crosspaths.db.settings.tracking.pruneAfterDays or 180))
     end
@@ -418,7 +455,9 @@ StaticPopupDialogs["CROSSPATHS_RESET_SETTINGS"] = {
                     enableGroupTracking = true,
                     enableNameplateTracking = true,
                     enableCityTracking = true,
+                    locationBasedThrottling = true,
                     throttleMs = 500,
+                    minimumMoveDistance = 0.01,
                     pruneAfterDays = 180,
                     maxPlayers = 10000,
                 },
