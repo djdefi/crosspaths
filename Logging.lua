@@ -6,6 +6,9 @@ local addonName, Crosspaths = ...
 Crosspaths.Logging = {}
 local Logging = Crosspaths.Logging
 
+-- Set default log level to prevent nil comparison errors
+Logging.logLevel = 3  -- INFO level by default
+
 -- Log levels
 local LOG_LEVELS = {
     ERROR = 1,
