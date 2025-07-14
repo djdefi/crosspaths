@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement enhanced player metadata tracking with class, race, level, specialization, item level, achievements, and location
 - Fix linting issues: variable shadowing and trailing whitespace
 - Merge pull request #18 from djdefi/copilot/fix-17
+- Bump version from 0.1.5 to 0.1.6
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.6] - 2025-07-14
+
+### Added
+- Initial plan
+- Fix playtest issues: unknown players, tooltips, notifications, and raid throttling
+- Final implementation: All playtest issues resolved
+- Implement enhanced player metadata tracking with class, race, level, specialization, item level, achievements, and location
+- Fix linting issues: variable shadowing and trailing whitespace
+- Merge pull request #18 from djdefi/copilot/fix-17
 
 ### Changed
 - 
