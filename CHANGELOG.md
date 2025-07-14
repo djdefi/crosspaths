@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.7] - 2025-07-14
+
+### Added
+- Initial plan
+- Fix major 0.1.6 issues: UI initialization, over-counting, unknown players, and notification spam
+- Final fix: Allow apostrophes in player names and add comprehensive testing
+- Fix trailing whitespace on line 261 in Tracker.lua
+- Add location-based duplicate detection to prevent counting players who log in/out or die/resurrect in same spot
+- Merge pull request #20 from djdefi/copilot/fix-19
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.6] - 2025-07-14
 
 ### Added
