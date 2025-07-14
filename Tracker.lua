@@ -163,16 +163,25 @@ function Tracker:HandleNameplateAdded(unitToken)
             fullName = name .. "-" .. currentRealm
         end
         
-        -- Throttle nameplate updates
+        -- Get current context for better throttling
+        local context = Crosspaths:GetEncounterContext()
+        
+        -- Throttle nameplate updates with context awareness
         local now = GetTime() * 1000
-        local lastTime = self.lastUpdate[fullName] or 0
+        local contextKey = fullName .. ":" .. context -- Include context in throttle key
+        local lastTime = self.lastUpdate[contextKey] or 0
         local throttleTime = Crosspaths.db.settings.tracking.throttleMs or self.updateThrottle
         
+        -- Use longer throttle time for raid contexts to handle vehicles/teleportation better
+        if context == "raid" then
+            throttleTime = throttleTime * 2 -- Double throttle time for raids
+        end
+        
         if now - lastTime < throttleTime then
-            Crosspaths:DebugLog("Throttling nameplate update for " .. fullName .. " (last update " .. (now - lastTime) .. "ms ago)", "DEBUG")
+            Crosspaths:DebugLog("Throttling nameplate update for " .. fullName .. " in context " .. context .. " (last update " .. (now - lastTime) .. "ms ago)", "DEBUG")
             return
         end
-        self.lastUpdate[fullName] = now
+        self.lastUpdate[contextKey] = now
         
         Crosspaths:DebugLog("Nameplate detected: " .. fullName, "INFO")
         self:RecordEncounter(fullName, "nameplate", false)
@@ -193,6 +202,13 @@ end
 function Tracker:RecordEncounter(playerName, source, isGrouped)
     if not playerName or playerName == "" then
         Crosspaths:DebugLog("RecordEncounter called with empty player name", "WARN")
+        return
+    end
+    
+    -- Additional validation to prevent "unknown player" tracking
+    local cleanName = string.gsub(playerName, "%s+", "") -- Remove whitespace
+    if cleanName == "" or string.lower(cleanName) == "unknown" or string.lower(cleanName) == "unknownplayer" then
+        Crosspaths:DebugLog("Rejecting invalid player name: " .. tostring(playerName), "WARN")
         return
     end
     

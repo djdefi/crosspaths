@@ -548,10 +548,26 @@ function UI:ShowToast(title, message)
         return
     end
     
+    -- Calculate position based on existing toasts to prevent overlap
+    local yOffset = -100
+    local activeToasts = 0
+    for i = #self.toastFrames, 1, -1 do
+        local toast = self.toastFrames[i]
+        if toast and toast:IsShown() then
+            activeToasts = activeToasts + 1
+        else
+            -- Remove inactive toasts from the list
+            table.remove(self.toastFrames, i)
+        end
+    end
+    
+    -- Stack notifications vertically with some spacing
+    yOffset = yOffset - (activeToasts * 70) -- 70 pixels per notification (60 height + 10 spacing)
+    
     -- Simple toast implementation
     local toast = CreateFrame("Frame", nil, UIParent)
     toast:SetSize(300, 60)
-    toast:SetPoint("TOP", UIParent, "TOP", 0, -100)
+    toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
     
     -- Background
@@ -791,9 +807,8 @@ function UI:AddEncounterInfoToTooltip(tooltip)
     local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
     local playerData = Crosspaths.db.players[fullName]
     
-    if playerData and playerData.encounters and #playerData.encounters > 0 then
-        local encounterCount = #playerData.encounters
-        local lastEncounter = playerData.encounters[encounterCount]
+    if playerData and playerData.count and playerData.count > 0 then
+        local encounterCount = playerData.count
         
         -- Add a separator line
         tooltip:AddLine(" ")
@@ -805,31 +820,24 @@ function UI:AddEncounterInfoToTooltip(tooltip)
         tooltip:AddDoubleLine("Encounters:", tostring(encounterCount), 0.8, 0.8, 0.8, 1, 1, 1)
         
         -- Add last seen info
-        if lastEncounter then
-            local timeAgo = self:FormatTimeAgo(lastEncounter.timestamp)
+        if playerData.lastSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
             tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
-            
-            if lastEncounter.zone then
-                tooltip:AddDoubleLine("Zone:", lastEncounter.zone, 0.8, 0.8, 0.8, 0.6, 0.8, 0.6)
-            end
-            
-            if lastEncounter.context and lastEncounter.context ~= "nameplate" then
-                local contextText = lastEncounter.context
-                if contextText == "party" then
-                    contextText = "Group"
-                elseif contextText == "raid" then
-                    contextText = "Raid"
-                elseif contextText == "instance" then
-                    contextText = "Instance"
-                elseif contextText == "world" then
-                    contextText = "World"
-                end
-                tooltip:AddDoubleLine("Context:", contextText, 0.8, 0.8, 0.8, 0.6, 0.8, 1)
-            end
+        end
+        
+        -- Add first seen info
+        if playerData.firstSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
+            tooltip:AddDoubleLine("First seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
+        end
+        
+        -- Add grouped status
+        if playerData.grouped then
+            tooltip:AddDoubleLine("Status:", "Previously grouped", 0.8, 0.8, 0.8, 0.6, 1, 0.6)
         end
         
         -- Add guild info if available
-        if playerData.guild then
+        if playerData.guild and playerData.guild ~= "" then
             tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
         end
         
@@ -864,27 +872,29 @@ function UI:ShowPlayerTooltip(playerName, anchor)
     self.tooltip:AddLine(playerName, 1, 1, 1)
     
     -- Basic encounter info
-    local encounterCount = #(playerData.encounters or {})
+    local encounterCount = playerData.count or 0
     if encounterCount > 0 then
         self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
         
-        -- Show last encounter info
-        local lastEncounter = playerData.encounters[encounterCount]
-        if lastEncounter then
-            local timeAgo = self:FormatTimeAgo(lastEncounter.timestamp)
+        -- Show last seen info
+        if playerData.lastSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
             self.tooltip:AddLine("Last seen: " .. timeAgo, 0.8, 0.8, 0.8)
-            
-            if lastEncounter.zone then
-                self.tooltip:AddLine("Zone: " .. lastEncounter.zone, 0.6, 0.8, 0.6)
-            end
-            
-            if lastEncounter.context then
-                self.tooltip:AddLine("Context: " .. lastEncounter.context, 0.6, 0.8, 1)
-            end
+        end
+        
+        -- Show first seen info
+        if playerData.firstSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
+            self.tooltip:AddLine("First seen: " .. timeAgo, 0.8, 0.8, 0.8)
+        end
+        
+        -- Show grouped status
+        if playerData.grouped then
+            self.tooltip:AddLine("Status: Previously grouped", 0.6, 1, 0.6)
         end
         
         -- Show guild if available
-        if playerData.guild then
+        if playerData.guild and playerData.guild ~= "" then
             self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
         end
         
