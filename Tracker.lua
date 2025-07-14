@@ -19,6 +19,7 @@ function Tracker:Initialize()
     self.eventFrame = CreateFrame("Frame")
     self.lastUpdate = {}
     self.lastNotification = {} -- Track last notification times to prevent spam
+    self.lastPosition = {} -- Track last known positions for location-based throttling
     self.updateThrottle = 500 -- 500ms throttle (will be overridden by settings)
     
     -- Register events for tracking
@@ -211,6 +212,12 @@ function Tracker:HandleNameplateAdded(unitToken)
         local globalLastTime = self.lastUpdate[globalKey] or 0
         local globalThrottleTime = math.min(throttleTime / 2, 1000) -- At least 1 second global throttle
         
+        -- Location-based throttling check
+        local locationValid = true
+        if Crosspaths.db.settings.tracking.locationBasedThrottling then
+            locationValid = self:CheckLocationBasedThrottling(fullName, contextKey)
+        end
+        
         if now - lastTime < throttleTime then
             Crosspaths:DebugLog("Throttling nameplate update for " .. fullName .. " in context " .. context .. " (last update " .. (now - lastTime) .. "ms ago)", "DEBUG")
             return
@@ -218,6 +225,11 @@ function Tracker:HandleNameplateAdded(unitToken)
         
         if now - globalLastTime < globalThrottleTime then
             Crosspaths:DebugLog("Global throttling nameplate update for " .. fullName .. " (last global update " .. (now - globalLastTime) .. "ms ago)", "DEBUG")
+            return
+        end
+        
+        if not locationValid then
+            Crosspaths:DebugLog("Location-based throttling nameplate update for " .. fullName .. " (player hasn't moved enough)", "DEBUG")
             return
         end
         
@@ -540,6 +552,83 @@ function Tracker:FindUnitTokenForPlayer(playerName)
     return nil
 end
 
+-- Check location-based throttling to prevent duplicate counts for players who haven't moved
+function Tracker:CheckLocationBasedThrottling(playerName, contextKey)
+    -- Get current player position
+    local currentMapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    if not currentMapID then
+        -- If we can't get map info, fall back to time-based throttling only
+        Crosspaths:DebugLog("Could not get current map ID for location tracking", "DEBUG")
+        return true
+    end
+    
+    local currentPosition = C_Map and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(currentMapID, "player")
+    if not currentPosition then
+        -- If we can't get position, fall back to time-based throttling only
+        Crosspaths:DebugLog("Could not get current position for location tracking", "DEBUG")
+        return true
+    end
+    
+    local currentX, currentY = currentPosition:GetXY()
+    if not currentX or not currentY then
+        Crosspaths:DebugLog("Could not extract X,Y coordinates from position", "DEBUG")
+        return true
+    end
+    
+    -- Check if we have a previous position for this player
+    local lastPos = self.lastPosition[contextKey]
+    if not lastPos then
+        -- First time seeing this player, store position and allow
+        self.lastPosition[contextKey] = {
+            mapID = currentMapID,
+            x = currentX,
+            y = currentY,
+            timestamp = GetTime() * 1000
+        }
+        Crosspaths:DebugLog("First position recorded for " .. playerName .. " at (" .. string.format("%.3f", currentX) .. ", " .. string.format("%.3f", currentY) .. ") on map " .. currentMapID, "DEBUG")
+        return true
+    end
+    
+    -- If map changed, always allow (player changed zones)
+    if lastPos.mapID ~= currentMapID then
+        self.lastPosition[contextKey] = {
+            mapID = currentMapID,
+            x = currentX,
+            y = currentY,
+            timestamp = GetTime() * 1000
+        }
+        Crosspaths:DebugLog("Map changed for " .. playerName .. " from " .. lastPos.mapID .. " to " .. currentMapID .. ", allowing encounter", "DEBUG")
+        return true
+    end
+    
+    -- Calculate distance moved
+    local distance = self:CalculateDistance(lastPos.x, lastPos.y, currentX, currentY)
+    local minimumDistance = Crosspaths.db.settings.tracking.minimumMoveDistance or 0.01
+    
+    if distance >= minimumDistance then
+        -- Player moved enough, update position and allow
+        self.lastPosition[contextKey] = {
+            mapID = currentMapID,
+            x = currentX,
+            y = currentY,
+            timestamp = GetTime() * 1000
+        }
+        Crosspaths:DebugLog("Player " .. playerName .. " moved " .. string.format("%.4f", distance) .. " units (minimum: " .. string.format("%.4f", minimumDistance) .. "), allowing encounter", "DEBUG")
+        return true
+    else
+        -- Player hasn't moved enough
+        Crosspaths:DebugLog("Player " .. playerName .. " only moved " .. string.format("%.4f", distance) .. " units (minimum: " .. string.format("%.4f", minimumDistance) .. "), blocking encounter", "DEBUG")
+        return false
+    end
+end
+
+-- Calculate distance between two points (simple Euclidean distance)
+function Tracker:CalculateDistance(x1, y1, x2, y2)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    return math.sqrt(dx * dx + dy * dy)
+end
+
 -- Check for notification triggers
 function Tracker:CheckNotifications(playerName, player)
     if not Crosspaths.db.settings.notifications then
@@ -640,10 +729,11 @@ function Tracker:PruneOldData()
         end
     end
     
-    -- Clean up old throttle and notification data (older than 1 hour)
+    -- Clean up old throttle, notification, and position data (older than 1 hour)
     local oneHourAgo = GetTime() * 1000 - 3600000 -- 1 hour in milliseconds
     local throttlesPruned = 0
     local notificationsPruned = 0
+    local positionsPruned = 0
     
     for key, timestamp in pairs(self.lastUpdate) do
         if timestamp < oneHourAgo then
@@ -659,6 +749,13 @@ function Tracker:PruneOldData()
         end
     end
     
+    for key, positionData in pairs(self.lastPosition) do
+        if positionData.timestamp < oneHourAgo then
+            self.lastPosition[key] = nil
+            positionsPruned = positionsPruned + 1
+        end
+    end
+    
     if pruned > 0 then
         Crosspaths:DebugLog("Pruned " .. pruned .. " old player records", "INFO")
     end
@@ -667,5 +764,8 @@ function Tracker:PruneOldData()
     end
     if notificationsPruned > 0 then
         Crosspaths:DebugLog("Pruned " .. notificationsPruned .. " old notification entries", "DEBUG")
+    end
+    if positionsPruned > 0 then
+        Crosspaths:DebugLog("Pruned " .. positionsPruned .. " old position entries", "DEBUG")
     end
 end
