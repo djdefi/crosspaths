@@ -390,8 +390,8 @@ function Tracker:UpdatePlayerMetadata(player, unitToken)
     local achievementPoints = nil
     if IsInGroup() and (UnitInParty(unitToken) or UnitInRaid(unitToken)) then
         -- Try to get achievement points if possible
-        local success, points = pcall(GetComparisonAchievementPoints, unitToken)
-        if success and points and points > 0 then
+        local achievementSuccess, points = pcall(GetComparisonAchievementPoints, unitToken)
+        if achievementSuccess and points and points > 0 then
             achievementPoints = points
         end
     end

@@ -509,7 +509,7 @@ function UI:RefreshPlayersTab()
             iLevelText = " |cFFFF8800(iL" .. player.itemLevel .. ")|r"
         end
         
-        table.insert(lines, string.format("%d. %s%s%s%s%s%s - %d encounters", 
+        table.insert(lines, string.format("%d. %s%s%s%s%s%s - %d encounters",
             i, player.name, groupedText, guildText, classText, levelText, iLevelText, player.count))
     end
     
@@ -672,7 +672,7 @@ function UI:SearchPlayers(query)
                 levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
             end
             
-            table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters", 
+            table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters",
                 i, player.name, groupedText, guildText, classText, levelText, player.count))
         end
     end
