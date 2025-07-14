@@ -24,4 +24,4 @@ dist/
 
 # Temporary files
 tmp/
-temp/
+temp//tmp/

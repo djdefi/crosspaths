@@ -486,7 +486,31 @@ function UI:RefreshPlayersTab()
     for i, player in ipairs(topPlayers) do
         local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
         local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-        table.insert(lines, string.format("%d. %s%s%s - %d encounters", i, player.name, groupedText, guildText, player.count))
+        
+        -- Add class/race information
+        local classText = ""
+        if player.class and player.class ~= "" then
+            classText = " |cFFAAAAAA[" .. player.class
+            if player.race and player.race ~= "" then
+                classText = classText .. " " .. player.race
+            end
+            classText = classText .. "]|r"
+        end
+        
+        -- Add level information
+        local levelText = ""
+        if player.level and player.level > 0 then
+            levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
+        end
+        
+        -- Add item level if significant
+        local iLevelText = ""
+        if player.itemLevel and player.itemLevel > 0 then
+            iLevelText = " |cFFFF8800(iL" .. player.itemLevel .. ")|r"
+        end
+        
+        table.insert(lines, string.format("%d. %s%s%s%s%s%s - %d encounters",
+            i, player.name, groupedText, guildText, classText, levelText, iLevelText, player.count))
     end
     
     if #topPlayers == 0 then
@@ -548,10 +572,26 @@ function UI:ShowToast(title, message)
         return
     end
     
+    -- Calculate position based on existing toasts to prevent overlap
+    local yOffset = -100
+    local activeToasts = 0
+    for i = #self.toastFrames, 1, -1 do
+        local toast = self.toastFrames[i]
+        if toast and toast:IsShown() then
+            activeToasts = activeToasts + 1
+        else
+            -- Remove inactive toasts from the list
+            table.remove(self.toastFrames, i)
+        end
+    end
+    
+    -- Stack notifications vertically with some spacing
+    yOffset = yOffset - (activeToasts * 70) -- 70 pixels per notification (60 height + 10 spacing)
+    
     -- Simple toast implementation
     local toast = CreateFrame("Frame", nil, UIParent)
     toast:SetSize(300, 60)
-    toast:SetPoint("TOP", UIParent, "TOP", 0, -100)
+    toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
     
     -- Background
@@ -615,7 +655,25 @@ function UI:SearchPlayers(query)
         for i, player in ipairs(results) do
             local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
             local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-            table.insert(lines, string.format("%d. %s%s%s - %d encounters", i, player.name, groupedText, guildText, player.count))
+            
+            -- Add class/race information
+            local classText = ""
+            if player.class and player.class ~= "" then
+                classText = " |cFFAAAAAA[" .. player.class
+                if player.race and player.race ~= "" then
+                    classText = classText .. " " .. player.race
+                end
+                classText = classText .. "]|r"
+            end
+            
+            -- Add level information
+            local levelText = ""
+            if player.level and player.level > 0 then
+                levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
+            end
+            
+            table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters",
+                i, player.name, groupedText, guildText, classText, levelText, player.count))
         end
     end
     
@@ -791,9 +849,8 @@ function UI:AddEncounterInfoToTooltip(tooltip)
     local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
     local playerData = Crosspaths.db.players[fullName]
     
-    if playerData and playerData.encounters and #playerData.encounters > 0 then
-        local encounterCount = #playerData.encounters
-        local lastEncounter = playerData.encounters[encounterCount]
+    if playerData and playerData.count and playerData.count > 0 then
+        local encounterCount = playerData.count
         
         -- Add a separator line
         tooltip:AddLine(" ")
@@ -804,33 +861,68 @@ function UI:AddEncounterInfoToTooltip(tooltip)
         -- Add encounter count
         tooltip:AddDoubleLine("Encounters:", tostring(encounterCount), 0.8, 0.8, 0.8, 1, 1, 1)
         
-        -- Add last seen info
-        if lastEncounter then
-            local timeAgo = self:FormatTimeAgo(lastEncounter.timestamp)
-            tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
-            
-            if lastEncounter.zone then
-                tooltip:AddDoubleLine("Zone:", lastEncounter.zone, 0.8, 0.8, 0.8, 0.6, 0.8, 0.6)
+        -- Add class and race info
+        if playerData.class and playerData.class ~= "" then
+            local classInfo = playerData.class
+            if playerData.race and playerData.race ~= "" then
+                classInfo = playerData.race .. " " .. playerData.class
             end
-            
-            if lastEncounter.context and lastEncounter.context ~= "nameplate" then
-                local contextText = lastEncounter.context
-                if contextText == "party" then
-                    contextText = "Group"
-                elseif contextText == "raid" then
-                    contextText = "Raid"
-                elseif contextText == "instance" then
-                    contextText = "Instance"
-                elseif contextText == "world" then
-                    contextText = "World"
+            tooltip:AddDoubleLine("Class:", classInfo, 0.8, 0.8, 0.8, 1, 1, 0.8)
+        end
+        
+        -- Add level info with progression indicator
+        if playerData.level and playerData.level > 0 then
+            local levelText = tostring(playerData.level)
+            -- Show level progression if available
+            if playerData.levelHistory and #playerData.levelHistory > 0 then
+                local lastProgress = playerData.levelHistory[#playerData.levelHistory]
+                if lastProgress and lastProgress.previousLevel then
+                    levelText = levelText .. " (was " .. lastProgress.previousLevel .. ")"
                 end
-                tooltip:AddDoubleLine("Context:", contextText, 0.8, 0.8, 0.8, 0.6, 0.8, 1)
             end
+            tooltip:AddDoubleLine("Level:", levelText, 0.8, 0.8, 0.8, 0.6, 1, 0.6)
+        end
+        
+        -- Add specialization if available
+        if playerData.specialization and playerData.specialization ~= "" then
+            tooltip:AddDoubleLine("Spec:", playerData.specialization, 0.8, 0.8, 0.8, 1, 0.8, 1)
+        end
+        
+        -- Add item level if available
+        if playerData.itemLevel and playerData.itemLevel > 0 then
+            tooltip:AddDoubleLine("Item Level:", tostring(playerData.itemLevel), 0.8, 0.8, 0.8, 1, 1, 0.6)
+        end
+        
+        -- Add achievement points if available
+        if playerData.achievementPoints and playerData.achievementPoints > 0 then
+            tooltip:AddDoubleLine("Achievements:", tostring(playerData.achievementPoints) .. " points", 0.8, 0.8, 0.8, 1, 0.8, 0.6)
+        end
+        
+        -- Add last seen info
+        if playerData.lastSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
+            tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
+        end
+        
+        -- Add first seen info
+        if playerData.firstSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
+            tooltip:AddDoubleLine("First seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
+        end
+        
+        -- Add grouped status
+        if playerData.grouped then
+            tooltip:AddDoubleLine("Status:", "Previously grouped", 0.8, 0.8, 0.8, 0.6, 1, 0.6)
         end
         
         -- Add guild info if available
-        if playerData.guild then
+        if playerData.guild and playerData.guild ~= "" then
             tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
+        end
+        
+        -- Add location info if available
+        if playerData.subzone and playerData.subzone ~= "" then
+            tooltip:AddDoubleLine("Last location:", playerData.subzone, 0.8, 0.8, 0.8, 0.8, 0.8, 1)
         end
         
         -- Add notes if available (truncated for tooltip)
@@ -864,28 +956,69 @@ function UI:ShowPlayerTooltip(playerName, anchor)
     self.tooltip:AddLine(playerName, 1, 1, 1)
     
     -- Basic encounter info
-    local encounterCount = #(playerData.encounters or {})
+    local encounterCount = playerData.count or 0
     if encounterCount > 0 then
         self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
         
-        -- Show last encounter info
-        local lastEncounter = playerData.encounters[encounterCount]
-        if lastEncounter then
-            local timeAgo = self:FormatTimeAgo(lastEncounter.timestamp)
+        -- Show class and race info
+        if playerData.class and playerData.class ~= "" then
+            local classInfo = playerData.class
+            if playerData.race and playerData.race ~= "" then
+                classInfo = playerData.race .. " " .. playerData.class
+            end
+            self.tooltip:AddLine("Class: " .. classInfo, 1, 1, 0.8)
+        end
+        
+        -- Show level with progression
+        if playerData.level and playerData.level > 0 then
+            local levelText = "Level: " .. playerData.level
+            if playerData.levelHistory and #playerData.levelHistory > 0 then
+                local progressCount = #playerData.levelHistory
+                levelText = levelText .. " (+" .. progressCount .. " level" .. (progressCount > 1 and "s" or "") .. " tracked)"
+            end
+            self.tooltip:AddLine(levelText, 0.6, 1, 0.6)
+        end
+        
+        -- Show specialization if available
+        if playerData.specialization and playerData.specialization ~= "" then
+            self.tooltip:AddLine("Specialization: " .. playerData.specialization, 1, 0.8, 1)
+        end
+        
+        -- Show item level if available
+        if playerData.itemLevel and playerData.itemLevel > 0 then
+            self.tooltip:AddLine("Item Level: " .. playerData.itemLevel, 1, 1, 0.6)
+        end
+        
+        -- Show achievement points if available
+        if playerData.achievementPoints and playerData.achievementPoints > 0 then
+            self.tooltip:AddLine("Achievement Points: " .. playerData.achievementPoints, 1, 0.8, 0.6)
+        end
+        
+        -- Show last seen info
+        if playerData.lastSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
             self.tooltip:AddLine("Last seen: " .. timeAgo, 0.8, 0.8, 0.8)
-            
-            if lastEncounter.zone then
-                self.tooltip:AddLine("Zone: " .. lastEncounter.zone, 0.6, 0.8, 0.6)
-            end
-            
-            if lastEncounter.context then
-                self.tooltip:AddLine("Context: " .. lastEncounter.context, 0.6, 0.8, 1)
-            end
+        end
+        
+        -- Show first seen info
+        if playerData.firstSeen then
+            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
+            self.tooltip:AddLine("First seen: " .. timeAgo, 0.8, 0.8, 0.8)
+        end
+        
+        -- Show grouped status
+        if playerData.grouped then
+            self.tooltip:AddLine("Status: Previously grouped", 0.6, 1, 0.6)
         end
         
         -- Show guild if available
-        if playerData.guild then
+        if playerData.guild and playerData.guild ~= "" then
             self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
+        end
+        
+        -- Show location if available
+        if playerData.subzone and playerData.subzone ~= "" then
+            self.tooltip:AddLine("Last location: " .. playerData.subzone, 0.8, 0.8, 1)
         end
         
         -- Show notes if available
