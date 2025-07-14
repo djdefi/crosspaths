@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix player registration issues with improved nameplate handling and debugging
 - Fix trailing whitespace warnings in Tracker.lua
 - Merge pull request #16 from djdefi/copilot/fix-15
+- Bump version from 0.1.4 to 0.1.5
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.5] - 2025-07-14
+
+### Added
+- Initial plan
+- Fix player registration issues with improved nameplate handling and debugging
+- Fix trailing whitespace warnings in Tracker.lua
+- Merge pull request #16 from djdefi/copilot/fix-15
 
 ### Changed
 - 
