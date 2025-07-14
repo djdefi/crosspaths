@@ -140,10 +140,54 @@ function UI:CreateTabButtons(parent)
     parent.tabs = {}
     
     for i, tab in ipairs(tabs) do
-        local button = CreateFrame("Button", nil, parent, "CharacterFrameTabButtonTemplate")
+        local button = CreateFrame("Button", nil, parent)
         button:SetID(i)
+        button:SetSize(90, 25)
         button:SetText(tab.text)
         button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (i-1) * 100 + 10, 30)
+        
+        -- Create tab button styling manually
+        button:SetNormalFontObject("GameFontNormalSmall")
+        button:SetHighlightFontObject("GameFontHighlightSmall")
+        
+        -- Create background textures
+        local normalTexture = button:CreateTexture(nil, "BACKGROUND")
+        normalTexture:SetAllPoints()
+        normalTexture:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+        button:SetNormalTexture(normalTexture)
+        
+        local highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
+        highlightTexture:SetAllPoints()
+        highlightTexture:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+        button:SetHighlightTexture(highlightTexture)
+        
+        local pushedTexture = button:CreateTexture(nil, "ARTWORK")
+        pushedTexture:SetAllPoints()
+        pushedTexture:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+        button:SetPushedTexture(pushedTexture)
+        
+        -- Add checked state functionality
+        local checkedTexture = button:CreateTexture(nil, "ARTWORK")
+        checkedTexture:SetAllPoints()
+        checkedTexture:SetColorTexture(0.4, 0.4, 0.8, 0.9)
+        button.checkedTexture = checkedTexture
+        button.isChecked = false
+        
+        function button:SetChecked(checked)
+            self.isChecked = checked
+            if checked then
+                self.checkedTexture:Show()
+            else
+                self.checkedTexture:Hide()
+            end
+        end
+        
+        function button:GetChecked()
+            return self.isChecked
+        end
+        
+        -- Initially hide checked texture
+        checkedTexture:Hide()
         
         button:SetScript("OnClick", function()
             self:SelectTab(tab.id)
