@@ -172,7 +172,7 @@ function Tracker:HandleNameplateAdded(unitToken)
     end
     
     -- Check for invalid characters in name
-    if not string.match(name, "^[%a]+$") then
+    if not string.match(name, "^[%a']+$") then -- Allow apostrophes for names like Mal'Ganis
         Crosspaths:DebugLog("Invalid characters in name: " .. tostring(name), "WARN")
         return
     end
@@ -282,6 +282,17 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
             Crosspaths:DebugLog("Rejecting player name with invalid length: " .. tostring(playerName), "WARN")
             return
         end
+        
+        -- Check for reserved words in name
+        local lowerNamePart = string.lower(name)
+        local reservedWords = {"nil", "null", "none", "void", "test", "temp"}
+        for _, reserved in ipairs(reservedWords) do
+            if lowerNamePart == reserved then
+                Crosspaths:DebugLog("Rejecting reserved word in name: " .. tostring(playerName), "WARN")
+                return
+            end
+        end
+        
         -- Validate that realm part is reasonable
         if string.len(realm) < 2 or string.len(realm) > 50 then
             Crosspaths:DebugLog("Rejecting player name with invalid realm: " .. tostring(playerName), "WARN")
