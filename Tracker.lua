@@ -258,7 +258,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
     local lowerName = string.lower(cleanName)
     local invalidPatterns = {
         "^unknown$",
-        "^unknownplayer$", 
+        "^unknownplayer$",
         "^unknown%-",
         "%-unknown$",
         "^%?%?%?",
