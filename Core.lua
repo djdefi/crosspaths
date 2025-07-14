@@ -179,6 +179,12 @@ end
 function Crosspaths:OnInitialize()
     self:SafeCall(function()
         self:InitializeDB()
+        
+        -- Apply debug setting from database
+        if self.db and self.db.settings then
+            self.debug = self.db.settings.debug or false
+        end
+        
         self:Print("Crosspaths " .. self.version .. " loaded")
         
         -- Initialize session statistics
