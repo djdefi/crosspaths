@@ -486,7 +486,31 @@ function UI:RefreshPlayersTab()
     for i, player in ipairs(topPlayers) do
         local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
         local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-        table.insert(lines, string.format("%d. %s%s%s - %d encounters", i, player.name, groupedText, guildText, player.count))
+        
+        -- Add class/race information
+        local classText = ""
+        if player.class and player.class ~= "" then
+            classText = " |cFFAAAAAA[" .. player.class
+            if player.race and player.race ~= "" then
+                classText = classText .. " " .. player.race
+            end
+            classText = classText .. "]|r"
+        end
+        
+        -- Add level information
+        local levelText = ""
+        if player.level and player.level > 0 then
+            levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
+        end
+        
+        -- Add item level if significant
+        local iLevelText = ""
+        if player.itemLevel and player.itemLevel > 0 then
+            iLevelText = " |cFFFF8800(iL" .. player.itemLevel .. ")|r"
+        end
+        
+        table.insert(lines, string.format("%d. %s%s%s%s%s%s - %d encounters", 
+            i, player.name, groupedText, guildText, classText, levelText, iLevelText, player.count))
     end
     
     if #topPlayers == 0 then
@@ -631,7 +655,25 @@ function UI:SearchPlayers(query)
         for i, player in ipairs(results) do
             local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
             local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-            table.insert(lines, string.format("%d. %s%s%s - %d encounters", i, player.name, groupedText, guildText, player.count))
+            
+            -- Add class/race information
+            local classText = ""
+            if player.class and player.class ~= "" then
+                classText = " |cFFAAAAAA[" .. player.class
+                if player.race and player.race ~= "" then
+                    classText = classText .. " " .. player.race
+                end
+                classText = classText .. "]|r"
+            end
+            
+            -- Add level information
+            local levelText = ""
+            if player.level and player.level > 0 then
+                levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
+            end
+            
+            table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters", 
+                i, player.name, groupedText, guildText, classText, levelText, player.count))
         end
     end
     
@@ -819,6 +861,43 @@ function UI:AddEncounterInfoToTooltip(tooltip)
         -- Add encounter count
         tooltip:AddDoubleLine("Encounters:", tostring(encounterCount), 0.8, 0.8, 0.8, 1, 1, 1)
         
+        -- Add class and race info
+        if playerData.class and playerData.class ~= "" then
+            local classInfo = playerData.class
+            if playerData.race and playerData.race ~= "" then
+                classInfo = playerData.race .. " " .. playerData.class
+            end
+            tooltip:AddDoubleLine("Class:", classInfo, 0.8, 0.8, 0.8, 1, 1, 0.8)
+        end
+        
+        -- Add level info with progression indicator
+        if playerData.level and playerData.level > 0 then
+            local levelText = tostring(playerData.level)
+            -- Show level progression if available
+            if playerData.levelHistory and #playerData.levelHistory > 0 then
+                local lastProgress = playerData.levelHistory[#playerData.levelHistory]
+                if lastProgress and lastProgress.previousLevel then
+                    levelText = levelText .. " (was " .. lastProgress.previousLevel .. ")"
+                end
+            end
+            tooltip:AddDoubleLine("Level:", levelText, 0.8, 0.8, 0.8, 0.6, 1, 0.6)
+        end
+        
+        -- Add specialization if available
+        if playerData.specialization and playerData.specialization ~= "" then
+            tooltip:AddDoubleLine("Spec:", playerData.specialization, 0.8, 0.8, 0.8, 1, 0.8, 1)
+        end
+        
+        -- Add item level if available
+        if playerData.itemLevel and playerData.itemLevel > 0 then
+            tooltip:AddDoubleLine("Item Level:", tostring(playerData.itemLevel), 0.8, 0.8, 0.8, 1, 1, 0.6)
+        end
+        
+        -- Add achievement points if available
+        if playerData.achievementPoints and playerData.achievementPoints > 0 then
+            tooltip:AddDoubleLine("Achievements:", tostring(playerData.achievementPoints) .. " points", 0.8, 0.8, 0.8, 1, 0.8, 0.6)
+        end
+        
         -- Add last seen info
         if playerData.lastSeen then
             local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
@@ -839,6 +918,11 @@ function UI:AddEncounterInfoToTooltip(tooltip)
         -- Add guild info if available
         if playerData.guild and playerData.guild ~= "" then
             tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
+        end
+        
+        -- Add location info if available
+        if playerData.subzone and playerData.subzone ~= "" then
+            tooltip:AddDoubleLine("Last location:", playerData.subzone, 0.8, 0.8, 0.8, 0.8, 0.8, 1)
         end
         
         -- Add notes if available (truncated for tooltip)
@@ -876,6 +960,40 @@ function UI:ShowPlayerTooltip(playerName, anchor)
     if encounterCount > 0 then
         self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
         
+        -- Show class and race info
+        if playerData.class and playerData.class ~= "" then
+            local classInfo = playerData.class
+            if playerData.race and playerData.race ~= "" then
+                classInfo = playerData.race .. " " .. playerData.class
+            end
+            self.tooltip:AddLine("Class: " .. classInfo, 1, 1, 0.8)
+        end
+        
+        -- Show level with progression
+        if playerData.level and playerData.level > 0 then
+            local levelText = "Level: " .. playerData.level
+            if playerData.levelHistory and #playerData.levelHistory > 0 then
+                local progressCount = #playerData.levelHistory
+                levelText = levelText .. " (+" .. progressCount .. " level" .. (progressCount > 1 and "s" or "") .. " tracked)"
+            end
+            self.tooltip:AddLine(levelText, 0.6, 1, 0.6)
+        end
+        
+        -- Show specialization if available
+        if playerData.specialization and playerData.specialization ~= "" then
+            self.tooltip:AddLine("Specialization: " .. playerData.specialization, 1, 0.8, 1)
+        end
+        
+        -- Show item level if available
+        if playerData.itemLevel and playerData.itemLevel > 0 then
+            self.tooltip:AddLine("Item Level: " .. playerData.itemLevel, 1, 1, 0.6)
+        end
+        
+        -- Show achievement points if available
+        if playerData.achievementPoints and playerData.achievementPoints > 0 then
+            self.tooltip:AddLine("Achievement Points: " .. playerData.achievementPoints, 1, 0.8, 0.6)
+        end
+        
         -- Show last seen info
         if playerData.lastSeen then
             local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
@@ -896,6 +1014,11 @@ function UI:ShowPlayerTooltip(playerName, anchor)
         -- Show guild if available
         if playerData.guild and playerData.guild ~= "" then
             self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
+        end
+        
+        -- Show location if available
+        if playerData.subzone and playerData.subzone ~= "" then
+            self.tooltip:AddLine("Last location: " .. playerData.subzone, 0.8, 0.8, 1)
         end
         
         -- Show notes if available

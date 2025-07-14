@@ -239,6 +239,15 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
             zones = {},
             contexts = {},
             notes = "",
+            -- Enhanced metadata for rich social graph
+            class = "",
+            race = "",
+            level = 0,
+            specialization = "",
+            itemLevel = 0,
+            achievementPoints = 0,
+            subzone = "",
+            levelHistory = {}, -- Track level progression over time
         }
         Crosspaths.db.players[playerName] = player
         
@@ -252,6 +261,16 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
             Crosspaths.sessionStats.playersUpdated = Crosspaths.sessionStats.playersUpdated + 1
         end
         Crosspaths:DebugLog("Updating existing player: " .. playerName .. " (previous count: " .. player.count .. ")", "DEBUG")
+        
+        -- Ensure backward compatibility by adding missing fields to existing players
+        if not player.class then player.class = "" end
+        if not player.race then player.race = "" end
+        if not player.level then player.level = 0 end
+        if not player.specialization then player.specialization = "" end
+        if not player.itemLevel then player.itemLevel = 0 end
+        if not player.achievementPoints then player.achievementPoints = 0 end
+        if not player.subzone then player.subzone = "" end
+        if not player.levelHistory then player.levelHistory = {} end
     end
     
     -- Update player data
@@ -262,11 +281,17 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         player.grouped = true
     end
     
-    -- Update zones
+    -- Update zones and subzones
     if not player.zones[currentZone] then
         player.zones[currentZone] = 0
     end
     player.zones[currentZone] = player.zones[currentZone] + 1
+    
+    -- Update subzone if we have one
+    local currentSubzone = GetSubZoneText()
+    if currentSubzone and currentSubzone ~= "" then
+        player.subzone = currentSubzone
+    end
     
     -- Update contexts
     if not player.contexts[context] then
@@ -274,7 +299,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
     end
     player.contexts[context] = player.contexts[context] + 1
     
-    -- Try to get guild info
+    -- Try to get guild info and enhanced metadata
     local unitToken = self:FindUnitTokenForPlayer(playerName)
     if unitToken then
         local guildName = GetGuildInfo(unitToken)
@@ -282,6 +307,9 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
             player.guild = guildName
             Crosspaths:DebugLog("Guild info updated for " .. playerName .. ": " .. guildName, "DEBUG")
         end
+        
+        -- Gather enhanced player metadata
+        self:UpdatePlayerMetadata(player, unitToken)
     end
     
     if Crosspaths.sessionStats then
@@ -292,6 +320,92 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
     
     -- Check for notifications
     self:CheckNotifications(playerName, player)
+end
+
+-- Update player metadata with enhanced information
+function Tracker:UpdatePlayerMetadata(player, unitToken)
+    if not unitToken or not UnitExists(unitToken) then
+        return
+    end
+    
+    -- Get class information
+    local localizedClass, englishClass = UnitClass(unitToken)
+    if englishClass and englishClass ~= "" then
+        player.class = englishClass
+        Crosspaths:DebugLog("Class info updated: " .. englishClass, "DEBUG")
+    end
+    
+    -- Get race information
+    local localizedRace, englishRace = UnitRace(unitToken)
+    if localizedRace and localizedRace ~= "" then
+        player.race = localizedRace
+        Crosspaths:DebugLog("Race info updated: " .. localizedRace, "DEBUG")
+    end
+    
+    -- Get level information and track progression
+    local level = UnitLevel(unitToken)
+    if level and level > 0 then
+        local previousLevel = player.level or 0
+        player.level = level
+        
+        -- Track level progression
+        if level > previousLevel and previousLevel > 0 then
+            if not player.levelHistory then
+                player.levelHistory = {}
+            end
+            table.insert(player.levelHistory, {
+                level = level,
+                timestamp = time(),
+                previousLevel = previousLevel
+            })
+            Crosspaths:DebugLog("Level progression tracked: " .. previousLevel .. " -> " .. level, "INFO")
+        end
+        Crosspaths:DebugLog("Level info updated: " .. level, "DEBUG")
+    end
+    
+    -- Get specialization (only works for grouped players and requires inspection)
+    if IsInGroup() and (UnitInParty(unitToken) or UnitInRaid(unitToken)) then
+        -- Note: GetInspectSpecialization requires inspection data to be available
+        -- This may not always work, especially for newly encountered players
+        local specIndex = GetInspectSpecialization(unitToken)
+        if specIndex and specIndex > 0 then
+            local _, specName = GetSpecializationInfoByID(specIndex)
+            if specName and specName ~= "" then
+                player.specialization = specName
+                Crosspaths:DebugLog("Specialization info updated: " .. specName, "DEBUG")
+            end
+        end
+    end
+    
+    -- Get item level (requires inspection, may not always be available)
+    -- This function may not exist in all WoW versions, so wrap in pcall
+    local success, avgItemLevel = pcall(GetAverageItemLevel, unitToken)
+    if success and avgItemLevel and avgItemLevel > 0 then
+        player.itemLevel = math.floor(avgItemLevel)
+        Crosspaths:DebugLog("Item level updated: " .. player.itemLevel, "DEBUG")
+    end
+    
+    -- Get achievement points (limited availability)
+    -- These functions have limited scope and may not work for all players
+    local achievementPoints = nil
+    if IsInGroup() and (UnitInParty(unitToken) or UnitInRaid(unitToken)) then
+        -- Try to get achievement points if possible
+        local success, points = pcall(GetComparisonAchievementPoints, unitToken)
+        if success and points and points > 0 then
+            achievementPoints = points
+        end
+    end
+    if achievementPoints and achievementPoints > 0 then
+        player.achievementPoints = achievementPoints
+        Crosspaths:DebugLog("Achievement points updated: " .. achievementPoints, "DEBUG")
+    end
+    
+    -- Get more granular location information
+    local subzone = GetSubZoneText()
+    if subzone and subzone ~= "" then
+        player.subzone = subzone
+        Crosspaths:DebugLog("Subzone info updated: " .. subzone, "DEBUG")
+    end
 end
 
 -- Find unit token for a player name
