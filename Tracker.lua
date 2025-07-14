@@ -18,6 +18,7 @@ function Tracker:Initialize()
     
     self.eventFrame = CreateFrame("Frame")
     self.lastUpdate = {}
+    self.lastNotification = {} -- Track last notification times to prevent spam
     self.updateThrottle = 500 -- 500ms throttle (will be overridden by settings)
     
     -- Register events for tracking
@@ -142,6 +143,12 @@ function Tracker:HandleNameplateAdded(unitToken)
         return
     end
     
+    -- Additional validation: check if unit is actually visible and interactable
+    if UnitIsDead(unitToken) and not UnitIsGhost(unitToken) then
+        Crosspaths:DebugLog("Unit is dead (not ghost), skipping: " .. tostring(unitToken), "DEBUG")
+        return
+    end
+    
     -- Get player name with more robust error handling
     local name, realm = UnitNameUnmodified(unitToken)
     Crosspaths:DebugLog("UnitNameUnmodified returned: name=" .. tostring(name) .. ", realm=" .. tostring(realm), "DEBUG")
@@ -150,6 +157,24 @@ function Tracker:HandleNameplateAdded(unitToken)
     if not name or name == "" then
         name, realm = UnitName(unitToken)
         Crosspaths:DebugLog("UnitName fallback returned: name=" .. tostring(name) .. ", realm=" .. tostring(realm), "DEBUG")
+    end
+    
+    -- Additional validation for the name
+    if not name or name == "" then
+        Crosspaths:DebugLog("Failed to get valid name from unit token: " .. tostring(unitToken), "WARN")
+        return
+    end
+    
+    -- Validate name format before proceeding
+    if string.len(name) < 2 or string.len(name) > 12 then
+        Crosspaths:DebugLog("Invalid name length from unit token: " .. tostring(name), "WARN")
+        return
+    end
+    
+    -- Check for invalid characters in name
+    if not string.match(name, "^[%a]+$") then
+        Crosspaths:DebugLog("Invalid characters in name: " .. tostring(name), "WARN")
+        return
     end
     
     if name and name ~= "" then
@@ -166,22 +191,39 @@ function Tracker:HandleNameplateAdded(unitToken)
         -- Get current context for better throttling
         local context = Crosspaths:GetEncounterContext()
         
-        -- Throttle nameplate updates with context awareness
+        -- Enhanced throttling with context awareness and deduplication
         local now = GetTime() * 1000
         local contextKey = fullName .. ":" .. context -- Include context in throttle key
         local lastTime = self.lastUpdate[contextKey] or 0
         local throttleTime = Crosspaths.db.settings.tracking.throttleMs or self.updateThrottle
         
-        -- Use longer throttle time for raid contexts to handle vehicles/teleportation better
+        -- Apply more aggressive throttling based on context
         if context == "raid" then
-            throttleTime = throttleTime * 2 -- Double throttle time for raids
+            throttleTime = throttleTime * 4 -- 4x throttle time for raids (2000ms default)
+        elseif context == "party" then
+            throttleTime = throttleTime * 2 -- 2x throttle time for parties (1000ms default)
+        elseif context == "instance" then
+            throttleTime = throttleTime * 3 -- 3x throttle time for instances (1500ms default)
         end
+        
+        -- Additional throttling for same player regardless of context (global deduplication)
+        local globalKey = fullName .. ":global"
+        local globalLastTime = self.lastUpdate[globalKey] or 0
+        local globalThrottleTime = math.min(throttleTime / 2, 1000) -- At least 1 second global throttle
         
         if now - lastTime < throttleTime then
             Crosspaths:DebugLog("Throttling nameplate update for " .. fullName .. " in context " .. context .. " (last update " .. (now - lastTime) .. "ms ago)", "DEBUG")
             return
         end
+        
+        if now - globalLastTime < globalThrottleTime then
+            Crosspaths:DebugLog("Global throttling nameplate update for " .. fullName .. " (last global update " .. (now - globalLastTime) .. "ms ago)", "DEBUG")
+            return
+        end
+        
+        -- Update both context-specific and global throttle times
         self.lastUpdate[contextKey] = now
+        self.lastUpdate[globalKey] = now
         
         Crosspaths:DebugLog("Nameplate detected: " .. fullName, "INFO")
         self:RecordEncounter(fullName, "nameplate", false)
@@ -205,10 +247,48 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         return
     end
     
-    -- Additional validation to prevent "unknown player" tracking
+    -- Enhanced validation to prevent "unknown player" tracking
     local cleanName = string.gsub(playerName, "%s+", "") -- Remove whitespace
-    if cleanName == "" or string.lower(cleanName) == "unknown" or string.lower(cleanName) == "unknownplayer" then
-        Crosspaths:DebugLog("Rejecting invalid player name: " .. tostring(playerName), "WARN")
+    if cleanName == "" then
+        Crosspaths:DebugLog("Rejecting empty player name after cleaning: " .. tostring(playerName), "WARN")
+        return
+    end
+    
+    -- Check for various "unknown" patterns
+    local lowerName = string.lower(cleanName)
+    local invalidPatterns = {
+        "^unknown$",
+        "^unknownplayer$", 
+        "^unknown%-",
+        "%-unknown$",
+        "^%?%?%?",
+        "^nil$",
+        "^null$",
+        "^%s*$"
+    }
+    
+    for _, pattern in ipairs(invalidPatterns) do
+        if string.match(lowerName, pattern) then
+            Crosspaths:DebugLog("Rejecting invalid player name pattern: " .. tostring(playerName), "WARN")
+            return
+        end
+    end
+    
+    -- Additional validation for realm format
+    local name, realm = string.match(playerName, "^([^%-]+)%-(.+)$")
+    if name and realm then
+        -- Validate that name part is reasonable
+        if string.len(name) < 2 or string.len(name) > 12 then
+            Crosspaths:DebugLog("Rejecting player name with invalid length: " .. tostring(playerName), "WARN")
+            return
+        end
+        -- Validate that realm part is reasonable
+        if string.len(realm) < 2 or string.len(realm) > 50 then
+            Crosspaths:DebugLog("Rejecting player name with invalid realm: " .. tostring(playerName), "WARN")
+            return
+        end
+    else
+        Crosspaths:DebugLog("Rejecting player name without proper realm format: " .. tostring(playerName), "WARN")
         return
     end
     
@@ -456,22 +536,42 @@ function Tracker:CheckNotifications(playerName, player)
     end
     
     local settings = Crosspaths.db.settings.notifications
+    local now = GetTime() * 1000 -- Use milliseconds for more precise throttling
+    
+    -- Notification throttling to prevent spam (minimum 30 seconds between same notifications)
+    local notificationThrottle = 30000 -- 30 seconds
     
     -- Frequent player notification
     if settings.notifyFrequentPlayers and player.count >= settings.frequentPlayerThreshold then
         if player.count == settings.frequentPlayerThreshold then
-            self:ShowNotification("Frequent Player", playerName .. " encountered " .. player.count .. " times")
+            local key = "frequent:" .. playerName
+            local lastTime = self.lastNotification[key] or 0
+            if now - lastTime >= notificationThrottle then
+                self:ShowNotification("Frequent Player", playerName .. " encountered " .. player.count .. " times")
+                self.lastNotification[key] = now
+            end
         end
     end
     
-    -- Previous group member notification
+    -- Previous group member notification (throttled heavily)
     if settings.notifyPreviousGroupMembers and player.grouped and player.count > 1 then
-        self:ShowNotification("Previous Group Member", "You've grouped with " .. playerName .. " before!")
+        local key = "grouped:" .. playerName
+        local lastTime = self.lastNotification[key] or 0
+        -- Use longer throttle for group notifications (5 minutes) to prevent raid spam
+        if now - lastTime >= 300000 then -- 5 minutes
+            self:ShowNotification("Previous Group Member", "You've grouped with " .. playerName .. " before!")
+            self.lastNotification[key] = now
+        end
     end
     
-    -- Repeat encounter notification
-    if settings.notifyRepeatEncounters and player.count > 1 and player.count <= 5 then
-        self:ShowNotification("Repeat Encounter", playerName .. " (seen " .. player.count .. " times)")
+    -- Repeat encounter notification (only for first few encounters)
+    if settings.notifyRepeatEncounters and player.count > 1 and player.count <= 3 then
+        local key = "repeat:" .. playerName .. ":" .. player.count
+        local lastTime = self.lastNotification[key] or 0
+        if now - lastTime >= notificationThrottle then
+            self:ShowNotification("Repeat Encounter", playerName .. " (seen " .. player.count .. " times)")
+            self.lastNotification[key] = now
+        end
     end
 end
 
@@ -529,7 +629,32 @@ function Tracker:PruneOldData()
         end
     end
     
+    -- Clean up old throttle and notification data (older than 1 hour)
+    local oneHourAgo = GetTime() * 1000 - 3600000 -- 1 hour in milliseconds
+    local throttlesPruned = 0
+    local notificationsPruned = 0
+    
+    for key, timestamp in pairs(self.lastUpdate) do
+        if timestamp < oneHourAgo then
+            self.lastUpdate[key] = nil
+            throttlesPruned = throttlesPruned + 1
+        end
+    end
+    
+    for key, timestamp in pairs(self.lastNotification) do
+        if timestamp < oneHourAgo then
+            self.lastNotification[key] = nil
+            notificationsPruned = notificationsPruned + 1
+        end
+    end
+    
     if pruned > 0 then
         Crosspaths:DebugLog("Pruned " .. pruned .. " old player records", "INFO")
+    end
+    if throttlesPruned > 0 then
+        Crosspaths:DebugLog("Pruned " .. throttlesPruned .. " old throttle entries", "DEBUG")
+    end
+    if notificationsPruned > 0 then
+        Crosspaths:DebugLog("Pruned " .. notificationsPruned .. " old notification entries", "DEBUG")
     end
 end

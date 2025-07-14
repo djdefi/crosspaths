@@ -341,6 +341,13 @@ function UI:CreateTabContent()
     
     -- Encounters tab
     self.tabContent.encounters = self:CreateEncountersTab()
+    
+    -- Hide all tabs initially except the current one
+    for id, content in pairs(self.tabContent) do
+        if id ~= self.currentTab then
+            content:Hide()
+        end
+    end
 end
 
 -- Create summary tab
