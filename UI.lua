@@ -668,7 +668,7 @@ function UI:ShowPlayerTooltip(playerName, anchor)
             self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
         end
         
-        -- Show notes if available  
+        -- Show notes if available
         if playerData.notes and playerData.notes ~= "" then
             self.tooltip:AddLine(" ", 1, 1, 1)  -- Blank line
             self.tooltip:AddLine("Notes:", 0.8, 0.8, 1)
