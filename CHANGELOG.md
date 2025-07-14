@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.2] - 2025-07-14
+
+### Added
+- Create DESIGN.md
+- Initial plan
+- Initial Crosspaths addon implementation with core functionality
+- Add final supporting files and scripts - implementation complete
+- Update Tracker.lua
+- Update Tracker.lua
+- Fix code review feedback: debug defaults, JSON escaping, settings reset, and UI method calls
+- Merge pull request #2 from djdefi/copilot/fix-1
+- Initial plan
+- Enhance bump-toc workflow with automatic version increment functionality
+- Merge pull request #4 from djdefi/copilot/fix-3
+- Initial plan
+- Implement healiq-style workflows with semantic versioning and enhanced changelog generation
+- Merge pull request #6 from djdefi/copilot/fix-5
+- Bump version from 0.1.0 to 0.1.1
+- Initial plan
+- Fix GitHub Actions workflow syntax error in release.yml
+- Merge pull request #8 from djdefi/copilot/fix-7
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.1] - 2025-07-13
 
 ### Added
