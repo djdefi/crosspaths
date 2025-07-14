@@ -64,6 +64,30 @@ function UI:HandleSlashCommand(msg)
         else
             Crosspaths:Message("Use '/crosspaths clear confirm' to clear all data")
         end
+    elseif command == "debug" then
+        if args[2] == "on" then
+            Crosspaths.debug = true
+            if Crosspaths.db then
+                Crosspaths.db.settings.debug = true
+            end
+            if Crosspaths.Logging then
+                Crosspaths.Logging.logLevel = 4 -- DEBUG level
+            end
+            Crosspaths:Message("Debug mode enabled")
+        elseif args[2] == "off" then
+            Crosspaths.debug = false
+            if Crosspaths.db then
+                Crosspaths.db.settings.debug = false
+            end
+            if Crosspaths.Logging then
+                Crosspaths.Logging.logLevel = 3 -- INFO level
+            end
+            Crosspaths:Message("Debug mode disabled")
+        else
+            self:ShowDebugStatus()
+        end
+    elseif command == "status" then
+        self:ShowStatus()
     elseif command == "help" then
         self:ShowHelp()
     else
@@ -643,9 +667,87 @@ function UI:ShowHelp()
         "/crosspaths search <name> - Search for player",
         "/crosspaths export [json|csv] - Export data",
         "/crosspaths clear confirm - Clear all data",
+        "/crosspaths debug [on|off] - Toggle debug mode",
+        "/crosspaths status - Show addon status",
     }
     
     for _, line in ipairs(help) do
+        Crosspaths:Message(line)
+    end
+end
+
+-- Show debug status
+function UI:ShowDebugStatus()
+    local status = Crosspaths.debug and "enabled" or "disabled"
+    local logLevel = "unknown"
+    if Crosspaths.Logging and Crosspaths.Logging.logLevel then
+        local levels = {[1] = "ERROR", [2] = "WARN", [3] = "INFO", [4] = "DEBUG"}
+        logLevel = levels[Crosspaths.Logging.logLevel] or "unknown"
+    end
+    
+    Crosspaths:Message("Debug mode: " .. status .. " (log level: " .. logLevel .. ")")
+    
+    if Crosspaths.debug then
+        Crosspaths:Message("Use '/crosspaths debug off' to disable debug mode")
+    else
+        Crosspaths:Message("Use '/crosspaths debug on' to enable debug mode")
+    end
+end
+
+-- Show addon status
+function UI:ShowStatus()
+    local lines = {}
+    
+    -- Basic status
+    table.insert(lines, "=== Crosspaths Status ===")
+    table.insert(lines, "Version: " .. (Crosspaths.version or "unknown"))
+    table.insert(lines, "Enabled: " .. tostring(Crosspaths.db and Crosspaths.db.settings.enabled or false))
+    table.insert(lines, "Debug: " .. tostring(Crosspaths.debug or false))
+    
+    -- Database status
+    if Crosspaths.db then
+        local playerCount = 0
+        if Crosspaths.db.players then
+            for _ in pairs(Crosspaths.db.players) do
+                playerCount = playerCount + 1
+            end
+        end
+        table.insert(lines, "Tracked players: " .. playerCount)
+    else
+        table.insert(lines, "Database: NOT INITIALIZED")
+    end
+    
+    -- Tracking settings
+    if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.tracking then
+        local tracking = Crosspaths.db.settings.tracking
+        table.insert(lines, "Group tracking: " .. tostring(tracking.enableGroupTracking))
+        table.insert(lines, "Nameplate tracking: " .. tostring(tracking.enableNameplateTracking))
+        table.insert(lines, "City tracking: " .. tostring(tracking.enableCityTracking))
+        table.insert(lines, "Throttle: " .. tostring(tracking.throttleMs) .. "ms")
+    else
+        table.insert(lines, "Tracking settings: NOT FOUND")
+    end
+    
+    -- Session stats
+    if Crosspaths.sessionStats then
+        local stats = Crosspaths.sessionStats
+        table.insert(lines, "Session encounters: " .. tostring(stats.encountersDetected))
+        table.insert(lines, "Players added: " .. tostring(stats.playersAdded))
+        table.insert(lines, "Players updated: " .. tostring(stats.playersUpdated))
+        table.insert(lines, "Events handled: " .. tostring(stats.eventsHandled))
+    else
+        table.insert(lines, "Session stats: NOT AVAILABLE")
+    end
+    
+    -- Current zone
+    local zone = Crosspaths:GetCurrentZone()
+    local context = Crosspaths:GetEncounterContext()
+    table.insert(lines, "Current zone: " .. tostring(zone))
+    table.insert(lines, "Current context: " .. tostring(context))
+    
+    table.insert(lines, "=== End Status ===")
+    
+    for _, line in ipairs(lines) do
         Crosspaths:Message(line)
     end
 end

@@ -8,9 +8,17 @@ local Tracker = Crosspaths.Tracker
 
 -- Initialize tracker
 function Tracker:Initialize()
+    Crosspaths:DebugLog("Initializing Tracker module...", "INFO")
+    
+    -- Validate dependencies
+    if not Crosspaths.db then
+        Crosspaths:DebugLog("Database not ready during Tracker initialization", "WARN")
+        return false
+    end
+    
     self.eventFrame = CreateFrame("Frame")
     self.lastUpdate = {}
-    self.updateThrottle = 500 -- 500ms throttle
+    self.updateThrottle = 500 -- 500ms throttle (will be overridden by settings)
     
     -- Register events for tracking
     self.eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
@@ -18,11 +26,25 @@ function Tracker:Initialize()
     self.eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     self.eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     
+    Crosspaths:DebugLog("Registered events: GROUP_ROSTER_UPDATE, NAME_PLATE_UNIT_ADDED, PLAYER_ENTERING_WORLD, ZONE_CHANGED_NEW_AREA", "DEBUG")
+    
     self.eventFrame:SetScript("OnEvent", function(frame, event, ...)
         self:OnEvent(event, ...)
     end)
     
-    Crosspaths:DebugLog("Tracker initialized and events registered", "INFO")
+    -- Validate tracking settings
+    if Crosspaths.db.settings and Crosspaths.db.settings.tracking then
+        local tracking = Crosspaths.db.settings.tracking
+        Crosspaths:DebugLog("Tracking settings: groupTracking=" .. tostring(tracking.enableGroupTracking) .. 
+                           ", nameplateTracking=" .. tostring(tracking.enableNameplateTracking) .. 
+                           ", cityTracking=" .. tostring(tracking.enableCityTracking) .. 
+                           ", throttleMs=" .. tostring(tracking.throttleMs), "INFO")
+    else
+        Crosspaths:DebugLog("Tracking settings not found or incomplete", "WARN")
+    end
+    
+    Crosspaths:DebugLog("Tracker initialized and events registered successfully", "INFO")
+    return true
 end
 
 -- Stop tracking
@@ -35,19 +57,37 @@ end
 
 -- Event handler
 function Tracker:OnEvent(event, ...)
-    if not Crosspaths.db or not Crosspaths.db.settings.enabled then
+    Crosspaths:DebugLog("Tracker received event: " .. event, "DEBUG")
+    
+    if not Crosspaths.db then
+        Crosspaths:DebugLog("Database not ready for event " .. event, "WARN")
+        return
+    end
+    
+    if not Crosspaths.db.settings then
+        Crosspaths:DebugLog("Settings not ready for event " .. event, "WARN")
+        return
+    end
+    
+    if not Crosspaths.db.settings.enabled then
+        Crosspaths:DebugLog("Addon disabled, ignoring event " .. event, "DEBUG")
         return
     end
     
     local args = {...}
     Crosspaths:SafeCall(function()
         if event == "GROUP_ROSTER_UPDATE" then
+            Crosspaths:DebugLog("Handling GROUP_ROSTER_UPDATE", "DEBUG")
             self:HandleGroupRosterUpdate()
         elseif event == "NAME_PLATE_UNIT_ADDED" then
             local unitToken = args[1]
+            Crosspaths:DebugLog("Handling NAME_PLATE_UNIT_ADDED for unit: " .. tostring(unitToken), "DEBUG")
             self:HandleNameplateAdded(unitToken)
         elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+            Crosspaths:DebugLog("Handling zone change event: " .. event, "DEBUG")
             self:HandleZoneChange()
+        else
+            Crosspaths:DebugLog("Unknown event received: " .. event, "WARN")
         end
     end)
 end
@@ -79,27 +119,65 @@ end
 -- Handle nameplate detection
 function Tracker:HandleNameplateAdded(unitToken)
     if not Crosspaths.db.settings.tracking.enableNameplateTracking then
+        Crosspaths:DebugLog("Nameplate tracking disabled", "DEBUG")
         return
     end
     
-    if not UnitIsPlayer(unitToken) or UnitIsUnit(unitToken, "player") then
+    Crosspaths:DebugLog("Nameplate event received for unit: " .. tostring(unitToken), "DEBUG")
+    
+    -- Validate unit token
+    if not unitToken or not UnitExists(unitToken) then
+        Crosspaths:DebugLog("Invalid or non-existent unit token: " .. tostring(unitToken), "DEBUG")
         return
     end
     
+    -- Check if it's a player and not ourselves
+    if not UnitIsPlayer(unitToken) then
+        Crosspaths:DebugLog("Unit is not a player: " .. tostring(unitToken), "DEBUG")
+        return
+    end
+    
+    if UnitIsUnit(unitToken, "player") then
+        Crosspaths:DebugLog("Unit is the player themselves, ignoring", "DEBUG")
+        return
+    end
+    
+    -- Get player name with more robust error handling
     local name, realm = UnitNameUnmodified(unitToken)
+    Crosspaths:DebugLog("UnitNameUnmodified returned: name=" .. tostring(name) .. ", realm=" .. tostring(realm), "DEBUG")
+    
+    -- If UnitNameUnmodified fails, try UnitName as fallback
+    if not name or name == "" then
+        name, realm = UnitName(unitToken)
+        Crosspaths:DebugLog("UnitName fallback returned: name=" .. tostring(name) .. ", realm=" .. tostring(realm), "DEBUG")
+    end
+    
     if name and name ~= "" then
-        local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
+        -- Build full name with proper realm handling
+        local currentRealm = GetRealmName()
+        local fullName
+        
+        if realm and realm ~= "" and realm ~= currentRealm then
+            fullName = name .. "-" .. realm
+        else
+            fullName = name .. "-" .. currentRealm
+        end
         
         -- Throttle nameplate updates
         local now = GetTime() * 1000
         local lastTime = self.lastUpdate[fullName] or 0
-        if now - lastTime < self.updateThrottle then
+        local throttleTime = Crosspaths.db.settings.tracking.throttleMs or self.updateThrottle
+        
+        if now - lastTime < throttleTime then
+            Crosspaths:DebugLog("Throttling nameplate update for " .. fullName .. " (last update " .. (now - lastTime) .. "ms ago)", "DEBUG")
             return
         end
         self.lastUpdate[fullName] = now
         
-        Crosspaths:DebugLog("Nameplate detected: " .. fullName, "DEBUG")
+        Crosspaths:DebugLog("Nameplate detected: " .. fullName, "INFO")
         self:RecordEncounter(fullName, "nameplate", false)
+    else
+        Crosspaths:DebugLog("Could not get valid name from unit token: " .. tostring(unitToken), "WARN")
     end
 end
 
@@ -114,6 +192,15 @@ end
 -- Record an encounter
 function Tracker:RecordEncounter(playerName, source, isGrouped)
     if not playerName or playerName == "" then
+        Crosspaths:DebugLog("RecordEncounter called with empty player name", "WARN")
+        return
+    end
+    
+    Crosspaths:DebugLog("Recording encounter for: " .. playerName .. " (source: " .. tostring(source) .. ", grouped: " .. tostring(isGrouped) .. ")", "DEBUG")
+    
+    -- Validate database state
+    if not Crosspaths.db or not Crosspaths.db.players then
+        Crosspaths:DebugLog("Database not initialized when recording encounter for " .. playerName, "ERROR")
         return
     end
     
@@ -121,6 +208,8 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
     local currentZone = Crosspaths:GetCurrentZone()
     local context = Crosspaths:GetEncounterContext()
     local timestamp = time()
+    
+    Crosspaths:DebugLog("Context: zone=" .. tostring(currentZone) .. ", context=" .. tostring(context) .. ", timestamp=" .. tostring(timestamp), "DEBUG")
     
     -- Get or create player entry
     local player = Crosspaths.db.players[playerName]
@@ -146,6 +235,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         if Crosspaths.sessionStats then
             Crosspaths.sessionStats.playersUpdated = Crosspaths.sessionStats.playersUpdated + 1
         end
+        Crosspaths:DebugLog("Updating existing player: " .. playerName .. " (previous count: " .. player.count .. ")", "DEBUG")
     end
     
     -- Update player data
@@ -174,6 +264,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         local guildName = GetGuildInfo(unitToken)
         if guildName and guildName ~= "" then
             player.guild = guildName
+            Crosspaths:DebugLog("Guild info updated for " .. playerName .. ": " .. guildName, "DEBUG")
         end
     end
     
@@ -181,7 +272,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         Crosspaths.sessionStats.encountersDetected = Crosspaths.sessionStats.encountersDetected + 1
     end
     
-    Crosspaths:DebugLog("Encounter recorded: " .. playerName .. " (source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "DEBUG")
+    Crosspaths:DebugLog("Encounter recorded successfully: " .. playerName .. " (total encounters: " .. player.count .. ", source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
     
     -- Check for notifications
     self:CheckNotifications(playerName, player)

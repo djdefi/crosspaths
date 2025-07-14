@@ -180,23 +180,39 @@ function Crosspaths:OnInitialize()
     self:SafeCall(function()
         self:InitializeDB()
         
-        -- Apply debug setting from database
+        -- Apply debug setting from database and update logging level
         if self.db and self.db.settings then
             self.debug = self.db.settings.debug or false
+            
+            -- Update logging level based on debug setting
+            if self.Logging then
+                if self.debug then
+                    self.Logging.logLevel = 4 -- DEBUG level
+                else
+                    self.Logging.logLevel = 3 -- INFO level
+                end
+            end
         end
         
         self:Print("Crosspaths " .. self.version .. " loaded")
         
         -- Initialize session statistics
-        if self.Logging then
-            self.Logging:InitializeVariables()
-        end
         self:InitializeSessionStats()
         
-        -- Initialize modules
+        -- Initialize logging module first for better debugging
+        if self.Logging then
+            self.Logging:InitializeVariables()
+            self:DebugLog("Logging module initialized")
+        end
+        
+        -- Initialize modules in dependency order
         if self.Tracker then
-            self.Tracker:Initialize()
-            self:DebugLog("Tracker module initialized")
+            local success = self.Tracker:Initialize()
+            if success then
+                self:DebugLog("Tracker module initialized successfully")
+            else
+                self:DebugLog("Tracker module initialization failed", "ERROR")
+            end
         end
         
         if self.Engine then
