@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.4] - 2025-07-14
+
+### Added
+- Initial plan
+- Fix CharacterFrameTabButtonTemplate runtime error by replacing with manual button creation
+- Modernize tab button implementation with best practices
+- Merge pull request #14 from djdefi/copilot/fix-13
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.3] - 2025-07-14
 
 ### Added
