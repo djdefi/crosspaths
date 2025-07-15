@@ -169,6 +169,7 @@ function UI:CreateTabButtons(parent)
         {id = "summary", text = "Summary", tooltip = "View overall statistics and summary"},
         {id = "players", text = "Players", tooltip = "Browse and search tracked players"},
         {id = "guilds", text = "Guilds", tooltip = "View guild statistics and members"},
+        {id = "advanced", text = "Advanced", tooltip = "View advanced role-based and performance statistics"},
         {id = "encounters", text = "Encounters", tooltip = "Browse encounter history by zone"},
     }
     
@@ -350,6 +351,9 @@ function UI:CreateTabContent()
     -- Guilds tab
     self.tabContent.guilds = self:CreateGuildsTab()
     
+    -- Advanced stats tab
+    self.tabContent.advanced = self:CreateAdvancedTab()
+    
     -- Encounters tab
     self.tabContent.encounters = self:CreateEncountersTab()
     
@@ -447,6 +451,8 @@ function UI:RefreshCurrentTab()
         self:RefreshPlayersTab()
     elseif self.currentTab == "guilds" then
         self:RefreshGuildsTab()
+    elseif self.currentTab == "advanced" then
+        self:RefreshAdvancedTab()
     elseif self.currentTab == "encounters" then
         self:RefreshEncountersTab()
     end
@@ -459,31 +465,76 @@ function UI:RefreshSummaryTab()
     end
     
     local stats = Crosspaths.Engine:GetStatsSummary()
+    local activity = Crosspaths.Engine:GetRecentActivity()
     local lines = {}
     
-    table.insert(lines, "|cFFFFD700Crosspaths Statistics|r")
+    table.insert(lines, "|cFFFFD700Crosspaths Statistics Overview|r")
     table.insert(lines, "")
-    table.insert(lines, string.format("Total Players: |cFF00FF00%d|r", stats.totalPlayers))
-    table.insert(lines, string.format("Total Encounters: |cFF00FF00%d|r", stats.totalEncounters))
-    table.insert(lines, string.format("Grouped Players: |cFF00FF00%d|r", stats.groupedPlayers))
-    table.insert(lines, string.format("Guilds Encountered: |cFF00FF00%d|r", stats.totalGuilds))
+    
+    -- Overall statistics
+    table.insert(lines, "|cFFFF8080Overall Statistics:|r")
+    table.insert(lines, string.format("  Total Players: |cFF00FF00%d|r", stats.totalPlayers))
+    table.insert(lines, string.format("  Total Encounters: |cFF00FF00%d|r", stats.totalEncounters))
+    table.insert(lines, string.format("  Grouped Players: |cFF00FF00%d|r", stats.groupedPlayers))
+    table.insert(lines, string.format("  Guilds Encountered: |cFF00FF00%d|r", stats.totalGuilds))
     
     if stats.totalPlayers > 0 then
-        table.insert(lines, string.format("Average Encounters per Player: |cFF00FF00%.1f|r", stats.averageEncounters))
+        table.insert(lines, string.format("  Average Encounters per Player: |cFF00FF00%.1f|r", stats.averageEncounters))
     end
     
+    -- Recent activity
+    table.insert(lines, "")
+    table.insert(lines, "|cFF80FF80Recent Activity:|r")
+    table.insert(lines, string.format("  Last 24 Hours: |cFFFFFFFF%d players, %d encounters|r", activity.last24h.players, activity.last24h.encounters))
+    table.insert(lines, string.format("  Last 7 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last7d.players, activity.last7d.encounters))
+    table.insert(lines, string.format("  Last 30 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last30d.players, activity.last30d.encounters))
+    
+    -- Time range information
     if stats.oldestEncounter then
         table.insert(lines, "")
-        table.insert(lines, string.format("Oldest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.oldestEncounter)))
-        table.insert(lines, string.format("Newest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.newestEncounter)))
+        table.insert(lines, "|cFF8080FFTime Range:|r")
+        table.insert(lines, string.format("  Oldest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.oldestEncounter)))
+        table.insert(lines, string.format("  Newest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.newestEncounter)))
+    end
+    
+    -- Top zones
+    table.insert(lines, "")
+    table.insert(lines, "|cFF80FFFF Top Zones:|r")
+    local topZones = Crosspaths.Engine:GetTopZones(5)
+    if #topZones > 0 then
+        for i, zone in ipairs(topZones) do
+            table.insert(lines, string.format("  %d. %s (%d encounters)", i, zone.name, zone.encounterCount))
+        end
+    else
+        table.insert(lines, "  No zone data available")
     end
     
     -- Top players
     table.insert(lines, "")
     table.insert(lines, "|cFFFFD700Top Players:|r")
     local topPlayers = Crosspaths.Engine:GetTopPlayers(5)
-    for i, player in ipairs(topPlayers) do
-        table.insert(lines, string.format("%d. %s (%d encounters)", i, player.name, player.count))
+    if #topPlayers > 0 then
+        for i, player in ipairs(topPlayers) do
+            local guildText = player.guild and player.guild ~= "" and (" <" .. player.guild .. ">") or ""
+            table.insert(lines, string.format("  %d. %s%s (%d encounters)", i, player.name, guildText, player.count))
+        end
+    else
+        table.insert(lines, "  No player data available")
+    end
+    
+    -- Current session statistics
+    local sessionStats = Crosspaths.Engine:GetSessionStats()
+    table.insert(lines, "")
+    table.insert(lines, "|cFFFF80FF Current Session:|r")
+    table.insert(lines, string.format("  Players Encountered: |cFFFFFFFF%d|r", sessionStats.playersEncountered))
+    table.insert(lines, string.format("  New Players: |cFFFFFFFF%d|r", sessionStats.newPlayers))
+    table.insert(lines, string.format("  Total Encounters: |cFFFFFFFF%d|r", sessionStats.totalEncounters))
+    if sessionStats.sessionDuration > 60 then
+        local minutes = math.floor(sessionStats.sessionDuration / 60)
+        local seconds = sessionStats.sessionDuration % 60
+        table.insert(lines, string.format("  Session Duration: |cFFFFFFFF%dm %ds|r", minutes, seconds))
+    else
+        table.insert(lines, string.format("  Session Duration: |cFFFFFFFF%ds|r", sessionStats.sessionDuration))
     end
     
     self.tabContent.summary.statsText:SetText(table.concat(lines, "\n"))
@@ -568,20 +619,165 @@ function UI:RefreshEncountersTab()
     end
     
     local zones = Crosspaths.Engine:GetTopZones(10)
+    local contextStats = Crosspaths.Engine:GetContextStats()
     local lines = {}
     
-    table.insert(lines, "|cFFFFD700Top Zones (by encounters):|r")
+    table.insert(lines, "|cFFFFD700Zone and Context Statistics|r")
     table.insert(lines, "")
     
-    for i, zone in ipairs(zones) do
-        table.insert(lines, string.format("%d. %s - %d encounters", i, zone.name, zone.encounterCount))
+    -- Top zones
+    table.insert(lines, "|cFF80FFFF Top Zones (by encounters):|r")
+    if #zones > 0 then
+        for i, zone in ipairs(zones) do
+            table.insert(lines, string.format("  %d. %s - %d encounters", i, zone.name, zone.encounterCount))
+        end
+    else
+        table.insert(lines, "  No zone data yet.")
     end
     
-    if #zones == 0 then
-        table.insert(lines, "No zone data yet.")
+    -- Encounter contexts
+    table.insert(lines, "")
+    table.insert(lines, "|cFFFF80FF Encounter Contexts:|r")
+    if #contextStats > 0 then
+        for i, context in ipairs(contextStats) do
+            table.insert(lines, string.format("  %d. %s - %d encounters (%.1f%%)", i, context.context, context.count, context.percentage))
+        end
+    else
+        table.insert(lines, "  No context data available")
     end
     
     self.tabContent.encounters.encountersText:SetText(table.concat(lines, "\n"))
+end
+
+-- Create advanced stats tab
+function UI:CreateAdvancedTab()
+    local frame = CreateFrame("Frame", nil, self.mainFrame.Inset)
+    frame:SetAllPoints()
+    frame:Hide()
+    
+    -- Main scroll frame for advanced statistics
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 10)
+    
+    -- Text display for advanced stats
+    frame.advancedText = scroll:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    frame.advancedText:SetPoint("TOPLEFT", 0, 0)
+    frame.advancedText:SetWidth(scroll:GetWidth() - 20)
+    frame.advancedText:SetJustifyH("LEFT")
+    frame.advancedText:SetJustifyV("TOP")
+    frame.advancedText:SetText("Advanced statistics will appear here...")
+    
+    scroll:SetScrollChild(frame.advancedText)
+    
+    return frame
+end
+
+-- Refresh advanced stats tab
+function UI:RefreshAdvancedTab()
+    if not self.tabContent.advanced then
+        return
+    end
+    
+    local stats = Crosspaths.Engine:GetAdvancedStats()
+    local lines = {}
+    
+    table.insert(lines, "|cFFFFD700Advanced Player Statistics|r")
+    table.insert(lines, "")
+    
+    -- Role-based statistics
+    table.insert(lines, "|cFF8080FFTop Tank Players:|r")
+    if #stats.topTanks > 0 then
+        for i, player in ipairs(stats.topTanks) do
+            if i <= 5 then -- Show top 5
+                local spec = player.specialization and (" - " .. player.specialization) or ""
+                table.insert(lines, string.format("  %d. %s%s (%d encounters)", i, player.name, spec, player.count))
+            end
+        end
+    else
+        table.insert(lines, "  No tank data available")
+    end
+    
+    table.insert(lines, "")
+    table.insert(lines, "|cFF80FF80Top Healer Players:|r")
+    if #stats.topHealers > 0 then
+        for i, player in ipairs(stats.topHealers) do
+            if i <= 5 then
+                local spec = player.specialization and (" - " .. player.specialization) or ""
+                table.insert(lines, string.format("  %d. %s%s (%d encounters)", i, player.name, spec, player.count))
+            end
+        end
+    else
+        table.insert(lines, "  No healer data available")
+    end
+    
+    table.insert(lines, "")
+    table.insert(lines, "|cFFFF8080Top DPS Players:|r")
+    if #stats.topDPS > 0 then
+        for i, player in ipairs(stats.topDPS) do
+            if i <= 5 then
+                local spec = player.specialization and (" - " .. player.specialization) or ""
+                table.insert(lines, string.format("  %d. %s%s (%d encounters)", i, player.name, spec, player.count))
+            end
+        end
+    else
+        table.insert(lines, "  No DPS data available")
+    end
+    
+    -- Item level statistics
+    table.insert(lines, "")
+    table.insert(lines, "|cFFFFFF80Highest Item Level Players:|r")
+    if #stats.highestItemLevels > 0 then
+        for i, player in ipairs(stats.highestItemLevels) do
+            if i <= 5 then
+                table.insert(lines, string.format("  %d. %s (iLvl: %d, %d encounters)", i, player.name, player.itemLevel, player.count))
+            end
+        end
+    else
+        table.insert(lines, "  No item level data available")
+    end
+    
+    -- Achievement statistics
+    table.insert(lines, "")
+    table.insert(lines, "|cFFFF80FFAchievement Leaders:|r")
+    if #stats.achievementLeaders > 0 then
+        for i, player in ipairs(stats.achievementLeaders) do
+            if i <= 5 then
+                table.insert(lines, string.format("  %d. %s (%d points, %d encounters)", i, player.name, player.achievementPoints, player.count))
+            end
+        end
+    else
+        table.insert(lines, "  No achievement data available")
+    end
+    
+    -- Mount statistics
+    table.insert(lines, "")
+    table.insert(lines, "|cFF80FFFF Most Common Mounts:|r")
+    if #stats.commonMounts > 0 then
+        for i, mount in ipairs(stats.commonMounts) do
+            if i <= 3 then
+                table.insert(lines, string.format("  %d. %s (seen %d times)", i, mount.mount, mount.count))
+            end
+        end
+    else
+        table.insert(lines, "  No mount data available")
+    end
+    
+    -- Class distribution
+    local classStats = Crosspaths.Engine:GetClassStats()
+    table.insert(lines, "")
+    table.insert(lines, "|cFFFFFF80Class Distribution:|r")
+    if #classStats > 0 then
+        for i, class in ipairs(classStats) do
+            if i <= 6 then -- Show top 6 classes
+                table.insert(lines, string.format("  %d. %s: %d players (%.1f%%, %d encounters)", i, class.class, class.players, class.percentage, class.encounters))
+            end
+        end
+    else
+        table.insert(lines, "  No class data available")
+    end
+    
+    self.tabContent.advanced.advancedText:SetText(table.concat(lines, "\n"))
 end
 
 -- Show toast notification
@@ -956,6 +1152,51 @@ function UI:AddEncounterInfoToTooltip(tooltip)
                 notes = string.sub(notes, 1, 37) .. "..."
             end
             tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
+        end
+        
+        -- Add encounter context information
+        if playerData.contexts and next(playerData.contexts) then
+            local contexts = {}
+            local totalContexts = 0
+            for context, count in pairs(playerData.contexts) do
+                totalContexts = totalContexts + count
+                table.insert(contexts, context .. " (" .. count .. ")")
+            end
+            -- Sort by frequency
+            table.sort(contexts, function(a, b)
+                local countA = tonumber(string.match(a, "%((%d+)%)"))
+                local countB = tonumber(string.match(b, "%((%d+)%)"))
+                return countA > countB
+            end)
+            
+            -- Show top 2 contexts
+            local contextText = ""
+            for i = 1, math.min(2, #contexts) do
+                if i > 1 then contextText = contextText .. ", " end
+                contextText = contextText .. contexts[i]
+            end
+            if #contexts > 2 then
+                contextText = contextText .. " +more"
+            end
+            tooltip:AddDoubleLine("Contexts:", contextText, 0.8, 0.8, 0.8, 0.8, 1, 0.8)
+        end
+        
+        -- Add top zones information  
+        if playerData.zones and next(playerData.zones) then
+            local zones = {}
+            for zone, count in pairs(playerData.zones) do
+                table.insert(zones, {zone = zone, count = count})
+            end
+            table.sort(zones, function(a, b) return a.count > b.count end)
+            
+            -- Show top zone
+            if zones[1] then
+                local zoneText = zones[1].zone .. " (" .. zones[1].count .. ")"
+                if zones[2] then
+                    zoneText = zoneText .. ", " .. zones[2].zone .. " (" .. zones[2].count .. ")"
+                end
+                tooltip:AddDoubleLine("Top zones:", zoneText, 0.8, 0.8, 0.8, 1, 0.8, 0.6)
+            end
         end
         
         tooltip:Show()

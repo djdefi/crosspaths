@@ -282,6 +282,144 @@ function Engine:GetStatsSummary()
     return stats
 end
 
+-- Get recent activity statistics
+function Engine:GetRecentActivity()
+    if not Crosspaths.db or not Crosspaths.db.players then
+        return {
+            last24h = {players = 0, encounters = 0},
+            last7d = {players = 0, encounters = 0},
+            last30d = {players = 0, encounters = 0}
+        }
+    end
+    
+    local now = time()
+    local day = 24 * 60 * 60
+    local week = 7 * day
+    local month = 30 * day
+    
+    local activity = {
+        last24h = {players = 0, encounters = 0},
+        last7d = {players = 0, encounters = 0},
+        last30d = {players = 0, encounters = 0}
+    }
+    
+    for name, player in pairs(Crosspaths.db.players) do
+        local timeSince = now - (player.lastSeen or 0)
+        
+        if timeSince <= day then
+            activity.last24h.players = activity.last24h.players + 1
+            activity.last24h.encounters = activity.last24h.encounters + player.count
+        end
+        
+        if timeSince <= week then
+            activity.last7d.players = activity.last7d.players + 1
+            activity.last7d.encounters = activity.last7d.encounters + player.count
+        end
+        
+        if timeSince <= month then
+            activity.last30d.players = activity.last30d.players + 1
+            activity.last30d.encounters = activity.last30d.encounters + player.count
+        end
+    end
+    
+    return activity
+end
+
+-- Get encounter context statistics
+function Engine:GetContextStats()
+    if not Crosspaths.db or not Crosspaths.db.players then
+        return {}
+    end
+    
+    local contextCounts = {}
+    local totalContextEncounters = 0
+    
+    for name, player in pairs(Crosspaths.db.players) do
+        for context, count in pairs(player.contexts or {}) do
+            if not contextCounts[context] then
+                contextCounts[context] = 0
+            end
+            contextCounts[context] = contextCounts[context] + count
+            totalContextEncounters = totalContextEncounters + count
+        end
+    end
+    
+    local contextStats = {}
+    for context, count in pairs(contextCounts) do
+        local percentage = totalContextEncounters > 0 and (count / totalContextEncounters * 100) or 0
+        table.insert(contextStats, {
+            context = context,
+            count = count,
+            percentage = percentage
+        })
+    end
+    
+    table.sort(contextStats, function(a, b) return a.count > b.count end)
+    
+    return contextStats
+end
+
+-- Get class distribution statistics
+function Engine:GetClassStats()
+    if not Crosspaths.db or not Crosspaths.db.players then
+        return {}
+    end
+    
+    local classCounts = {}
+    local totalPlayers = 0
+    
+    for name, player in pairs(Crosspaths.db.players) do
+        local class = player.class or "Unknown"
+        if not classCounts[class] then
+            classCounts[class] = {count = 0, encounters = 0}
+        end
+        classCounts[class].count = classCounts[class].count + 1
+        classCounts[class].encounters = classCounts[class].encounters + (player.count or 0)
+        totalPlayers = totalPlayers + 1
+    end
+    
+    local classStats = {}
+    for class, data in pairs(classCounts) do
+        local percentage = totalPlayers > 0 and (data.count / totalPlayers * 100) or 0
+        table.insert(classStats, {
+            class = class,
+            players = data.count,
+            encounters = data.encounters,
+            percentage = percentage
+        })
+    end
+    
+    table.sort(classStats, function(a, b) return a.players > b.players end)
+    
+    return classStats
+end
+
+-- Get current session statistics
+function Engine:GetSessionStats()
+    if not Crosspaths.sessionStats then
+        return {
+            playersEncountered = 0,
+            newPlayers = 0,
+            totalEncounters = 0,
+            sessionStartTime = time(),
+            averageEncounterInterval = 0
+        }
+    end
+    
+    local sessionTime = time() - (Crosspaths.sessionStats.sessionStartTime or time())
+    local avgInterval = Crosspaths.sessionStats.totalEncounters > 0 and 
+                       (sessionTime / Crosspaths.sessionStats.totalEncounters) or 0
+    
+    return {
+        playersEncountered = Crosspaths.sessionStats.playersEncountered or 0,
+        newPlayers = Crosspaths.sessionStats.newPlayers or 0,
+        totalEncounters = Crosspaths.sessionStats.totalEncounters or 0,
+        sessionStartTime = Crosspaths.sessionStats.sessionStartTime or time(),
+        sessionDuration = sessionTime,
+        averageEncounterInterval = avgInterval
+    }
+end
+
 -- Search players
 function Engine:SearchPlayers(query, limit)
     limit = limit or 50
