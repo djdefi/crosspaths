@@ -485,3 +485,147 @@ function Engine:ExportCSV()
     
     return table.concat(lines, "\n")
 end
+
+-- Get advanced player statistics
+function Engine:GetAdvancedStats()
+    if not Crosspaths.db or not Crosspaths.db.players then
+        return {}
+    end
+    
+    local stats = {
+        topPlayersByClass = {},
+        topTanks = {},
+        topHealers = {},
+        topDPS = {},
+        highestItemLevels = {},
+        rareMounts = {},
+        commonMounts = {},
+        levelProgression = {},
+        achievementLeaders = {}
+    }
+    
+    -- Analyze all players
+    local allPlayers = {}
+    for name, player in pairs(Crosspaths.db.players) do
+        table.insert(allPlayers, {
+            name = name,
+            count = player.count or 0,
+            class = player.class,
+            specialization = player.specialization,
+            itemLevel = player.itemLevel or 0,
+            level = player.level or 0,
+            achievementPoints = player.achievementPoints or 0,
+            mount = player.mount,
+            grouped = player.grouped,
+            guild = player.guild
+        })
+    end
+    
+    -- Sort by encounters for general rankings
+    table.sort(allPlayers, function(a, b) return a.count > b.count end)
+    
+    -- Top players by class
+    local classCounts = {}
+    for _, player in ipairs(allPlayers) do
+        if player.class then
+            if not classCounts[player.class] then
+                classCounts[player.class] = {}
+            end
+            table.insert(classCounts[player.class], player)
+        end
+    end
+    
+    for class, players in pairs(classCounts) do
+        table.sort(players, function(a, b) return a.count > b.count end)
+        stats.topPlayersByClass[class] = {players[1], players[2], players[3]} -- Top 3
+    end
+    
+    -- Role-based analysis (simplified role detection)
+    for _, player in ipairs(allPlayers) do
+        if player.specialization then
+            local spec = string.lower(player.specialization)
+            if string.find(spec, "tank") or string.find(spec, "protection") or string.find(spec, "guardian") or string.find(spec, "brewmaster") or string.find(spec, "vengeance") or string.find(spec, "blood") then
+                table.insert(stats.topTanks, player)
+            elseif string.find(spec, "heal") or string.find(spec, "restoration") or string.find(spec, "holy") or string.find(spec, "discipline") or string.find(spec, "mistweaver") then
+                table.insert(stats.topHealers, player)
+            else
+                table.insert(stats.topDPS, player)
+            end
+        end
+    end
+    
+    -- Sort role lists
+    table.sort(stats.topTanks, function(a, b) return a.count > b.count end)
+    table.sort(stats.topHealers, function(a, b) return a.count > b.count end)
+    table.sort(stats.topDPS, function(a, b) return a.count > b.count end)
+    
+    -- Limit to top 10 for each role
+    stats.topTanks = {unpack(stats.topTanks, 1, 10)}
+    stats.topHealers = {unpack(stats.topHealers, 1, 10)}
+    stats.topDPS = {unpack(stats.topDPS, 1, 10)}
+    
+    -- Item level analysis
+    local playersWithILvl = {}
+    for _, player in ipairs(allPlayers) do
+        if player.itemLevel > 0 then
+            table.insert(playersWithILvl, player)
+        end
+    end
+    table.sort(playersWithILvl, function(a, b) return a.itemLevel > b.itemLevel end)
+    stats.highestItemLevels = {unpack(playersWithILvl, 1, 10)}
+    
+    -- Mount analysis (if mount data is available)
+    local mountCounts = {}
+    for _, player in ipairs(allPlayers) do
+        if player.mount then
+            mountCounts[player.mount] = (mountCounts[player.mount] or 0) + 1
+        end
+    end
+    
+    local mountList = {}
+    for mount, count in pairs(mountCounts) do
+        table.insert(mountList, {mount = mount, count = count})
+    end
+    table.sort(mountList, function(a, b) return a.count > b.count end)
+    
+    stats.commonMounts = {unpack(mountList, 1, 5)} -- Top 5 most common
+    stats.rareMounts = {}
+    for _, entry in ipairs(mountList) do
+        if entry.count == 1 then -- Only seen once = rare
+            table.insert(stats.rareMounts, entry)
+        end
+    end
+    stats.rareMounts = {unpack(stats.rareMounts, 1, 10)} -- Top 10 rarest
+    
+    -- Achievement leaders
+    local playersWithAchievements = {}
+    for _, player in ipairs(allPlayers) do
+        if player.achievementPoints > 0 then
+            table.insert(playersWithAchievements, player)
+        end
+    end
+    table.sort(playersWithAchievements, function(a, b) return a.achievementPoints > b.achievementPoints end)
+    stats.achievementLeaders = {unpack(playersWithAchievements, 1, 10)}
+    
+    return stats
+end
+
+-- Get specific advanced stat by type
+function Engine:GetTopPlayersByType(statType, limit)
+    limit = limit or 10
+    local advancedStats = self:GetAdvancedStats()
+    
+    if statType == "tanks" then
+        return {unpack(advancedStats.topTanks, 1, limit)}
+    elseif statType == "healers" then
+        return {unpack(advancedStats.topHealers, 1, limit)}
+    elseif statType == "dps" then
+        return {unpack(advancedStats.topDPS, 1, limit)}
+    elseif statType == "itemlevel" or statType == "ilvl" then
+        return {unpack(advancedStats.highestItemLevels, 1, limit)}
+    elseif statType == "achievements" then
+        return {unpack(advancedStats.achievementLeaders, 1, limit)}
+    else
+        return {}
+    end
+end
