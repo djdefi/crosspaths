@@ -270,8 +270,8 @@ end
 
 -- Handle mouseover units for proximity detection
 function Tracker:HandleMouseoverUnit()
-    if not Crosspaths.db.settings.tracking.enableNameplateTracking then
-        return -- Reuse same setting for mouseover tracking
+    if not Crosspaths.db.settings.tracking.enableMouseoverTracking then
+        return
     end
     
     local unit = "mouseover"
@@ -300,6 +300,10 @@ end
 
 -- Handle target changes
 function Tracker:HandleTargetChanged()
+    if not Crosspaths.db.settings.tracking.enableTargetTracking then
+        return
+    end
+    
     local unit = "target"
     if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
         return
@@ -317,6 +321,10 @@ end
 
 -- Handle focus changes  
 function Tracker:HandleFocusChanged()
+    if not Crosspaths.db.settings.tracking.enableTargetTracking then -- Share setting with target tracking
+        return
+    end
+    
     local unit = "focus"
     if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
         return
@@ -334,6 +342,10 @@ end
 
 -- Handle combat log events for player interactions
 function Tracker:HandleCombatLogEvent(...)
+    if not Crosspaths.db.settings.tracking.enableCombatLogTracking then
+        return
+    end
+    
     local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
     
     if not subevent or not sourceName or not destName then
@@ -359,25 +371,36 @@ function Tracker:HandleCombatLogEvent(...)
     end
     
     local playerName = UnitName("player")
+    if not playerName then
+        return
+    end
+    
     local playerRealm = GetRealmName()
+    if not playerRealm then
+        return
+    end
+    
     local playerFullName = playerName .. "-" .. playerRealm
     
     -- Check if we're involved in the combat (either as source or destination)
     local targetPlayer = nil
     
-    if sourceName == playerFullName and destGUID and destName then
-        -- We are the source, check if destination is a player
-        if bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and destName ~= playerFullName then
-            targetPlayer = destName
-        end
-    elseif destName == playerFullName and sourceGUID and sourceName then
-        -- We are the destination, check if source is a player  
-        if bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and sourceName ~= playerFullName then
-            targetPlayer = sourceName
+    -- Validate flags before using bit operations
+    if sourceFlags and destFlags then
+        if sourceName == playerFullName and destGUID and destName then
+            -- We are the source, check if destination is a player
+            if bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and destName ~= playerFullName then
+                targetPlayer = destName
+            end
+        elseif destName == playerFullName and sourceGUID and sourceName then
+            -- We are the destination, check if source is a player  
+            if bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and sourceName ~= playerFullName then
+                targetPlayer = sourceName
+            end
         end
     end
     
-    if targetPlayer then
+    if targetPlayer and targetPlayer ~= "" then
         -- Use throttling for combat log events to prevent spam
         local now = GetTime() * 1000
         local lastTime = self.lastUpdate[targetPlayer .. ":combat"] or 0

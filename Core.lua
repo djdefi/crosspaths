@@ -5,7 +5,7 @@ local addonName, Crosspaths = ...
 
 -- Create the main addon object
 Crosspaths = Crosspaths or {}
-Crosspaths.version = "0.1.7"
+Crosspaths.version = "0.1.8"
 Crosspaths.debug = false
 
 -- Default settings
@@ -24,6 +24,9 @@ local defaults = {
         enableGroupTracking = true,
         enableNameplateTracking = true,
         enableCityTracking = true,
+        enableMouseoverTracking = true, -- New: mouseover detection
+        enableTargetTracking = true, -- New: target change detection
+        enableCombatLogTracking = true, -- New: combat log detection
         locationBasedThrottling = true,
         throttleMs = 500, -- Throttle encounter updates
         minimumMoveDistance = 0.01, -- Minimum distance player must move (0-1 map coordinates)

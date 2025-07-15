@@ -151,6 +151,36 @@ function Config:CreateTrackingSettings(parent)
     parent.cityCheck = cityCheck
     yOffset = yOffset - 25
     
+    -- Mouseover tracking
+    local mouseoverCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    mouseoverCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    mouseoverCheck.Text:SetText("Track Mouseover Players")
+    mouseoverCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.tracking.enableMouseoverTracking = self:GetChecked()
+    end)
+    parent.mouseoverCheck = mouseoverCheck
+    yOffset = yOffset - 25
+    
+    -- Target tracking
+    local targetCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    targetCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    targetCheck.Text:SetText("Track Target/Focus Changes")
+    targetCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.tracking.enableTargetTracking = self:GetChecked()
+    end)
+    parent.targetCheck = targetCheck
+    yOffset = yOffset - 25
+    
+    -- Combat log tracking
+    local combatCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    combatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    combatCheck.Text:SetText("Track Combat Interactions")
+    combatCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.tracking.enableCombatLogTracking = self:GetChecked()
+    end)
+    parent.combatCheck = combatCheck
+    yOffset = yOffset - 25
+    
     -- Location-based throttling
     local locationCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
     locationCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
@@ -383,6 +413,15 @@ function Config:RefreshSettings()
     if content.cityCheck then
         content.cityCheck:SetChecked(Crosspaths.db.settings.tracking.enableCityTracking)
     end
+    if content.mouseoverCheck then
+        content.mouseoverCheck:SetChecked(Crosspaths.db.settings.tracking.enableMouseoverTracking)
+    end
+    if content.targetCheck then
+        content.targetCheck:SetChecked(Crosspaths.db.settings.tracking.enableTargetTracking)
+    end
+    if content.combatCheck then
+        content.combatCheck:SetChecked(Crosspaths.db.settings.tracking.enableCombatLogTracking)
+    end
     if content.locationCheck then
         content.locationCheck:SetChecked(Crosspaths.db.settings.tracking.locationBasedThrottling)
     end
@@ -455,6 +494,9 @@ StaticPopupDialogs["CROSSPATHS_RESET_SETTINGS"] = {
                     enableGroupTracking = true,
                     enableNameplateTracking = true,
                     enableCityTracking = true,
+                    enableMouseoverTracking = true,
+                    enableTargetTracking = true,
+                    enableCombatLogTracking = true,
                     locationBasedThrottling = true,
                     throttleMs = 500,
                     minimumMoveDistance = 0.01,
