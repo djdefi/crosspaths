@@ -22,13 +22,26 @@ function Tracker:Initialize()
     self.lastPosition = {} -- Track last known positions for location-based throttling
     self.updateThrottle = 500 -- 500ms throttle (will be overridden by settings)
     
+    -- Session-based encounter tracking to prevent inflation
+    self.currentSession = {
+        id = time(), -- Session ID based on start time
+        zone = "",
+        encounters = {} -- Track players encountered this session in this zone
+    }
+    
+    -- Initialize session tracking
+    self:StartNewSession()
     -- Register events for tracking
     self.eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     self.eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     self.eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     self.eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    self.eventFrame:RegisterEvent("UPDATE_MOUSEOVER_UNIT") -- New: proximity detection
+    self.eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED") -- New: target detection
+    self.eventFrame:RegisterEvent("PLAYER_FOCUS_CHANGED") -- New: focus detection
+    self.eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED") -- New: combat log detection
     
-    Crosspaths:DebugLog("Registered events: GROUP_ROSTER_UPDATE, NAME_PLATE_UNIT_ADDED, PLAYER_ENTERING_WORLD, ZONE_CHANGED_NEW_AREA", "DEBUG")
+    Crosspaths:DebugLog("Registered events: GROUP_ROSTER_UPDATE, NAME_PLATE_UNIT_ADDED, PLAYER_ENTERING_WORLD, ZONE_CHANGED_NEW_AREA, UPDATE_MOUSEOVER_UNIT, PLAYER_TARGET_CHANGED, PLAYER_FOCUS_CHANGED, COMBAT_LOG_EVENT_UNFILTERED", "DEBUG")
     
     self.eventFrame:SetScript("OnEvent", function(frame, event, ...)
         self:OnEvent(event, ...)
@@ -85,6 +98,18 @@ function Tracker:OnEvent(event, ...)
             local unitToken = args[1]
             Crosspaths:DebugLog("Handling NAME_PLATE_UNIT_ADDED for unit: " .. tostring(unitToken), "DEBUG")
             self:HandleNameplateAdded(unitToken)
+        elseif event == "UPDATE_MOUSEOVER_UNIT" then
+            Crosspaths:DebugLog("Handling UPDATE_MOUSEOVER_UNIT", "DEBUG")
+            self:HandleMouseoverUnit()
+        elseif event == "PLAYER_TARGET_CHANGED" then
+            Crosspaths:DebugLog("Handling PLAYER_TARGET_CHANGED", "DEBUG")
+            self:HandleTargetChanged()
+        elseif event == "PLAYER_FOCUS_CHANGED" then
+            Crosspaths:DebugLog("Handling PLAYER_FOCUS_CHANGED", "DEBUG")
+            self:HandleFocusChanged()
+        elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+            Crosspaths:DebugLog("Handling COMBAT_LOG_EVENT_UNFILTERED", "DEBUG")
+            self:HandleCombatLogEvent(CombatLogGetCurrentEventInfo())
         elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
             Crosspaths:DebugLog("Handling zone change event: " .. event, "DEBUG")
             self:HandleZoneChange()
@@ -248,8 +273,193 @@ end
 function Tracker:HandleZoneChange()
     Crosspaths:DebugLog("Zone change detected", "DEBUG")
     
+    -- Start new session on zone change to prevent encounter inflation
+    self:StartNewSession()
+    
     -- Prune old data on zone change
     self:PruneOldData()
+end
+
+-- Handle mouseover units for proximity detection
+function Tracker:HandleMouseoverUnit()
+    if not Crosspaths.db.settings.tracking.enableMouseoverTracking then
+        return
+    end
+    
+    local unit = "mouseover"
+    if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        return
+    end
+    
+    local name, realm = UnitNameUnmodified(unit)
+    if not name or name == "" then
+        return
+    end
+    
+    local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
+    
+    -- Use throttling to prevent spam
+    local now = GetTime() * 1000
+    local lastTime = self.lastUpdate[fullName .. ":mouseover"] or 0
+    local throttleTime = (Crosspaths.db.settings.tracking.throttleMs or 500) * 2 -- Longer throttle for mouseover
+    
+    if now - lastTime >= throttleTime then
+        self.lastUpdate[fullName .. ":mouseover"] = now
+        Crosspaths:DebugLog("Mouseover detected: " .. fullName, "INFO")
+        self:RecordEncounter(fullName, "mouseover", false)
+    end
+end
+
+-- Handle target changes
+function Tracker:HandleTargetChanged()
+    if not Crosspaths.db.settings.tracking.enableTargetTracking then
+        return
+    end
+    
+    local unit = "target"
+    if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        return
+    end
+    
+    local name, realm = UnitNameUnmodified(unit)
+    if not name or name == "" then
+        return
+    end
+    
+    local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
+    Crosspaths:DebugLog("Target changed to: " .. fullName, "INFO")
+    self:RecordEncounter(fullName, "target", false)
+end
+
+-- Handle focus changes
+function Tracker:HandleFocusChanged()
+    if not Crosspaths.db.settings.tracking.enableTargetTracking then -- Share setting with target tracking
+        return
+    end
+    
+    local unit = "focus"
+    if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        return
+    end
+    
+    local name, realm = UnitNameUnmodified(unit)
+    if not name or name == "" then
+        return
+    end
+    
+    local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
+    Crosspaths:DebugLog("Focus changed to: " .. fullName, "INFO")
+    self:RecordEncounter(fullName, "focus", false)
+end
+
+-- Handle combat log events for player interactions
+function Tracker:HandleCombatLogEvent(...)
+    if not Crosspaths.db.settings.tracking.enableCombatLogTracking then
+        return
+    end
+    
+    local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
+    
+    if not subevent or not sourceName or not destName then
+        return
+    end
+    
+    -- Only track certain combat events that indicate meaningful interaction
+    local relevantEvents = {
+        "SPELL_DAMAGE", "SPELL_HEAL", "SPELL_AURA_APPLIED", "SPELL_AURA_REMOVED",
+        "SWING_DAMAGE", "RANGE_DAMAGE", "ENVIRONMENTAL_DAMAGE"
+    }
+    
+    local isRelevant = false
+    for _, event in ipairs(relevantEvents) do
+        if subevent == event then
+            isRelevant = true
+            break
+        end
+    end
+    
+    if not isRelevant then
+        return
+    end
+    
+    local playerName = UnitName("player")
+    if not playerName then
+        return
+    end
+    
+    local playerRealm = GetRealmName()
+    if not playerRealm then
+        return
+    end
+    
+    local playerFullName = playerName .. "-" .. playerRealm
+    
+    -- Check if we're involved in the combat (either as source or destination)
+    local targetPlayer = nil
+    
+    -- Validate flags before using bit operations
+    if sourceFlags and destFlags then
+        if sourceName == playerFullName and destGUID and destName then
+            -- We are the source, check if destination is a player
+            if bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and destName ~= playerFullName then
+                targetPlayer = destName
+            end
+        elseif destName == playerFullName and sourceGUID and sourceName then
+            -- We are the destination, check if source is a player
+            if bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and sourceName ~= playerFullName then
+                targetPlayer = sourceName
+            end
+        end
+    end
+    
+    if targetPlayer and targetPlayer ~= "" then
+        -- Use throttling for combat log events to prevent spam
+        local now = GetTime() * 1000
+        local lastTime = self.lastUpdate[targetPlayer .. ":combat"] or 0
+        local throttleTime = (Crosspaths.db.settings.tracking.throttleMs or 500) * 5 -- Longer throttle for combat
+        
+        if now - lastTime >= throttleTime then
+            self.lastUpdate[targetPlayer .. ":combat"] = now
+            Crosspaths:DebugLog("Combat interaction detected with: " .. targetPlayer .. " (event: " .. subevent .. ")", "INFO")
+            self:RecordEncounter(targetPlayer, "combat", false)
+        end
+    end
+end
+
+-- Start a new session (called on zone change or login)
+function Tracker:StartNewSession()
+    local currentZone = Crosspaths:GetCurrentZone()
+    local sessionId = time()
+    
+    -- Only start a new session if zone actually changed or this is initial setup
+    if not self.currentSession or self.currentSession.zone ~= currentZone then
+        self.currentSession = {
+            id = sessionId,
+            zone = currentZone,
+            encounters = {} -- Reset encounters for new zone/session
+        }
+        Crosspaths:DebugLog("Started new encounter session for zone: " .. currentZone .. " (session ID: " .. sessionId .. ")", "INFO")
+    end
+end
+
+-- Check if player has been encountered in current session
+function Tracker:HasEncounteredInSession(playerName)
+    if not self.currentSession or not self.currentSession.encounters then
+        return false
+    end
+    return self.currentSession.encounters[playerName] == true
+end
+
+-- Mark player as encountered in current session
+function Tracker:MarkEncounteredInSession(playerName)
+    if not self.currentSession then
+        self:StartNewSession()
+    end
+    if not self.currentSession.encounters then
+        self.currentSession.encounters = {}
+    end
+    self.currentSession.encounters[playerName] = true
+    Crosspaths:DebugLog("Marked " .. playerName .. " as encountered in current session", "DEBUG")
 end
 
 -- Record an encounter
@@ -315,7 +525,39 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         return
     end
     
-    Crosspaths:DebugLog("Recording encounter for: " .. playerName .. " (source: " .. tostring(source) .. ", grouped: " .. tostring(isGrouped) .. ")", "DEBUG")
+    -- Session-based encounter tracking to prevent inflation
+    -- Check if this player has already been encountered in the current session for this zone
+    if self:HasEncounteredInSession(playerName) then
+        Crosspaths:DebugLog("Player " .. playerName .. " already encountered in current session, skipping count increment (source: " .. tostring(source) .. ")", "DEBUG")
+        
+        -- Still update metadata and other tracking, but don't increment encounter count
+        local player = Crosspaths.db.players[playerName]
+        if player then
+            player.lastSeen = time()
+            if isGrouped then
+                player.grouped = true
+            end
+            
+            -- Update zones tracking (but don't increment count)
+            local currentZone = Crosspaths:GetCurrentZone()
+            if not player.zones[currentZone] then
+                player.zones[currentZone] = 0
+            end
+            
+            -- Try to get guild info and enhanced metadata
+            local unitToken = self:FindUnitTokenForPlayer(playerName)
+            if unitToken then
+                local guildName = GetGuildInfo(unitToken)
+                if guildName and guildName ~= "" then
+                    player.guild = guildName
+                end
+                self:UpdatePlayerMetadata(player, unitToken)
+            end
+        end
+        return
+    end
+    
+    Crosspaths:DebugLog("Recording NEW encounter for: " .. playerName .. " (source: " .. tostring(source) .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
     
     -- Validate database state
     if not Crosspaths.db or not Crosspaths.db.players then
@@ -376,7 +618,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         if not player.levelHistory then player.levelHistory = {} end
     end
     
-    -- Update player data
+    -- Update player data (only increment count for new session encounters)
     player.count = player.count + 1
     player.lastSeen = timestamp
     
@@ -415,11 +657,14 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         self:UpdatePlayerMetadata(player, unitToken)
     end
     
+    -- Mark as encountered in current session to prevent duplicate counting
+    self:MarkEncounteredInSession(playerName)
+    
     if Crosspaths.sessionStats then
         Crosspaths.sessionStats.encountersDetected = Crosspaths.sessionStats.encountersDetected + 1
     end
     
-    Crosspaths:DebugLog("Encounter recorded successfully: " .. playerName .. " (total encounters: " .. player.count .. ", source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
+    Crosspaths:DebugLog("NEW encounter recorded successfully: " .. playerName .. " (total encounters: " .. player.count .. ", source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
     
     -- Check for notifications
     self:CheckNotifications(playerName, player)

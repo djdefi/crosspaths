@@ -51,13 +51,24 @@ function UI:HandleSlashCommand(msg)
     elseif command == "top" then
         self:ShowTopPlayers()
     elseif command == "stats" then
-        self:ShowStats()
+        if args[2] then
+            self:ShowAdvancedStats(args[2])
+        else
+            self:ShowStats()
+        end
     elseif command == "search" then
         local query = table.concat(args, " ", 2)
         self:ShowSearchResults(query)
     elseif command == "export" then
         local format = args[2] or "json"
         self:ExportData(format)
+    elseif command == "remove" then
+        local playerName = table.concat(args, " ", 2)
+        if playerName and playerName ~= "" then
+            self:RemovePlayer(playerName)
+        else
+            Crosspaths:Message("Usage: /crosspaths remove <player-name>")
+        end
     elseif command == "clear" then
         if args[2] == "confirm" then
             self:ClearData()
@@ -728,9 +739,10 @@ function UI:ShowHelp()
         "Crosspaths Commands:",
         "/crosspaths show - Show main UI",
         "/crosspaths top - Show top players",
-        "/crosspaths stats - Show summary stats",
+        "/crosspaths stats [tanks|healers|dps|ilvl|achievements] - Show stats",
         "/crosspaths search <name> - Search for player",
         "/crosspaths export [json|csv] - Export data",
+        "/crosspaths remove <player-name> - Remove player from tracking",
         "/crosspaths clear confirm - Clear all data",
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
@@ -856,17 +868,20 @@ function UI:AddEncounterInfoToTooltip(tooltip)
     local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
     local playerData = Crosspaths.db.players[fullName]
     
+    -- Add a separator line
+    tooltip:AddLine(" ")
+    
+    -- Add Crosspaths header
+    tooltip:AddLine("|cFF7B68EECrosspaths|r", 0.4, 0.4, 1)
+    
     if playerData and playerData.count and playerData.count > 0 then
         local encounterCount = playerData.count
         
-        -- Add a separator line
-        tooltip:AddLine(" ")
-        
-        -- Add Crosspaths header
-        tooltip:AddLine("|cFF7B68EECrosspaths|r", 0.4, 0.4, 1)
-        
-        -- Add encounter count
-        tooltip:AddDoubleLine("Encounters:", tostring(encounterCount), 0.8, 0.8, 0.8, 1, 1, 1)
+        -- Show encounter status with clear feedback
+        local statusText = "|cFF00FF00Previously Encountered|r"
+        local countColor = encounterCount >= 10 and "|cFFFFD700" or encounterCount >= 5 and "|cFF00FF00" or "|cFFFFFFFF"
+        tooltip:AddDoubleLine("Status:", statusText, 0.8, 0.8, 0.8, 0, 1, 0)
+        tooltip:AddDoubleLine("Encounters:", countColor .. tostring(encounterCount) .. "|r", 0.8, 0.8, 0.8, 1, 1, 1)
         
         -- Add class and race info
         if playerData.class and playerData.class ~= "" then
@@ -917,9 +932,11 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             tooltip:AddDoubleLine("First seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
         end
         
-        -- Add grouped status
+        -- Add grouped status with enhanced visibility
         if playerData.grouped then
-            tooltip:AddDoubleLine("Status:", "Previously grouped", 0.8, 0.8, 0.8, 0.6, 1, 0.6)
+            tooltip:AddDoubleLine("Group Status:", "|cFF00FF00Previously Grouped With You|r", 0.8, 0.8, 0.8, 0, 1, 0)
+        else
+            tooltip:AddDoubleLine("Group Status:", "|cFF888888Never Grouped|r", 0.8, 0.8, 0.8, 0.5, 0.5, 0.5)
         end
         
         -- Add guild info if available
@@ -941,6 +958,11 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
         end
         
+        tooltip:Show()
+    else
+        -- Show clear indication for never encountered players
+        tooltip:AddDoubleLine("Status:", "|cFFFF6B6BNever Encountered|r", 0.8, 0.8, 0.8, 1, 0.4, 0.4)
+        tooltip:AddDoubleLine("Encounters:", "|cFF888888None|r", 0.8, 0.8, 0.8, 0.5, 0.5, 0.5)
         tooltip:Show()
     end
 end
@@ -1068,5 +1090,67 @@ function UI:FormatTimeAgo(timestamp)
     else
         local days = math.floor(diff / 86400)
         return days .. " day" .. (days ~= 1 and "s" or "") .. " ago"
+    end
+end
+
+-- Remove a specific player from tracking
+function UI:RemovePlayer(playerName)
+    if not Crosspaths.db or not Crosspaths.db.players then
+        Crosspaths:Message("No player database available")
+        return
+    end
+    
+    -- Handle both "Name" and "Name-Realm" formats
+    local targetName = playerName
+    if not string.find(playerName, "-") then
+        targetName = playerName .. "-" .. GetRealmName()
+    end
+    
+    if Crosspaths.db.players[targetName] then
+        local playerData = Crosspaths.db.players[targetName]
+        local encounters = playerData.count or 0
+        Crosspaths.db.players[targetName] = nil
+        Crosspaths:Message("Removed " .. targetName .. " (" .. encounters .. " encounters) from tracking")
+        Crosspaths:DebugLog("Player removed: " .. targetName, "INFO")
+        
+        -- Refresh UI if it's open
+        if self.mainFrame and self.mainFrame:IsShown() then
+            self:RefreshCurrentTab()
+        end
+    else
+        Crosspaths:Message("Player not found in database: " .. targetName)
+    end
+end
+
+-- Show advanced statistics by type
+function UI:ShowAdvancedStats(statType)
+    if not Crosspaths.Engine then
+        Crosspaths:Message("Engine not available")
+        return
+    end
+    
+    local players = Crosspaths.Engine:GetTopPlayersByType(statType, 10)
+    
+    if #players == 0 then
+        Crosspaths:Message("No data available for " .. statType)
+        return
+    end
+    
+    local title = "Top " .. string.upper(statType) .. " Players:"
+    Crosspaths:Message(title)
+    
+    for i, player in ipairs(players) do
+        local line = string.format("%d. %s", i, player.name)
+        
+        if statType == "ilvl" or statType == "itemlevel" then
+            line = line .. string.format(" (iLvl: %d, %d encounters)", player.itemLevel, player.count)
+        elseif statType == "achievements" then
+            line = line .. string.format(" (%d points, %d encounters)", player.achievementPoints, player.count)
+        else
+            local spec = player.specialization and (" - " .. player.specialization) or ""
+            line = line .. string.format("%s (%d encounters)", spec, player.count)
+        end
+        
+        Crosspaths:Message(line)
     end
 end
