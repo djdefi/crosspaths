@@ -22,6 +22,15 @@ function Tracker:Initialize()
     self.lastPosition = {} -- Track last known positions for location-based throttling
     self.updateThrottle = 500 -- 500ms throttle (will be overridden by settings)
     
+    -- Session-based encounter tracking to prevent inflation
+    self.currentSession = {
+        id = time(), -- Session ID based on start time
+        zone = "",
+        encounters = {} -- Track players encountered this session in this zone
+    }
+    
+    -- Initialize session tracking
+    self:StartNewSession()
     -- Register events for tracking
     self.eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     self.eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
@@ -264,6 +273,9 @@ end
 function Tracker:HandleZoneChange()
     Crosspaths:DebugLog("Zone change detected", "DEBUG")
     
+    -- Start new session on zone change to prevent encounter inflation
+    self:StartNewSession()
+    
     -- Prune old data on zone change
     self:PruneOldData()
 end
@@ -414,6 +426,42 @@ function Tracker:HandleCombatLogEvent(...)
     end
 end
 
+-- Start a new session (called on zone change or login)
+function Tracker:StartNewSession()
+    local currentZone = Crosspaths:GetCurrentZone()
+    local sessionId = time()
+    
+    -- Only start a new session if zone actually changed or this is initial setup
+    if not self.currentSession or self.currentSession.zone ~= currentZone then
+        self.currentSession = {
+            id = sessionId,
+            zone = currentZone,
+            encounters = {} -- Reset encounters for new zone/session
+        }
+        Crosspaths:DebugLog("Started new encounter session for zone: " .. currentZone .. " (session ID: " .. sessionId .. ")", "INFO")
+    end
+end
+
+-- Check if player has been encountered in current session
+function Tracker:HasEncounteredInSession(playerName)
+    if not self.currentSession or not self.currentSession.encounters then
+        return false
+    end
+    return self.currentSession.encounters[playerName] == true
+end
+
+-- Mark player as encountered in current session
+function Tracker:MarkEncounteredInSession(playerName)
+    if not self.currentSession then
+        self:StartNewSession()
+    end
+    if not self.currentSession.encounters then
+        self.currentSession.encounters = {}
+    end
+    self.currentSession.encounters[playerName] = true
+    Crosspaths:DebugLog("Marked " .. playerName .. " as encountered in current session", "DEBUG")
+end
+
 -- Record an encounter
 function Tracker:RecordEncounter(playerName, source, isGrouped)
     if not playerName or playerName == "" then
@@ -477,7 +525,39 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         return
     end
     
-    Crosspaths:DebugLog("Recording encounter for: " .. playerName .. " (source: " .. tostring(source) .. ", grouped: " .. tostring(isGrouped) .. ")", "DEBUG")
+    -- Session-based encounter tracking to prevent inflation
+    -- Check if this player has already been encountered in the current session for this zone
+    if self:HasEncounteredInSession(playerName) then
+        Crosspaths:DebugLog("Player " .. playerName .. " already encountered in current session, skipping count increment (source: " .. tostring(source) .. ")", "DEBUG")
+        
+        -- Still update metadata and other tracking, but don't increment encounter count
+        local player = Crosspaths.db.players[playerName]
+        if player then
+            player.lastSeen = time()
+            if isGrouped then
+                player.grouped = true
+            end
+            
+            -- Update zones tracking (but don't increment count)
+            local currentZone = Crosspaths:GetCurrentZone()
+            if not player.zones[currentZone] then
+                player.zones[currentZone] = 0
+            end
+            
+            -- Try to get guild info and enhanced metadata
+            local unitToken = self:FindUnitTokenForPlayer(playerName)
+            if unitToken then
+                local guildName = GetGuildInfo(unitToken)
+                if guildName and guildName ~= "" then
+                    player.guild = guildName
+                end
+                self:UpdatePlayerMetadata(player, unitToken)
+            end
+        end
+        return
+    end
+    
+    Crosspaths:DebugLog("Recording NEW encounter for: " .. playerName .. " (source: " .. tostring(source) .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
     
     -- Validate database state
     if not Crosspaths.db or not Crosspaths.db.players then
@@ -538,7 +618,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         if not player.levelHistory then player.levelHistory = {} end
     end
     
-    -- Update player data
+    -- Update player data (only increment count for new session encounters)
     player.count = player.count + 1
     player.lastSeen = timestamp
     
@@ -577,11 +657,14 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         self:UpdatePlayerMetadata(player, unitToken)
     end
     
+    -- Mark as encountered in current session to prevent duplicate counting
+    self:MarkEncounteredInSession(playerName)
+    
     if Crosspaths.sessionStats then
         Crosspaths.sessionStats.encountersDetected = Crosspaths.sessionStats.encountersDetected + 1
     end
     
-    Crosspaths:DebugLog("Encounter recorded successfully: " .. playerName .. " (total encounters: " .. player.count .. ", source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
+    Crosspaths:DebugLog("NEW encounter recorded successfully: " .. playerName .. " (total encounters: " .. player.count .. ", source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")
     
     -- Check for notifications
     self:CheckNotifications(playerName, player)

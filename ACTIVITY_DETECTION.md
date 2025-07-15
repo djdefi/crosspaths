@@ -2,6 +2,19 @@
 
 This document describes the enhanced activity detection features added to Crosspaths v0.1.8.
 
+## Encounter Counting System
+
+### Session-Based Encounter Prevention
+- **One encounter per player per zone per session** - Prevents encounter inflation
+- **Session Definition**: Starts fresh when you enter a new zone or log in
+- **Multiple Detection Sources**: Different detection methods don't create duplicate encounters
+- **Meaningful Statistics**: Encounter counts represent actual unique meetings, not detection events
+
+### Detection vs. Encounter
+- **Detection**: When the addon notices a player (mouseover, nameplate, etc.)
+- **Encounter**: Only counted once per session per zone, regardless of detection method
+- **Example**: If you mouseover, target, and see a nameplate of the same player in one dungeon, that's still just 1 encounter
+
 ## New Detection Methods
 
 ### 1. Mouseover/Proximity Detection
