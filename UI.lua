@@ -471,6 +471,15 @@ function UI:RefreshSummaryTab()
     table.insert(lines, "|cFFFFD700Crosspaths Statistics Overview|r")
     table.insert(lines, "")
     
+    -- Encounter definition
+    table.insert(lines, "|cFF80C0FFWhat are Encounters?|r")
+    table.insert(lines, "  An encounter is recorded when you detect another player through:")
+    table.insert(lines, "  • |cFFADD8E6Grouping|r (parties, raids)")
+    table.insert(lines, "  • |cFFADD8E6Proximity|r (nameplates, mouseover)")
+    table.insert(lines, "  • |cFFADD8E6Interaction|r (targeting, combat)")
+    table.insert(lines, "  |cFF888888Note: Only 1 encounter per player per zone per session|r")
+    table.insert(lines, "")
+    
     -- Overall statistics
     table.insert(lines, "|cFFFF8080Overall Statistics:|r")
     table.insert(lines, string.format("  Total Players: |cFF00FF00%d|r", stats.totalPlayers))
@@ -623,6 +632,12 @@ function UI:RefreshEncountersTab()
     local lines = {}
     
     table.insert(lines, "|cFFFFD700Zone and Context Statistics|r")
+    table.insert(lines, "")
+    table.insert(lines, "|cFF80C0FFEncounter Detection:|r")
+    table.insert(lines, "  Encounters track when you detect other players in various ways:")
+    table.insert(lines, "  • |cFFB0E0E6Party/Raid members|r, |cFFB0E0E6Nearby players|r, |cFFB0E0E6Target/Focus|r")
+    table.insert(lines, "  • |cFFB0E0E6Mouseover interactions|r, |cFFB0E0E6Combat participants|r")
+    table.insert(lines, "  Limited to 1 encounter per player per zone per session.")
     table.insert(lines, "")
     
     -- Top zones
@@ -932,7 +947,18 @@ end
 
 function UI:ShowHelp()
     local help = {
-        "Crosspaths Commands:",
+        "|cFFFFD700Crosspaths - Social Memory Tracker|r",
+        "",
+        "|cFF80C0FFWhat are Encounters?|r",
+        "• Encounters track when you detect other players through:",
+        "  - Grouping (parties, raids, battlegrounds)",
+        "  - Proximity (nameplates, mouseover interactions)", 
+        "  - Direct interaction (targeting, focusing)",
+        "  - Combat participation (damage, healing, buffs)",
+        "• Limited to 1 encounter per player per zone per session",
+        "• A new session starts when you change zones or log in",
+        "",
+        "|cFFFFD700Commands:|r",
         "/crosspaths show - Show main UI",
         "/crosspaths top - Show top players",
         "/crosspaths stats [tanks|healers|dps|ilvl|achievements] - Show stats",
@@ -1079,6 +1105,11 @@ function UI:AddEncounterInfoToTooltip(tooltip)
         tooltip:AddDoubleLine("Status:", statusText, 0.8, 0.8, 0.8, 0, 1, 0)
         tooltip:AddDoubleLine("Encounters:", countColor .. tostring(encounterCount) .. "|r", 0.8, 0.8, 0.8, 1, 1, 1)
         
+        -- Add helpful explanation for encounters
+        if encounterCount == 1 then
+            tooltip:AddLine("|cFF888888(Detected through proximity, grouping, or interaction)|r", 0.5, 0.5, 0.5, true)
+        end
+        
         -- Add class and race info
         if playerData.class and playerData.class ~= "" then
             local classInfo = playerData.class
@@ -1204,6 +1235,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
         -- Show clear indication for never encountered players
         tooltip:AddDoubleLine("Status:", "|cFFFF6B6BNever Encountered|r", 0.8, 0.8, 0.8, 1, 0.4, 0.4)
         tooltip:AddDoubleLine("Encounters:", "|cFF888888None|r", 0.8, 0.8, 0.8, 0.5, 0.5, 0.5)
+        tooltip:AddLine("|cFF888888(Will be tracked once detected)|r", 0.5, 0.5, 0.5, true)
         tooltip:Show()
     end
 end

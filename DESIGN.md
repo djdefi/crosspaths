@@ -23,15 +23,25 @@
 
 ### Encounter Tracking
 
-* Stores unique identifiers (name-realm) and associated metadata.
-* Tracks:
+**Definition**: An encounter is recorded when Crosspaths detects another player through any of the following methods:
 
-  * First seen and last seen timestamps
-  * Total number of encounters
-  * Grouped with (boolean)
-  * Guild name (if applicable)
-  * Zones of encounter
-  * Encounter context (raid, dungeon, world, PvP)
+- **Grouping Events**: Party members, raid members, battleground teammates
+- **Proximity Detection**: Nameplate appearances, mouseover interactions
+- **Direct Interactions**: Player targeting, focus changes
+- **Combat Participation**: Damage dealt/received, healing, buff/debuff exchanges
+
+**Session-Based Limitation**: To prevent encounter inflation, only 1 encounter per unique player per zone per session is counted. A new session begins when:
+- The player changes zones/areas
+- The player logs in or reloads the UI
+
+**Data Storage**: Each encounter records:
+- First seen and last seen timestamps
+- Total number of encounters (session-limited)
+- Grouped with (boolean flag)
+- Guild name (if applicable)
+- Zones of encounter with individual counts
+- Encounter context (raid, dungeon, world, PvP)
+- Enhanced metadata (class, level, specialization when available)
 
 ### Statistics & Insights
 

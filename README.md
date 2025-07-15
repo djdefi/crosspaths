@@ -8,8 +8,13 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
 
 ### 🎯 Encounter Tracking
 - Automatically tracks players you encounter in the world
-- Records group members, nearby players, and social interactions
-- Stores encounter history with timestamps and context
+- **What is an Encounter?** - Detection of another player through:
+  - Grouping (parties, raids, battlegrounds)
+  - Proximity (nameplates, mouseover interactions)
+  - Direct interaction (targeting, focusing)
+  - Combat participation (damage, healing, buffs)
+- **Session-based counting** - Only 1 encounter per player per zone per session
+- Records encounter history with timestamps and context
 
 ### 📊 Statistics & Insights  
 - View top players by encounter count
@@ -104,6 +109,26 @@ The addon uses GitHub Actions for automated testing and releases:
 - **Issues** - Report bugs or request features on [GitHub Issues](https://github.com/djdefi/crosspaths/issues)
 - **Documentation** - See [DESIGN.md](DESIGN.md) for detailed technical design
 - **Community** - Join discussions in the Issues section
+
+## Frequently Asked Questions
+
+### What exactly is an "encounter"?
+An encounter is recorded when Crosspaths detects another player through various means:
+- **Grouping** with them (parties, raids, battlegrounds)
+- **Proximity** detection (nameplates, mouseover)
+- **Direct interaction** (targeting, focusing them)
+- **Combat** participation (damage, healing, buffs between you)
+
+To prevent spam, only **1 encounter per player per zone per session** is counted. A new session starts when you change zones or log in.
+
+### Why don't I see high encounter counts?
+The session-based system prevents encounter inflation. If you see the same player multiple times in the same zone during the same session, it only counts as 1 encounter. This gives more meaningful statistics about actual unique meetings rather than detection events.
+
+### How accurate is the tracking?
+Crosspaths only tracks what it can detect through the WoW API. Some limitations:
+- Players must be within detection range (nameplates, interaction range)
+- Some player information (class, level) may only be available when grouped
+- Cross-realm players are tracked with their full "Name-Realm" identifier
 
 ## License
 
