@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.8] - 2025-07-15
+
+### Added
+- Initial plan
+- Implement enhanced activity detection and advanced statistics
+- Complete enhanced activity detection implementation with config options
+- Implement session-based encounter tracking to prevent encounter inflation
+- Fix trailing whitespace linting issues in Tracker.lua
+- Merge pull request #22 from djdefi/copilot/fix-21
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.7] - 2025-07-14
 
 ### Added
