@@ -331,7 +331,7 @@ function Tracker:HandleTargetChanged()
     self:RecordEncounter(fullName, "target", false)
 end
 
--- Handle focus changes  
+-- Handle focus changes
 function Tracker:HandleFocusChanged()
     if not Crosspaths.db.settings.tracking.enableTargetTracking then -- Share setting with target tracking
         return
@@ -405,7 +405,7 @@ function Tracker:HandleCombatLogEvent(...)
                 targetPlayer = destName
             end
         elseif destName == playerFullName and sourceGUID and sourceName then
-            -- We are the destination, check if source is a player  
+            -- We are the destination, check if source is a player
             if bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_PLAYER) > 0 and sourceName ~= playerFullName then
                 targetPlayer = sourceName
             end
