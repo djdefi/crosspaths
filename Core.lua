@@ -34,10 +34,23 @@ local defaults = {
         maxPlayers = 10000, -- Maximum players to track
     },
     notifications = {
+        enableNotifications = true,
         notifyRepeatEncounters = true,
         notifyFrequentPlayers = true,
         notifyPreviousGroupMembers = true,
+        notifyNewEncounters = true,
+        notifyGuildMembers = true,
+        playSound = true,
+        doNotDisturbCombat = true,
+        maxNotifications = 3,
+        duration = 3,
         frequentPlayerThreshold = 10, -- Encounters needed to be "frequent"
+    },
+    digests = {
+        autoNotify = true,
+        enableDaily = true,
+        enableWeekly = true,
+        enableMonthly = true,
     }
 }
 
@@ -47,28 +60,28 @@ function Crosspaths:InitializeDB()
     if not CrosspathsDB then
         CrosspathsDB = {}
     end
-    
+
     -- Validate CrosspathsDB structure
     if type(CrosspathsDB) ~= "table" then
         CrosspathsDB = {}
         self:Message("Crosspaths database was corrupted, resetting to defaults", true)
     end
-    
+
     -- Check for version upgrade
     if CrosspathsDB.version ~= self.version then
         self:OnVersionUpgrade(CrosspathsDB.version, self.version)
         CrosspathsDB.version = self.version
     end
-    
+
     -- Initialize main data structures
     if not CrosspathsDB.players then
         CrosspathsDB.players = {}
     end
-    
+
     if not CrosspathsDB.settings then
         CrosspathsDB.settings = {}
     end
-    
+
     -- Merge defaults with saved settings
     for key, value in pairs(defaults) do
         if CrosspathsDB.settings[key] == nil then
@@ -89,7 +102,7 @@ function Crosspaths:InitializeDB()
             end
         end
     end
-    
+
     self.db = CrosspathsDB
     self:Print("Database initialized with " .. self:CountPlayers() .. " players tracked")
 end
@@ -139,12 +152,12 @@ function Crosspaths:SafeCall(func, ...)
         local errorMsg = tostring(result)
         print("|cFFFF0000Crosspaths Error:|r " .. errorMsg)
         self:LogError("SafeCall Error: " .. errorMsg)
-        
+
         if self.debug then
             print("|cFFFF0000Stack trace:|r " .. debugstack())
             self:DebugLog("Stack trace: " .. debugstack(), "ERROR")
         end
-        
+
         return false, result
     end
     return true, result
@@ -184,11 +197,11 @@ end
 function Crosspaths:OnInitialize()
     self:SafeCall(function()
         self:InitializeDB()
-        
+
         -- Apply debug setting from database and update logging level
         if self.db and self.db.settings then
             self.debug = self.db.settings.debug or false
-            
+
             -- Update logging level based on debug setting
             if self.Logging then
                 if self.debug then
@@ -198,18 +211,18 @@ function Crosspaths:OnInitialize()
                 end
             end
         end
-        
+
         self:Print("Crosspaths " .. self.version .. " loaded")
-        
+
         -- Initialize session statistics
         self:InitializeSessionStats()
-        
+
         -- Initialize logging module first for better debugging
         if self.Logging then
             self.Logging:InitializeVariables()
             self:DebugLog("Logging module initialized")
         end
-        
+
         -- Initialize modules in dependency order
         if self.Tracker then
             local success = self.Tracker:Initialize()
@@ -219,22 +232,29 @@ function Crosspaths:OnInitialize()
                 self:DebugLog("Tracker module initialization failed", "ERROR")
             end
         end
-        
+
         if self.Engine then
             self.Engine:Initialize()
             self:DebugLog("Engine module initialized")
         end
-        
+
         if self.UI then
             self.UI:Initialize()
             self:DebugLog("UI module initialized")
         end
-        
+
         if self.Config then
             self.Config:Initialize()
             self:DebugLog("Config module initialized")
         end
-        
+
+        -- Initialize Titan Panel integration if available
+        if self.TitanPanel then
+            self.TitanPanel:Initialize()
+            self.TitanPanel:StartUpdateTimer()
+            self:DebugLog("Titan Panel module initialized")
+        end
+
         self:Message("Crosspaths " .. self.version .. " initialized successfully")
         self:DebugLog("Crosspaths initialization completed successfully", "INFO")
     end)
@@ -248,7 +268,7 @@ function Crosspaths:OnEvent(event, ...)
             self.sessionStats.eventsHandled = self.sessionStats.eventsHandled + 1
         end
         self:DebugLog("Event received: " .. event)
-        
+
         if event == "ADDON_LOADED" then
             local loadedAddon = args[1]
             if loadedAddon == addonName then
@@ -273,12 +293,12 @@ function Crosspaths:OnPlayerEnteringWorld()
     self:SafeCall(function()
         self:Print("Player entering world")
         self:DebugLog("Player entering world", "INFO")
-        
+
         if not self.db then
             self:DebugLog("Database not yet initialized during OnPlayerEnteringWorld", "WARN")
             return
         end
-        
+
         -- Crosspaths works for all classes and specs
         self:Print("Crosspaths enabled for social memory tracking")
         self:DebugLog("Crosspaths enabled for all players", "INFO")
@@ -305,11 +325,11 @@ function Crosspaths:Cleanup()
         if self.UI then
             self.UI:Hide()
         end
-        
+
         if self.Tracker then
             self.Tracker:Stop()
         end
-        
+
         self:Print("Crosspaths cleanup completed")
     end)
 end

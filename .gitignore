@@ -24,4 +24,9 @@ dist/
 
 # Temporary files
 tmp/
-temp//tmp/
+temp/
+
+# Test artifacts  
+tests/tmp/
+tests/temp/
+tests/*.tmp
