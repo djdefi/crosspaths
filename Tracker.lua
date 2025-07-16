@@ -892,7 +892,7 @@ function Tracker:CheckNotifications(playerName, player)
             local key = "frequent:" .. playerName
             local lastTime = self.lastNotification[key] or 0
             if now - lastTime >= notificationThrottle then
-                self:ShowNotification("Frequent Player", playerName .. " encountered " .. player.count .. " times")
+                self:ShowNotification("Frequent Player", playerName .. " encountered " .. player.count .. " times", "frequent")
                 self.lastNotification[key] = now
             end
         end
@@ -904,7 +904,7 @@ function Tracker:CheckNotifications(playerName, player)
         local lastTime = self.lastNotification[key] or 0
         -- Use longer throttle for group notifications (5 minutes) to prevent raid spam
         if now - lastTime >= 300000 then -- 5 minutes
-            self:ShowNotification("Previous Group Member", "You've grouped with " .. playerName .. " before!")
+            self:ShowNotification("Previous Group Member", "You've grouped with " .. playerName .. " before!", "group")
             self.lastNotification[key] = now
         end
     end
@@ -914,16 +914,16 @@ function Tracker:CheckNotifications(playerName, player)
         local key = "repeat:" .. playerName .. ":" .. player.count
         local lastTime = self.lastNotification[key] or 0
         if now - lastTime >= notificationThrottle then
-            self:ShowNotification("Repeat Encounter", playerName .. " (seen " .. player.count .. " times)")
+            self:ShowNotification("Repeat Encounter", playerName .. " (seen " .. player.count .. " times)", "repeat")
             self.lastNotification[key] = now
         end
     end
 end
 
 -- Show notification
-function Tracker:ShowNotification(title, message)
+function Tracker:ShowNotification(title, message, notificationType)
     if Crosspaths.UI and Crosspaths.UI.ShowToast then
-        Crosspaths.UI:ShowToast(title, message)
+        Crosspaths.UI:ShowToast(title, message, notificationType)
     else
         -- Fallback to chat message
         Crosspaths:Message("[" .. title .. "] " .. message)

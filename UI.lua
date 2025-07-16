@@ -99,6 +99,20 @@ function UI:HandleSlashCommand(msg)
         end
     elseif command == "status" then
         self:ShowStatus()
+    elseif command == "digest" then
+        local digestType = args[2] or "daily"
+        if digestType == "daily" then
+            local digest = Crosspaths.Engine:GenerateDailyDigest()
+            self:ShowDigestReport("Daily Digest", digest)
+        elseif digestType == "weekly" then
+            local digest = Crosspaths.Engine:GenerateWeeklyDigest()
+            self:ShowDigestReport("Weekly Digest", digest)
+        elseif digestType == "monthly" then
+            local digest = Crosspaths.Engine:GenerateMonthlyDigest()
+            self:ShowDigestReport("Monthly Digest", digest)
+        else
+            Crosspaths:Message("Usage: /crosspaths digest [daily|weekly|monthly]")
+        end
     elseif command == "help" then
         self:ShowHelp()
     else
@@ -781,13 +795,38 @@ function UI:RefreshAdvancedTab()
 end
 
 -- Show toast notification
-function UI:ShowToast(title, message)
+function UI:ShowToast(title, message, notificationType)
+    -- Check master notification settings
     if not Crosspaths.db or not Crosspaths.db.settings.ui.showNotifications then
         return
     end
     
-    -- Calculate position based on existing toasts to prevent overlap
-    local yOffset = -100
+    local notifications = Crosspaths.db.settings.notifications
+    if not notifications.enableNotifications then
+        return
+    end
+    
+    -- Check Do Not Disturb mode
+    if notifications.doNotDisturbCombat and InCombatLockdown() then
+        return
+    end
+    
+    -- Check specific notification type
+    if notificationType then
+        if notificationType == "repeat" and not notifications.notifyRepeatEncounters then
+            return
+        elseif notificationType == "frequent" and not notifications.notifyFrequentPlayers then
+            return
+        elseif notificationType == "group" and not notifications.notifyPreviousGroupMembers then
+            return
+        elseif notificationType == "new" and not notifications.notifyNewEncounters then
+            return
+        elseif notificationType == "guild" and not notifications.notifyGuildMembers then
+            return
+        end
+    end
+    
+    -- Check max notifications limit
     local activeToasts = 0
     for i = #self.toastFrames, 1, -1 do
         local toast = self.toastFrames[i]
@@ -799,10 +838,16 @@ function UI:ShowToast(title, message)
         end
     end
     
-    -- Stack notifications vertically with some spacing
+    local maxNotifications = notifications.maxNotifications or 3
+    if activeToasts >= maxNotifications then
+        return -- Don't show more notifications than the limit
+    end
+    
+    -- Calculate position based on existing toasts to prevent overlap
+    local yOffset = -100
     yOffset = yOffset - (activeToasts * 70) -- 70 pixels per notification (60 height + 10 spacing)
     
-    -- Simple toast implementation
+    -- Create toast notification
     local toast = CreateFrame("Frame", nil, UIParent)
     toast:SetSize(300, 60)
     toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
@@ -825,8 +870,13 @@ function UI:ShowToast(title, message)
     toast.message:SetText(message)
     toast.message:SetTextColor(1, 1, 1)
     
+    -- Play sound if enabled
+    if notifications.playSound then
+        PlaySound(SOUNDKIT.FRIEND_JOIN_GAME or 5633)
+    end
+    
     -- Auto-hide
-    local duration = Crosspaths.db.settings.ui.notificationDuration or 3
+    local duration = notifications.duration or Crosspaths.db.settings.ui.notificationDuration or 3
     C_Timer.After(duration, function()
         if toast then
             toast:Hide()
@@ -942,6 +992,15 @@ function UI:ShowHelp()
         "/crosspaths clear confirm - Clear all data",
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
+        "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
+        "/cpconfig - Open configuration panel",
+        "",
+        "New Features:",
+        "• Enhanced notification options with granular controls",
+        "• Daily/Weekly/Monthly digest reports",
+        "• Titan Panel integration (if available)",
+        "• Do Not Disturb mode during combat",
+        "• Notification sound options",
     }
     
     for _, line in ipairs(help) do
@@ -1359,8 +1418,252 @@ function UI:RemovePlayer(playerName)
             self:RefreshCurrentTab()
         end
     else
-        Crosspaths:Message("Player not found in database: " .. targetName)
+        Crosspaths:Message("Player '" .. targetName .. "' not found")
     end
+end
+
+-- Show digest report in a window
+function UI:ShowDigestReport(title, digest)
+    -- Create digest report frame
+    local frame = CreateFrame("Frame", "CrosspathsDigestFrame", UIParent, "BasicFrameTemplateWithInset")
+    frame:SetSize(500, 600)
+    frame:SetPoint("CENTER")
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetFrameStrata("HIGH")
+    
+    -- Title
+    frame.title = frame:CreateFontString(nil, "OVERLAY")
+    frame.title:SetFontObject("GameFontHighlight")
+    frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
+    frame.title:SetText(title)
+    
+    -- Scroll frame for content
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
+    
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(450, 800)
+    scrollFrame:SetScrollChild(content)
+    
+    -- Generate content
+    self:PopulateDigestContent(content, digest)
+    
+    -- Close button
+    local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+    closeBtn:SetSize(80, 25)
+    closeBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
+    closeBtn:SetText("Close")
+    closeBtn:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+    
+    -- Export button
+    local exportBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+    exportBtn:SetSize(80, 25)
+    exportBtn:SetPoint("RIGHT", closeBtn, "LEFT", -10, 0)
+    exportBtn:SetText("Export")
+    exportBtn:SetScript("OnClick", function()
+        self:ExportDigest(digest, title)
+    end)
+    
+    frame:Show()
+end
+
+-- Populate digest content
+function UI:PopulateDigestContent(content, digest)
+    local yOffset = -10
+    
+    -- Period header
+    local periodLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    periodLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+    periodLabel:SetText("|cFFFFD700" .. digest.period:upper() .. " DIGEST|r")
+    yOffset = yOffset - 25
+    
+    local dateRange = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    dateRange:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+    dateRange:SetText(string.format("|cFFADD8E6Period:|r %s to %s", 
+        os.date("%m/%d/%Y", digest.startTime), 
+        os.date("%m/%d/%Y", digest.endTime)))
+    yOffset = yOffset - 30
+    
+    -- Overview stats
+    local overviewLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    overviewLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+    overviewLabel:SetText("|cFF00FF00Overview|r")
+    yOffset = yOffset - 20
+    
+    local newPlayers = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    newPlayers:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+    newPlayers:SetText(string.format("• New players discovered: |cFFFFFFFF%d|r", digest.newPlayers))
+    yOffset = yOffset - 15
+    
+    local totalEncounters = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    totalEncounters:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+    totalEncounters:SetText(string.format("• Total encounters: |cFFFFFFFF%d|r", digest.totalEncounters))
+    yOffset = yOffset - 15
+    
+    if digest.averageLevel and digest.averageLevel > 0 then
+        local avgLevel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        avgLevel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+        avgLevel:SetText(string.format("• Average player level: |cFFFFFFFF%d|r", digest.averageLevel))
+        yOffset = yOffset - 15
+    end
+    
+    if digest.activeDays then
+        local activeDays = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        activeDays:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+        activeDays:SetText(string.format("• Active days: |cFFFFFFFF%d|r", digest.activeDays))
+        yOffset = yOffset - 15
+    end
+    
+    if digest.peakDay and digest.peakDay ~= "" then
+        local peakDay = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        peakDay:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+        peakDay:SetText(string.format("• Peak activity: |cFFFFFFFF%s (%d encounters)|r", digest.peakDay, digest.peakDayEncounters))
+        yOffset = yOffset - 15
+    end
+    
+    yOffset = yOffset - 10
+    
+    -- Top zones
+    if digest.topZones and #digest.topZones > 0 then
+        local zonesLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        zonesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        zonesLabel:SetText("|cFF00FF00Top Zones|r")
+        yOffset = yOffset - 20
+        
+        for i, zone in ipairs(digest.topZones) do
+            if i <= 5 then
+                local zoneText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                zoneText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+                zoneText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, zone.zone, zone.count))
+                yOffset = yOffset - 15
+            end
+        end
+        yOffset = yOffset - 10
+    end
+    
+    -- Top classes
+    if digest.topClasses and #digest.topClasses > 0 then
+        local classesLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        classesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        classesLabel:SetText("|cFF00FF00Popular Classes|r")
+        yOffset = yOffset - 20
+        
+        for i, class in ipairs(digest.topClasses) do
+            if i <= 5 then
+                local classText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                classText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+                classText:SetText(string.format("%d. %s |cFFFFFFFF(%d players)|r", i, class.class, class.count))
+                yOffset = yOffset - 15
+            end
+        end
+        yOffset = yOffset - 10
+    end
+    
+    -- Top guilds (for weekly/monthly)
+    if digest.topGuilds and #digest.topGuilds > 0 then
+        local guildsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        guildsLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        guildsLabel:SetText("|cFF00FF00Active Guilds|r")
+        yOffset = yOffset - 20
+        
+        for i, guild in ipairs(digest.topGuilds) do
+            if i <= 5 then
+                local guildText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                guildText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+                guildText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, guild.guild, guild.count))
+                yOffset = yOffset - 15
+            end
+        end
+        yOffset = yOffset - 10
+    end
+    
+    -- Top players (for monthly)
+    if digest.topPlayers and #digest.topPlayers > 0 then
+        local playersLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        playersLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        playersLabel:SetText("|cFF00FF00Most Encountered Players|r")
+        yOffset = yOffset - 20
+        
+        for i, player in ipairs(digest.topPlayers) do
+            if i <= 10 then
+                local playerText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                playerText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+                playerText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, player.name, player.count))
+                yOffset = yOffset - 15
+            end
+        end
+    end
+end
+
+-- Export digest data
+function UI:ExportDigest(digest, title)
+    local data = {
+        title = title,
+        digest = digest,
+        exportTime = time()
+    }
+    
+    local jsonData = self:TableToJSON(data)
+    self:ShowExportFrame(jsonData, title .. " - " .. os.date("%Y-%m-%d"))
+end
+
+-- Show export frame with digest data
+function UI:ShowExportFrame(data, filename)
+    local frame = CreateFrame("Frame", "CrosspathsExportFrame", UIParent, "BasicFrameTemplateWithInset")
+    frame:SetSize(600, 400)
+    frame:SetPoint("CENTER")
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetFrameStrata("HIGH")
+    
+    -- Title
+    frame.title = frame:CreateFontString(nil, "OVERLAY")
+    frame.title:SetFontObject("GameFontHighlight")
+    frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
+    frame.title:SetText("Export: " .. filename)
+    
+    -- Instructions
+    local instructions = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    instructions:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
+    instructions:SetText("Copy the data below and save it to a file:")
+    
+    -- Text area
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -50)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
+    
+    local editBox = CreateFrame("EditBox", nil, scrollFrame)
+    editBox:SetMultiLine(true)
+    editBox:SetAutoFocus(false)
+    editBox:SetFontObject("ChatFontNormal")
+    editBox:SetWidth(550)
+    editBox:SetText(data)
+    editBox:SetCursorPosition(0)
+    editBox:HighlightText()
+    
+    scrollFrame:SetScrollChild(editBox)
+    
+    -- Close button
+    local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+    closeBtn:SetSize(80, 25)
+    closeBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
+    closeBtn:SetText("Close")
+    closeBtn:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+    
+    frame:Show()
+    editBox:SetFocus()
 end
 
 -- Show advanced statistics by type

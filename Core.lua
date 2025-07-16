@@ -34,10 +34,23 @@ local defaults = {
         maxPlayers = 10000, -- Maximum players to track
     },
     notifications = {
+        enableNotifications = true,
         notifyRepeatEncounters = true,
         notifyFrequentPlayers = true,
         notifyPreviousGroupMembers = true,
+        notifyNewEncounters = true,
+        notifyGuildMembers = true,
+        playSound = true,
+        doNotDisturbCombat = true,
+        maxNotifications = 3,
+        duration = 3,
         frequentPlayerThreshold = 10, -- Encounters needed to be "frequent"
+    },
+    digests = {
+        autoNotify = true,
+        enableDaily = true,
+        enableWeekly = true,
+        enableMonthly = true,
     }
 }
 
@@ -233,6 +246,13 @@ function Crosspaths:OnInitialize()
         if self.Config then
             self.Config:Initialize()
             self:DebugLog("Config module initialized")
+        end
+        
+        -- Initialize Titan Panel integration if available
+        if self.TitanPanel then
+            self.TitanPanel:Initialize()
+            self.TitanPanel:StartUpdateTimer()
+            self:DebugLog("Titan Panel module initialized")
         end
         
         self:Message("Crosspaths " .. self.version .. " initialized successfully")

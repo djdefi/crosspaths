@@ -69,6 +69,7 @@ function Config:CreateConfigFrame()
     self:CreateGeneralSettings(content)
     self:CreateTrackingSettings(content)
     self:CreateNotificationSettings(content)
+    self:CreateDigestSettings(content)
     self:CreateUISettings(content)
     self:CreateDataManagement(content)
     
@@ -247,10 +248,31 @@ function Config:CreateNotificationSettings(parent)
     header:SetText("|cFFFFD700Notification Settings|r")
     yOffset = yOffset - 30
     
+    -- Master notification toggle
+    local masterCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    masterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    masterCheck.Text:SetText("Enable All Notifications")
+    masterCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.enableNotifications = self:GetChecked()
+        if not self:GetChecked() then
+            Crosspaths:Message("All notifications disabled")
+        else
+            Crosspaths:Message("Notifications enabled")
+        end
+    end)
+    parent.masterCheck = masterCheck
+    yOffset = yOffset - 35
+    
+    -- Notification types subsection
+    local typesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    typesLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    typesLabel:SetText("|cFFADD8E6Notification Types:|r")
+    yOffset = yOffset - 20
+    
     -- Repeat encounters
     local repeatCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    repeatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
-    repeatCheck.Text:SetText("Notify on Repeat Encounters")
+    repeatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    repeatCheck.Text:SetText("Repeat Encounters")
     repeatCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyRepeatEncounters = self:GetChecked()
     end)
@@ -259,8 +281,8 @@ function Config:CreateNotificationSettings(parent)
     
     -- Frequent players
     local frequentCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    frequentCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
-    frequentCheck.Text:SetText("Notify on Frequent Players")
+    frequentCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    frequentCheck.Text:SetText("Frequent Players")
     frequentCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyFrequentPlayers = self:GetChecked()
     end)
@@ -269,23 +291,119 @@ function Config:CreateNotificationSettings(parent)
     
     -- Previous group members
     local groupMemberCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    groupMemberCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
-    groupMemberCheck.Text:SetText("Notify on Previous Group Members")
+    groupMemberCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    groupMemberCheck.Text:SetText("Previous Group Members")
     groupMemberCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyPreviousGroupMembers = self:GetChecked()
     end)
     parent.groupMemberCheck = groupMemberCheck
     yOffset = yOffset - 25
     
-    -- Frequent threshold
+    -- New encounters
+    local newCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    newCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    newCheck.Text:SetText("New Player Encounters")
+    newCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.notifyNewEncounters = self:GetChecked()
+    end)
+    parent.newCheck = newCheck
+    yOffset = yOffset - 25
+    
+    -- Guild members
+    local guildCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    guildCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    guildCheck.Text:SetText("Guild Member Encounters")
+    guildCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.notifyGuildMembers = self:GetChecked()
+    end)
+    parent.guildCheck = guildCheck
+    yOffset = yOffset - 35
+    
+    -- Notification display options
+    local displayLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    displayLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    displayLabel:SetText("|cFFADD8E6Display Options:|r")
+    yOffset = yOffset - 20
+    
+    -- Play sounds
+    local soundCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    soundCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    soundCheck.Text:SetText("Play notification sounds")
+    soundCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.playSound = self:GetChecked()
+    end)
+    parent.soundCheck = soundCheck
+    yOffset = yOffset - 25
+    
+    -- Do not disturb mode
+    local dndCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    dndCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    dndCheck.Text:SetText("Do Not Disturb in Combat")
+    dndCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.doNotDisturbCombat = self:GetChecked()
+    end)
+    parent.dndCheck = dndCheck
+    yOffset = yOffset - 25
+    
+    -- Max notifications
+    local maxLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    maxLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    maxLabel:SetText("Max simultaneous notifications:")
+    yOffset = yOffset - 20
+    
+    local maxEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    maxEditBox:SetSize(40, 20)
+    maxEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    maxEditBox:SetAutoFocus(false)
+    maxEditBox:SetNumeric(true)
+    maxEditBox:SetScript("OnEnterPressed", function(self)
+        local value = tonumber(self:GetText()) or 3
+        if value < 1 then value = 1 end
+        if value > 10 then value = 10 end
+        Crosspaths.db.settings.notifications.maxNotifications = value
+        self:SetText(tostring(value))
+        self:ClearFocus()
+    end)
+    parent.maxEditBox = maxEditBox
+    yOffset = yOffset - 25
+    
+    -- Notification duration
+    local durationLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    durationLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    durationLabel:SetText("Notification duration (seconds):")
+    yOffset = yOffset - 20
+    
+    local durationEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    durationEditBox:SetSize(40, 20)
+    durationEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    durationEditBox:SetAutoFocus(false)
+    durationEditBox:SetNumeric(true)
+    durationEditBox:SetScript("OnEnterPressed", function(self)
+        local value = tonumber(self:GetText()) or 3
+        if value < 1 then value = 1 end
+        if value > 15 then value = 15 end
+        Crosspaths.db.settings.notifications.duration = value
+        self:SetText(tostring(value))
+        self:ClearFocus()
+    end)
+    parent.notificationDurationEditBox = durationEditBox
+    yOffset = yOffset - 35
+    
+    -- Thresholds subsection
     local thresholdLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     thresholdLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
-    thresholdLabel:SetText("Frequent player threshold (encounters):")
+    thresholdLabel:SetText("|cFFADD8E6Notification Thresholds:|r")
+    yOffset = yOffset - 20
+    
+    -- Frequent threshold
+    local frequentLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    frequentLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    frequentLabel:SetText("Frequent player threshold (encounters):")
     yOffset = yOffset - 20
     
     local thresholdEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-    thresholdEditBox:SetSize(60, 20)
-    thresholdEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    thresholdEditBox:SetSize(40, 20)
+    thresholdEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
     thresholdEditBox:SetAutoFocus(false)
     thresholdEditBox:SetNumeric(true)
     thresholdEditBox:SetScript("OnEnterPressed", function(self)
@@ -302,9 +420,111 @@ function Config:CreateNotificationSettings(parent)
     parent.notificationsYOffset = yOffset
 end
 
+-- Create digest settings
+function Config:CreateDigestSettings(parent)
+    local yOffset = parent.notificationsYOffset or -450
+    
+    -- Section header
+    local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    header:SetText("|cFFFFD700Digest Reports|r")
+    yOffset = yOffset - 30
+    
+    -- Enable auto notifications
+    local autoNotifyCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    autoNotifyCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    autoNotifyCheck.Text:SetText("Auto-notify when digests are available")
+    autoNotifyCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.digests.autoNotify = self:GetChecked()
+    end)
+    parent.autoNotifyCheck = autoNotifyCheck
+    yOffset = yOffset - 35
+    
+    -- Digest types subsection
+    local typesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    typesLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    typesLabel:SetText("|cFFADD8E6Digest Types:|r")
+    yOffset = yOffset - 20
+    
+    -- Daily digest
+    local dailyCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    dailyCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    dailyCheck.Text:SetText("Daily Digest (24 hour summary)")
+    dailyCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.digests.enableDaily = self:GetChecked()
+    end)
+    parent.dailyCheck = dailyCheck
+    yOffset = yOffset - 25
+    
+    -- Weekly digest
+    local weeklyCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    weeklyCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    weeklyCheck.Text:SetText("Weekly Digest (7 day summary)")
+    weeklyCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.digests.enableWeekly = self:GetChecked()
+    end)
+    parent.weeklyCheck = weeklyCheck
+    yOffset = yOffset - 25
+    
+    -- Monthly digest
+    local monthlyCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    monthlyCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    monthlyCheck.Text:SetText("Monthly Digest (30 day summary)")
+    monthlyCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.digests.enableMonthly = self:GetChecked()
+    end)
+    parent.monthlyCheck = monthlyCheck
+    yOffset = yOffset - 35
+    
+    -- Manual digest buttons
+    local manualLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    manualLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    manualLabel:SetText("|cFFADD8E6Generate Digest Now:|r")
+    yOffset = yOffset - 20
+    
+    -- Daily button
+    local dailyBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    dailyBtn:SetSize(80, 25)
+    dailyBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    dailyBtn:SetText("Daily")
+    dailyBtn:SetScript("OnClick", function()
+        if Crosspaths.UI and Crosspaths.UI.ShowDigestReport then
+            local digest = Crosspaths.Engine:GenerateDailyDigest()
+            Crosspaths.UI:ShowDigestReport("Daily Digest", digest)
+        end
+    end)
+    
+    -- Weekly button  
+    local weeklyBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    weeklyBtn:SetSize(80, 25)
+    weeklyBtn:SetPoint("LEFT", dailyBtn, "RIGHT", 10, 0)
+    weeklyBtn:SetText("Weekly")
+    weeklyBtn:SetScript("OnClick", function()
+        if Crosspaths.UI and Crosspaths.UI.ShowDigestReport then
+            local digest = Crosspaths.Engine:GenerateWeeklyDigest()
+            Crosspaths.UI:ShowDigestReport("Weekly Digest", digest)
+        end
+    end)
+    
+    -- Monthly button
+    local monthlyBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    monthlyBtn:SetSize(80, 25)
+    monthlyBtn:SetPoint("LEFT", weeklyBtn, "RIGHT", 10, 0)
+    monthlyBtn:SetText("Monthly")
+    monthlyBtn:SetScript("OnClick", function()
+        if Crosspaths.UI and Crosspaths.UI.ShowDigestReport then
+            local digest = Crosspaths.Engine:GenerateMonthlyDigest()
+            Crosspaths.UI:ShowDigestReport("Monthly Digest", digest)
+        end
+    end)
+    yOffset = yOffset - 50
+    
+    parent.digestsYOffset = yOffset
+end
+
 -- Create UI settings
 function Config:CreateUISettings(parent)
-    local yOffset = parent.notificationsYOffset or -500
+    local yOffset = parent.digestsYOffset or -700
     
     -- Section header
     local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -433,6 +653,9 @@ function Config:RefreshSettings()
     end
     
     -- Notification settings
+    if content.masterCheck then
+        content.masterCheck:SetChecked(Crosspaths.db.settings.notifications.enableNotifications ~= false)
+    end
     if content.repeatCheck then
         content.repeatCheck:SetChecked(Crosspaths.db.settings.notifications.notifyRepeatEncounters)
     end
@@ -442,8 +665,40 @@ function Config:RefreshSettings()
     if content.groupMemberCheck then
         content.groupMemberCheck:SetChecked(Crosspaths.db.settings.notifications.notifyPreviousGroupMembers)
     end
+    if content.newCheck then
+        content.newCheck:SetChecked(Crosspaths.db.settings.notifications.notifyNewEncounters ~= false)
+    end
+    if content.guildCheck then
+        content.guildCheck:SetChecked(Crosspaths.db.settings.notifications.notifyGuildMembers ~= false)
+    end
+    if content.soundCheck then
+        content.soundCheck:SetChecked(Crosspaths.db.settings.notifications.playSound ~= false)
+    end
+    if content.dndCheck then
+        content.dndCheck:SetChecked(Crosspaths.db.settings.notifications.doNotDisturbCombat ~= false)
+    end
+    if content.maxEditBox then
+        content.maxEditBox:SetText(tostring(Crosspaths.db.settings.notifications.maxNotifications or 3))
+    end
+    if content.notificationDurationEditBox then
+        content.notificationDurationEditBox:SetText(tostring(Crosspaths.db.settings.notifications.duration or 3))
+    end
     if content.thresholdEditBox then
         content.thresholdEditBox:SetText(tostring(Crosspaths.db.settings.notifications.frequentPlayerThreshold or 10))
+    end
+    
+    -- Digest settings
+    if content.autoNotifyCheck then
+        content.autoNotifyCheck:SetChecked(Crosspaths.db.settings.digests.autoNotify ~= false)
+    end
+    if content.dailyCheck then
+        content.dailyCheck:SetChecked(Crosspaths.db.settings.digests.enableDaily ~= false)
+    end
+    if content.weeklyCheck then
+        content.weeklyCheck:SetChecked(Crosspaths.db.settings.digests.enableWeekly ~= false)
+    end
+    if content.monthlyCheck then
+        content.monthlyCheck:SetChecked(Crosspaths.db.settings.digests.enableMonthly ~= false)
     end
     
     -- UI settings
@@ -504,10 +759,23 @@ StaticPopupDialogs["CROSSPATHS_RESET_SETTINGS"] = {
                     maxPlayers = 10000,
                 },
                 notifications = {
+                    enableNotifications = true,
                     notifyRepeatEncounters = true,
                     notifyFrequentPlayers = true,
                     notifyPreviousGroupMembers = true,
+                    notifyNewEncounters = true,
+                    notifyGuildMembers = true,
+                    playSound = true,
+                    doNotDisturbCombat = true,
+                    maxNotifications = 3,
+                    duration = 3,
                     frequentPlayerThreshold = 10,
+                },
+                digests = {
+                    autoNotify = true,
+                    enableDaily = true,
+                    enableWeekly = true,
+                    enableMonthly = true,
                 }
             }
             
