@@ -137,3 +137,12 @@ jobs:
         fi
         
         echo "Documentation validation passed!"
+        
+    - name: Run unit tests
+      run: |
+        echo "Running Crosspaths unit tests..."
+        
+        # Run the test suite
+        ./tests/run_tests.sh
+        
+        echo "Unit tests completed successfully!"
