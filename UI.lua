@@ -1227,8 +1227,8 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             -- Sort by frequency
             table.sort(contexts, function(a, b)
-                local countA = tonumber(string.match(a, "%((%d+)%)"))
-                local countB = tonumber(string.match(b, "%((%d+)%)"))
+                local countA = tonumber(string.match(a, "%((%d+)%)")) or 0
+                local countB = tonumber(string.match(b, "%((%d+)%)")) or 0
                 return countA > countB
             end)
 
