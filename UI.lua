@@ -62,30 +62,10 @@ function UI:Initialize()
     -- Initialize tooltip system
     self:InitializeTooltips()
     
-    -- Initialize accessibility features
-    self:InitializeAccessibility()
-    
     -- Initialize notification system
     self:InitializeNotificationSystem()
     
-    Crosspaths:DebugLog("UI initialized with enhanced accessibility and design", "INFO")
-end
-
--- Initialize accessibility features
-function UI:InitializeAccessibility()
-    -- Create global keyboard handler for accessibility
-    local keyHandler = CreateFrame("Frame")
-    keyHandler:SetScript("OnKeyDown", function(self, key)
-        UI:HandleGlobalKeyDown(key)
-    end)
-    keyHandler:EnableKeyboard(false) -- Only enable when UI is shown
-    self.keyHandler = keyHandler
-    
-    -- Initialize screen reader announcements
-    self.announcer = CreateFrame("Frame")
-    self.announcer.text = self.announcer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    self.announcer.text:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -1000, -1000) -- Off-screen
-    self.announcer.text:SetAlpha(0) -- Invisible but readable by screen readers
+    Crosspaths:DebugLog("UI initialized with enhanced design", "INFO")
 end
 
 -- Initialize enhanced notification system
@@ -198,7 +178,7 @@ function UI:HandleSlashCommand(msg)
     end
 end
 
--- Show main UI with enhanced accessibility
+-- Show main UI with enhanced design
 function UI:Show()
     if not self.mainFrame then
         self:CreateMainFrame()
@@ -207,16 +187,8 @@ function UI:Show()
     self.mainFrame:Show()
     self:RefreshCurrentTab()
     
-    -- Enable keyboard navigation
-    if self.keyHandler then
-        self.keyHandler:EnableKeyboard(true)
-    end
-    
     -- Focus management
     self:SetInitialFocus()
-    
-    -- Announce to screen readers
-    self:AnnounceToScreenReader("Crosspaths interface opened. Use Tab to navigate between elements.")
     
     -- Play opening sound
     PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN)
@@ -227,14 +199,6 @@ function UI:Hide()
     if self.mainFrame then
         self.mainFrame:Hide()
     end
-    
-    -- Disable keyboard navigation
-    if self.keyHandler then
-        self.keyHandler:EnableKeyboard(false)
-    end
-    
-    -- Clear focus
-    self.keyboardFocus = nil
     
     -- Play closing sound
     PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE)
@@ -349,28 +313,10 @@ function UI:SetKeyboardFocus(element)
             element.focusIndicator:SetAlpha(0.3)
         end
         element.focusIndicator:Show()
-        
-        -- Announce focus change to screen readers
-        if element.accessibilityLabel then
-            self:AnnounceToScreenReader(element.accessibilityLabel)
-        end
     end
 end
 
--- Announce text to screen readers
-function UI:AnnounceToScreenReader(text)
-    if self.announcer and self.announcer.text then
-        self.announcer.text:SetText(text)
-        -- Brief delay to ensure screen readers pick up the change
-        C_Timer.After(0.1, function()
-            if self.announcer and self.announcer.text then
-                self.announcer.text:SetText("")
-            end
-        end)
-    end
-end
-
--- Create main frame with enhanced design and accessibility
+-- Create main frame with enhanced design
 function UI:CreateMainFrame()
     local frame = CreateFrame("Frame", "CrosspathsMainFrame", UIParent, "BasicFrameTemplateWithInset")
     frame:SetSize(650, 450) -- Slightly larger for better content display
@@ -537,7 +483,6 @@ function UI:ShowLoading(show, message)
             loading.spinner:SetText(message)
         end
         loading:Show()
-        self:AnnounceToScreenReader("Loading " .. (message or "content"))
     else
         loading:Hide()
     end
@@ -552,7 +497,6 @@ function UI:ShowError(message, canRetry)
     error.retryBtn:SetShown(canRetry ~= false)
     error:Show()
     
-    self:AnnounceToScreenReader("Error: " .. (message or "An error occurred"))
 end
 
 -- Hide error state
@@ -597,11 +541,6 @@ function UI:CreateTabButton(parent, index, tabData, width)
     button:SetSize(width, DesignTokens.sizes.tabHeight)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", (index-1) * (width + DesignTokens.spacing.xs), 0)
     
-    -- Accessibility attributes
-    button:SetAttribute("aria-label", tabData.tooltip .. " (Hotkey: " .. tabData.hotkey .. ")")
-    button:SetAttribute("role", "tab")
-    button.accessibilityLabel = tabData.text .. " tab. " .. tabData.tooltip
-    
     -- Modern tab styling
     self:StyleTabButton(button, tabData)
     
@@ -615,8 +554,6 @@ function UI:CreateTabButton(parent, index, tabData, width)
         end
         GameTooltip:Show()
         
-        -- Audio cue for screen readers
-        UI:AnnounceToScreenReader("Hovering over " .. tabData.text .. " tab")
     end)
     
     button:SetScript("OnLeave", function(self)
@@ -627,7 +564,6 @@ function UI:CreateTabButton(parent, index, tabData, width)
     button:SetScript("OnClick", function()
         UI:SelectTab(tabData.id)
         PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
-        UI:AnnounceToScreenReader(tabData.text .. " tab selected")
     end)
     
     -- Keyboard interaction
@@ -1657,10 +1593,6 @@ function UI:DisplayNotification(notification)
     if notificationInfo and notificationInfo.sound then
         PlaySound(notificationInfo.sound)
     end
-    
-    -- Announce to screen readers
-    self:AnnounceToScreenReader(notification.type .. " notification: " .. notification.title .. ". " .. notification.message)
-end
 
 -- Create enhanced toast notification
 function UI:CreateEnhancedToast(notification, yOffset)
