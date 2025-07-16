@@ -19,6 +19,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add extensive notification options, digest reports, and Titan Panel integration
 - Fix all trailing whitespace and improve CI linting pipeline
 - Merge pull request #24 from djdefi/copilot/fix-23
+- Bump version from 0.1.9 to 0.1.10
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.10] - 2025-07-16
+
+### Added
+- Initial plan
+- Add Advanced Stats tab and enhance UI with comprehensive statistics
+- Improve encounter definitions and add comprehensive documentation
+- Add comprehensive test suite with 181 test cases for Engine functions
+- Implement comprehensive UI and notification system improvements
+- Remove unsupported accessibility features and fix UI claims
+- Revert to simpler, more appropriate WoW addon UI implementation
+- Add extensive notification options, digest reports, and Titan Panel integration
+- Fix all trailing whitespace and improve CI linting pipeline
+- Merge pull request #24 from djdefi/copilot/fix-23
 
 ### Changed
 - 
