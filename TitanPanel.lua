@@ -48,10 +48,10 @@ function TitanPanel:Initialize()
         Crosspaths:DebugLog("Titan Panel not detected, skipping integration", "INFO")
         return
     end
-    
+
     -- Register the plugin
     TitanPanelUtils:RegisterPlugin(titanPluginInfo)
-    
+
     Crosspaths:DebugLog("Titan Panel plugin registered", "INFO")
 end
 
@@ -62,92 +62,92 @@ function TitanPanelCrosspathsButton_GetButtonText(id)
     local showEncounters = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowEncounters")
     local showGuilds = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowGuilds")
     local showSession = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowSession")
-    
+
     local stats = {}
-    
+
     if settings and settings == 1 then
         local playerCount = Crosspaths:CountPlayers() or 0
         table.insert(stats, TitanUtils_GetColoredText("Players: " .. playerCount, TITAN_PANEL_TEXT_COLOR))
     end
-    
+
     if showEncounters and showEncounters == 1 then
         local encounterCount = Crosspaths:CountEncounters() or 0
         table.insert(stats, TitanUtils_GetColoredText("Encounters: " .. encounterCount, TITAN_PANEL_TEXT_COLOR))
     end
-    
+
     if showGuilds and showGuilds == 1 then
         local guildCount = Crosspaths:CountGuilds() or 0
         table.insert(stats, TitanUtils_GetColoredText("Guilds: " .. guildCount, TITAN_PANEL_TEXT_COLOR))
     end
-    
+
     if showSession and showSession == 1 then
         local sessionStats = Crosspaths.Engine and Crosspaths.Engine:GetSessionStats() or {}
         local sessionEncounters = sessionStats.encountersThisSession or 0
         table.insert(stats, TitanUtils_GetColoredText("Session: " .. sessionEncounters, TITAN_PANEL_TEXT_COLOR))
     end
-    
+
     return table.concat(stats, " | ")
 end
 
 -- Get tooltip text for Titan Panel
 function TitanPanelCrosspathsButton_GetTooltipText()
     local tooltip = {}
-    
+
     -- Header
     table.insert(tooltip, TitanUtils_GetColoredText("Crosspaths Statistics", TITAN_PANEL_HIGHLIGHT_COLOR))
     table.insert(tooltip, " ")
-    
+
     -- Basic stats
     local playerCount = Crosspaths:CountPlayers() or 0
     local encounterCount = Crosspaths:CountEncounters() or 0
     local guildCount = Crosspaths:CountGuilds() or 0
-    
-    table.insert(tooltip, TitanUtils_GetColoredText("Total Players:", TITAN_PANEL_TEXT_COLOR) .. 
+
+    table.insert(tooltip, TitanUtils_GetColoredText("Total Players:", TITAN_PANEL_TEXT_COLOR) ..
                  TitanUtils_GetColoredText(" " .. playerCount, TITAN_PANEL_HIGHLIGHT_COLOR))
-    table.insert(tooltip, TitanUtils_GetColoredText("Total Encounters:", TITAN_PANEL_TEXT_COLOR) .. 
+    table.insert(tooltip, TitanUtils_GetColoredText("Total Encounters:", TITAN_PANEL_TEXT_COLOR) ..
                  TitanUtils_GetColoredText(" " .. encounterCount, TITAN_PANEL_HIGHLIGHT_COLOR))
-    table.insert(tooltip, TitanUtils_GetColoredText("Guilds Tracked:", TITAN_PANEL_TEXT_COLOR) .. 
+    table.insert(tooltip, TitanUtils_GetColoredText("Guilds Tracked:", TITAN_PANEL_TEXT_COLOR) ..
                  TitanUtils_GetColoredText(" " .. guildCount, TITAN_PANEL_HIGHLIGHT_COLOR))
-    
+
     -- Session stats
     if Crosspaths.Engine then
         local sessionStats = Crosspaths.Engine:GetSessionStats()
         if sessionStats then
             table.insert(tooltip, " ")
             table.insert(tooltip, TitanUtils_GetColoredText("Session Statistics:", TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("New Players:", TITAN_PANEL_TEXT_COLOR) .. 
+            table.insert(tooltip, TitanUtils_GetColoredText("New Players:", TITAN_PANEL_TEXT_COLOR) ..
                          TitanUtils_GetColoredText(" " .. (sessionStats.newPlayersThisSession or 0), TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("Encounters:", TITAN_PANEL_TEXT_COLOR) .. 
+            table.insert(tooltip, TitanUtils_GetColoredText("Encounters:", TITAN_PANEL_TEXT_COLOR) ..
                          TitanUtils_GetColoredText(" " .. (sessionStats.encountersThisSession or 0), TITAN_PANEL_HIGHLIGHT_COLOR))
-            
+
             if sessionStats.sessionDuration and sessionStats.sessionDuration > 0 then
                 local duration = math.floor(sessionStats.sessionDuration / 60)
-                table.insert(tooltip, TitanUtils_GetColoredText("Session Time:", TITAN_PANEL_TEXT_COLOR) .. 
+                table.insert(tooltip, TitanUtils_GetColoredText("Session Time:", TITAN_PANEL_TEXT_COLOR) ..
                              TitanUtils_GetColoredText(" " .. duration .. " minutes", TITAN_PANEL_HIGHLIGHT_COLOR))
             end
         end
     end
-    
+
     -- Recent activity
     if Crosspaths.Engine then
         local recentActivity = Crosspaths.Engine:GetRecentActivity()
         if recentActivity and recentActivity.last24Hours then
             table.insert(tooltip, " ")
             table.insert(tooltip, TitanUtils_GetColoredText("Recent Activity (24h):", TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("Players:", TITAN_PANEL_TEXT_COLOR) .. 
+            table.insert(tooltip, TitanUtils_GetColoredText("Players:", TITAN_PANEL_TEXT_COLOR) ..
                          TitanUtils_GetColoredText(" " .. recentActivity.last24Hours.players, TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("Encounters:", TITAN_PANEL_TEXT_COLOR) .. 
+            table.insert(tooltip, TitanUtils_GetColoredText("Encounters:", TITAN_PANEL_TEXT_COLOR) ..
                          TitanUtils_GetColoredText(" " .. recentActivity.last24Hours.encounters, TITAN_PANEL_HIGHLIGHT_COLOR))
         end
     end
-    
+
     -- Instructions
     table.insert(tooltip, " ")
-    table.insert(tooltip, TitanUtils_GetColoredText("Left Click:", TITAN_PANEL_HIGHLIGHT_COLOR) .. 
+    table.insert(tooltip, TitanUtils_GetColoredText("Left Click:", TITAN_PANEL_HIGHLIGHT_COLOR) ..
                  TitanUtils_GetColoredText(" Open Crosspaths", TITAN_PANEL_TEXT_COLOR))
-    table.insert(tooltip, TitanUtils_GetColoredText("Right Click:", TITAN_PANEL_HIGHLIGHT_COLOR) .. 
+    table.insert(tooltip, TitanUtils_GetColoredText("Right Click:", TITAN_PANEL_HIGHLIGHT_COLOR) ..
                  TitanUtils_GetColoredText(" Plugin Options", TITAN_PANEL_TEXT_COLOR))
-    
+
     return table.concat(tooltip, "\n")
 end
 
@@ -165,7 +165,7 @@ end
 -- Right-click menu for Titan Panel
 function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
     local info = {}
-    
+
     -- Show players option
     info.text = "Show Player Count"
     info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowPlayers") == 1
@@ -174,7 +174,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
         TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
-    
+
     -- Show encounters option
     info.text = "Show Encounter Count"
     info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowEncounters") == 1
@@ -183,7 +183,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
         TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
-    
+
     -- Show guilds option
     info.text = "Show Guild Count"
     info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowGuilds") == 1
@@ -192,7 +192,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
         TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
-    
+
     -- Show session option
     info.text = "Show Session Stats"
     info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowSession") == 1
@@ -201,13 +201,13 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
         TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
-    
+
     -- Separator
     info = {}
     info.text = ""
     info.disabled = true
     UIDropDownMenu_AddButton(info)
-    
+
     -- Open Crosspaths
     info = {}
     info.text = "Open Crosspaths"
@@ -217,7 +217,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
         end
     end
     UIDropDownMenu_AddButton(info)
-    
+
     -- Configuration
     info.text = "Configuration"
     info.func = function()
@@ -226,13 +226,13 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
         end
     end
     UIDropDownMenu_AddButton(info)
-    
+
     -- Generate digest
     info.text = "Generate Digest"
     info.hasArrow = true
     info.func = nil
     UIDropDownMenu_AddButton(info)
-    
+
     -- Digest submenu
     if UIDROPDOWNMENU_MENU_LEVEL == 2 then
         info = {}
@@ -244,7 +244,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
             end
         end
         UIDropDownMenu_AddButton(info, UIDROPDOWNMENU_MENU_LEVEL)
-        
+
         info.text = "Weekly Digest"
         info.func = function()
             if Crosspaths.Engine and Crosspaths.UI then
@@ -253,7 +253,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
             end
         end
         UIDropDownMenu_AddButton(info, UIDROPDOWNMENU_MENU_LEVEL)
-        
+
         info.text = "Monthly Digest"
         info.func = function()
             if Crosspaths.Engine and Crosspaths.UI then
@@ -270,11 +270,11 @@ function TitanPanel:StartUpdateTimer()
     if not TitanPanelUtils then
         return
     end
-    
+
     if self.updateTimer then
         self.updateTimer:Cancel()
     end
-    
+
     self.updateTimer = C_Timer.NewTicker(TITAN_CROSSPATHS_FREQUENCY, function()
         TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
     end)
@@ -294,7 +294,7 @@ if not Crosspaths.CountEncounters then
         if not self.db or not self.db.players then
             return 0
         end
-        
+
         local count = 0
         for _, player in pairs(self.db.players) do
             count = count + (player.count or 0)
@@ -309,14 +309,14 @@ if not Crosspaths.CountGuilds then
         if not self.db or not self.db.players then
             return 0
         end
-        
+
         local guilds = {}
         for _, player in pairs(self.db.players) do
             if player.guild and player.guild ~= "" then
                 guilds[player.guild] = true
             end
         end
-        
+
         local count = 0
         for _ in pairs(guilds) do
             count = count + 1

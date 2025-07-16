@@ -11,13 +11,13 @@ function UI:Initialize()
     self.mainFrame = nil
     self.toastFrames = {}
     self.currentTab = "summary"
-    
+
     -- Create slash commands
     self:RegisterSlashCommands()
-    
+
     -- Initialize tooltip system
     self:InitializeTooltips()
-    
+
     Crosspaths:DebugLog("UI initialized", "INFO")
 end
 
@@ -25,11 +25,11 @@ end
 function UI:RegisterSlashCommands()
     SLASH_CROSSPATHS1 = "/crosspaths"
     SLASH_CROSSPATHS2 = "/cp"
-    
+
     SlashCmdList["CROSSPATHS"] = function(msg)
         self:HandleSlashCommand(msg)
     end
-    
+
     Crosspaths:DebugLog("Slash commands registered: /crosspaths, /cp", "INFO")
 end
 
@@ -39,9 +39,9 @@ function UI:HandleSlashCommand(msg)
     for word in msg:gmatch("%S+") do
         table.insert(args, word:lower())
     end
-    
+
     local command = args[1] or "show"
-    
+
     if command == "show" then
         self:Show()
     elseif command == "hide" then
@@ -125,7 +125,7 @@ function UI:Show()
     if not self.mainFrame then
         self:CreateMainFrame()
     end
-    
+
     self.mainFrame:Show()
     self:RefreshCurrentTab()
 end
@@ -156,23 +156,23 @@ function UI:CreateMainFrame()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-    
+
     -- Title
     frame.title = frame:CreateFontString(nil, "OVERLAY")
     frame.title:SetFontObject("GameFontHighlight")
     frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
     frame.title:SetText("Crosspaths - Social Memory Tracker")
-    
+
     -- Tab buttons
     self:CreateTabButtons(frame)
-    
+
     -- Content area
     frame.content = CreateFrame("Frame", nil, frame)
     frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -60)
     frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
-    
+
     self.mainFrame = frame
-    
+
     -- Create tab content frames
     self:CreateTabContent()
 end
@@ -186,14 +186,14 @@ function UI:CreateTabButtons(parent)
         {id = "advanced", text = "Advanced", tooltip = "View advanced role-based and performance statistics"},
         {id = "encounters", text = "Encounters", tooltip = "Browse encounter history by zone"},
     }
-    
+
     parent.tabs = {}
-    
+
     for i, tab in ipairs(tabs) do
         local button = self:CreateTabButton(parent, i, tab)
         parent.tabs[tab.id] = button
     end
-    
+
     -- Select first tab by default
     self:SelectTab("summary")
 end
@@ -206,10 +206,10 @@ function UI:CreateTabButton(parent, index, tabData)
     button:SetSize(95, 28) -- Slightly larger for better readability
     button:SetText(tabData.text)
     button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * 105 + 10, 32)
-    
+
     -- Apply modern tab styling
     self:StyleTabButton(button)
-    
+
     -- Add tooltip for accessibility
     if tabData.tooltip then
         button:SetScript("OnEnter", function(self)
@@ -221,17 +221,17 @@ function UI:CreateTabButton(parent, index, tabData)
             GameTooltip:Hide()
         end)
     end
-    
+
     -- Tab selection behavior
     button:SetScript("OnClick", function()
         UI:SelectTab(tabData.id)
         PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
     end)
-    
+
     -- Store tab data
     button.tabId = tabData.id
     button.isChecked = false
-    
+
     return button
 end
 
@@ -241,49 +241,49 @@ function UI:StyleTabButton(button)
     button:SetNormalFontObject("GameFontNormal")
     button:SetHighlightFontObject("GameFontHighlight")
     button:SetDisabledFontObject("GameFontDisable")
-    
+
     -- Modern color scheme matching WoW UI
     local normalColor = {0.25, 0.25, 0.25, 0.9}     -- Dark gray
     local hoverColor = {0.4, 0.4, 0.4, 0.9}         -- Medium gray
     local pressedColor = {0.15, 0.15, 0.15, 0.9}    -- Darker gray
     local selectedColor = {0.2, 0.4, 0.8, 0.95}     -- Blue accent
-    
+
     -- Create background textures with modern styling
     local normalTexture = button:CreateTexture(nil, "BACKGROUND")
     normalTexture:SetAllPoints()
     normalTexture:SetColorTexture(unpack(normalColor))
     button:SetNormalTexture(normalTexture)
-    
+
     local highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
     highlightTexture:SetAllPoints()
     highlightTexture:SetColorTexture(unpack(hoverColor))
     button:SetHighlightTexture(highlightTexture)
-    
+
     local pushedTexture = button:CreateTexture(nil, "ARTWORK")
     pushedTexture:SetAllPoints()
     pushedTexture:SetColorTexture(unpack(pressedColor))
     button:SetPushedTexture(pushedTexture)
-    
+
     -- Add border for modern look
     local border = button:CreateTexture(nil, "BORDER")
     border:SetAllPoints()
     border:SetColorTexture(0.6, 0.6, 0.6, 0.8)
     border:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
     border:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
-    
+
     -- Selected state texture
     local checkedTexture = button:CreateTexture(nil, "ARTWORK")
     checkedTexture:SetAllPoints()
     checkedTexture:SetColorTexture(unpack(selectedColor))
     checkedTexture:Hide()
-    
+
     -- Store textures and colors for state management
     button.normalTexture = normalTexture
     button.checkedTexture = checkedTexture
     button.borderTexture = border
     button.selectedColor = selectedColor
     button.normalColor = normalColor
-    
+
     -- Modern checked state implementation
     function button:SetChecked(checked)
         self.isChecked = checked
@@ -297,7 +297,7 @@ function UI:StyleTabButton(button)
             self.borderTexture:SetColorTexture(0.6, 0.6, 0.6, 0.8)
         end
     end
-    
+
     function button:GetChecked()
         return self.isChecked
     end
@@ -309,13 +309,13 @@ function UI:SelectTab(tabId)
         Crosspaths:DebugLog("Cannot select tab: mainFrame or tabs not initialized", "WARNING")
         return
     end
-    
+
     -- Validate tabId exists
     if not self.mainFrame.tabs[tabId] then
         Crosspaths:DebugLog("Invalid tab ID: " .. tostring(tabId), "WARNING")
         return
     end
-    
+
     -- Update button states with animation feedback
     for id, button in pairs(self.mainFrame.tabs) do
         if button and button.SetChecked then
@@ -326,7 +326,7 @@ function UI:SelectTab(tabId)
             end
         end
     end
-    
+
     -- Show/hide content with fade effect (if content exists)
     for id, content in pairs(self.tabContent or {}) do
         if content then
@@ -340,37 +340,37 @@ function UI:SelectTab(tabId)
             end
         end
     end
-    
+
     local previousTab = self.currentTab
     self.currentTab = tabId
-    
+
     -- Log tab change for debugging
     if previousTab ~= tabId then
         Crosspaths:DebugLog("Tab changed from " .. tostring(previousTab) .. " to " .. tostring(tabId), "INFO")
     end
-    
+
     self:RefreshCurrentTab()
 end
 
 -- Create tab content
 function UI:CreateTabContent()
     self.tabContent = {}
-    
+
     -- Summary tab
     self.tabContent.summary = self:CreateSummaryTab()
-    
+
     -- Players tab
     self.tabContent.players = self:CreatePlayersTab()
-    
+
     -- Guilds tab
     self.tabContent.guilds = self:CreateGuildsTab()
-    
+
     -- Advanced stats tab
     self.tabContent.advanced = self:CreateAdvancedTab()
-    
+
     -- Encounters tab
     self.tabContent.encounters = self:CreateEncountersTab()
-    
+
     -- Hide all tabs initially except the current one
     for id, content in pairs(self.tabContent) do
         if id ~= self.currentTab then
@@ -383,14 +383,14 @@ end
 function UI:CreateSummaryTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
-    
+
     -- Stats display
     frame.statsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.statsText:SetPoint("TOPLEFT", 10, -10)
     frame.statsText:SetJustifyH("LEFT")
     frame.statsText:SetJustifyV("TOP")
     frame.statsText:SetText("Loading statistics...")
-    
+
     return frame
 end
 
@@ -398,7 +398,7 @@ end
 function UI:CreatePlayersTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
-    
+
     -- Search box
     local searchBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     searchBox:SetSize(200, 20)
@@ -408,20 +408,20 @@ function UI:CreatePlayersTab()
         UI:ShowSearchResults(self:GetText())
         self:ClearFocus()
     end)
-    
+
     local searchLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     searchLabel:SetPoint("LEFT", searchBox, "RIGHT", 10, 0)
     searchLabel:SetText("Search players...")
-    
+
     -- Results area
     frame.resultsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.resultsText:SetPoint("TOPLEFT", 10, -40)
     frame.resultsText:SetJustifyH("LEFT")
     frame.resultsText:SetJustifyV("TOP")
     frame.resultsText:SetText("Top players will appear here...")
-    
+
     frame.searchBox = searchBox
-    
+
     return frame
 end
 
@@ -429,13 +429,13 @@ end
 function UI:CreateGuildsTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
-    
+
     frame.guildsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.guildsText:SetPoint("TOPLEFT", 10, -10)
     frame.guildsText:SetJustifyH("LEFT")
     frame.guildsText:SetJustifyV("TOP")
     frame.guildsText:SetText("Guild statistics will appear here...")
-    
+
     return frame
 end
 
@@ -443,13 +443,13 @@ end
 function UI:CreateEncountersTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
-    
+
     frame.encountersText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.encountersText:SetPoint("TOPLEFT", 10, -10)
     frame.encountersText:SetJustifyH("LEFT")
     frame.encountersText:SetJustifyV("TOP")
     frame.encountersText:SetText("Recent encounters will appear here...")
-    
+
     return frame
 end
 
@@ -458,7 +458,7 @@ function UI:RefreshCurrentTab()
     if not Crosspaths.Engine then
         return
     end
-    
+
     if self.currentTab == "summary" then
         self:RefreshSummaryTab()
     elseif self.currentTab == "players" then
@@ -477,32 +477,32 @@ function UI:RefreshSummaryTab()
     if not self.tabContent.summary then
         return
     end
-    
+
     local stats = Crosspaths.Engine:GetStatsSummary()
     local activity = Crosspaths.Engine:GetRecentActivity()
     local lines = {}
-    
+
     table.insert(lines, "|cFFFFD700Crosspaths Statistics Overview|r")
     table.insert(lines, "")
-    
+
     -- Overall statistics
     table.insert(lines, "|cFFFF8080Overall Statistics:|r")
     table.insert(lines, string.format("  Total Players: |cFF00FF00%d|r", stats.totalPlayers))
     table.insert(lines, string.format("  Total Encounters: |cFF00FF00%d|r", stats.totalEncounters))
     table.insert(lines, string.format("  Grouped Players: |cFF00FF00%d|r", stats.groupedPlayers))
     table.insert(lines, string.format("  Guilds Encountered: |cFF00FF00%d|r", stats.totalGuilds))
-    
+
     if stats.totalPlayers > 0 then
         table.insert(lines, string.format("  Average Encounters per Player: |cFF00FF00%.1f|r", stats.averageEncounters))
     end
-    
+
     -- Recent activity
     table.insert(lines, "")
     table.insert(lines, "|cFF80FF80Recent Activity:|r")
     table.insert(lines, string.format("  Last 24 Hours: |cFFFFFFFF%d players, %d encounters|r", activity.last24h.players, activity.last24h.encounters))
     table.insert(lines, string.format("  Last 7 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last7d.players, activity.last7d.encounters))
     table.insert(lines, string.format("  Last 30 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last30d.players, activity.last30d.encounters))
-    
+
     -- Time range information
     if stats.oldestEncounter then
         table.insert(lines, "")
@@ -510,7 +510,7 @@ function UI:RefreshSummaryTab()
         table.insert(lines, string.format("  Oldest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.oldestEncounter)))
         table.insert(lines, string.format("  Newest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.newestEncounter)))
     end
-    
+
     -- Top zones
     table.insert(lines, "")
     table.insert(lines, "|cFF80FFFF Top Zones:|r")
@@ -522,7 +522,7 @@ function UI:RefreshSummaryTab()
     else
         table.insert(lines, "  No zone data available")
     end
-    
+
     -- Top players
     table.insert(lines, "")
     table.insert(lines, "|cFFFFD700Top Players:|r")
@@ -535,7 +535,7 @@ function UI:RefreshSummaryTab()
     else
         table.insert(lines, "  No player data available")
     end
-    
+
     -- Current session statistics
     local sessionStats = Crosspaths.Engine:GetSessionStats()
     table.insert(lines, "")
@@ -550,7 +550,7 @@ function UI:RefreshSummaryTab()
     else
         table.insert(lines, string.format("  Session Duration: |cFFFFFFFF%ds|r", sessionStats.sessionDuration))
     end
-    
+
     self.tabContent.summary.statsText:SetText(table.concat(lines, "\n"))
 end
 
@@ -559,17 +559,17 @@ function UI:RefreshPlayersTab()
     if not self.tabContent.players then
         return
     end
-    
+
     local topPlayers = Crosspaths.Engine:GetTopPlayers(20)
     local lines = {}
-    
+
     table.insert(lines, "|cFFFFD700Top Players (by encounters):|r")
     table.insert(lines, "")
-    
+
     for i, player in ipairs(topPlayers) do
         local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
         local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-        
+
         -- Add class/race information
         local classText = ""
         if player.class and player.class ~= "" then
@@ -579,27 +579,27 @@ function UI:RefreshPlayersTab()
             end
             classText = classText .. "]|r"
         end
-        
+
         -- Add level information
         local levelText = ""
         if player.level and player.level > 0 then
             levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
         end
-        
+
         -- Add item level if significant
         local iLevelText = ""
         if player.itemLevel and player.itemLevel > 0 then
             iLevelText = " |cFFFF8800(iL" .. player.itemLevel .. ")|r"
         end
-        
+
         table.insert(lines, string.format("%d. %s%s%s%s%s%s - %d encounters",
             i, player.name, groupedText, guildText, classText, levelText, iLevelText, player.count))
     end
-    
+
     if #topPlayers == 0 then
         table.insert(lines, "No players tracked yet. Start exploring to meet some people!")
     end
-    
+
     self.tabContent.players.resultsText:SetText(table.concat(lines, "\n"))
 end
 
@@ -608,21 +608,21 @@ function UI:RefreshGuildsTab()
     if not self.tabContent.guilds then
         return
     end
-    
+
     local topGuilds = Crosspaths.Engine:GetTopGuilds(20)
     local lines = {}
-    
+
     table.insert(lines, "|cFFFFD700Top Guilds (by members encountered):|r")
     table.insert(lines, "")
-    
+
     for i, guild in ipairs(topGuilds) do
         table.insert(lines, string.format("%d. %s - %d members", i, guild.name, guild.memberCount))
     end
-    
+
     if #topGuilds == 0 then
         table.insert(lines, "No guilds tracked yet.")
     end
-    
+
     self.tabContent.guilds.guildsText:SetText(table.concat(lines, "\n"))
 end
 
@@ -631,14 +631,14 @@ function UI:RefreshEncountersTab()
     if not self.tabContent.encounters then
         return
     end
-    
+
     local zones = Crosspaths.Engine:GetTopZones(10)
     local contextStats = Crosspaths.Engine:GetContextStats()
     local lines = {}
-    
+
     table.insert(lines, "|cFFFFD700Zone and Context Statistics|r")
     table.insert(lines, "")
-    
+
     -- Top zones
     table.insert(lines, "|cFF80FFFF Top Zones (by encounters):|r")
     if #zones > 0 then
@@ -648,7 +648,7 @@ function UI:RefreshEncountersTab()
     else
         table.insert(lines, "  No zone data yet.")
     end
-    
+
     -- Encounter contexts
     table.insert(lines, "")
     table.insert(lines, "|cFFFF80FF Encounter Contexts:|r")
@@ -659,7 +659,7 @@ function UI:RefreshEncountersTab()
     else
         table.insert(lines, "  No context data available")
     end
-    
+
     self.tabContent.encounters.encountersText:SetText(table.concat(lines, "\n"))
 end
 
@@ -668,12 +668,12 @@ function UI:CreateAdvancedTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.Inset)
     frame:SetAllPoints()
     frame:Hide()
-    
+
     -- Main scroll frame for advanced statistics
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 10)
-    
+
     -- Text display for advanced stats
     frame.advancedText = scroll:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     frame.advancedText:SetPoint("TOPLEFT", 0, 0)
@@ -681,9 +681,9 @@ function UI:CreateAdvancedTab()
     frame.advancedText:SetJustifyH("LEFT")
     frame.advancedText:SetJustifyV("TOP")
     frame.advancedText:SetText("Advanced statistics will appear here...")
-    
+
     scroll:SetScrollChild(frame.advancedText)
-    
+
     return frame
 end
 
@@ -692,13 +692,13 @@ function UI:RefreshAdvancedTab()
     if not self.tabContent.advanced then
         return
     end
-    
+
     local stats = Crosspaths.Engine:GetAdvancedStats()
     local lines = {}
-    
+
     table.insert(lines, "|cFFFFD700Advanced Player Statistics|r")
     table.insert(lines, "")
-    
+
     -- Role-based statistics
     table.insert(lines, "|cFF8080FFTop Tank Players:|r")
     if #stats.topTanks > 0 then
@@ -711,7 +711,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No tank data available")
     end
-    
+
     table.insert(lines, "")
     table.insert(lines, "|cFF80FF80Top Healer Players:|r")
     if #stats.topHealers > 0 then
@@ -724,7 +724,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No healer data available")
     end
-    
+
     table.insert(lines, "")
     table.insert(lines, "|cFFFF8080Top DPS Players:|r")
     if #stats.topDPS > 0 then
@@ -737,7 +737,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No DPS data available")
     end
-    
+
     -- Item level statistics
     table.insert(lines, "")
     table.insert(lines, "|cFFFFFF80Highest Item Level Players:|r")
@@ -750,7 +750,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No item level data available")
     end
-    
+
     -- Achievement statistics
     table.insert(lines, "")
     table.insert(lines, "|cFFFF80FFAchievement Leaders:|r")
@@ -763,7 +763,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No achievement data available")
     end
-    
+
     -- Mount statistics
     table.insert(lines, "")
     table.insert(lines, "|cFF80FFFF Most Common Mounts:|r")
@@ -776,7 +776,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No mount data available")
     end
-    
+
     -- Class distribution
     local classStats = Crosspaths.Engine:GetClassStats()
     table.insert(lines, "")
@@ -790,7 +790,7 @@ function UI:RefreshAdvancedTab()
     else
         table.insert(lines, "  No class data available")
     end
-    
+
     self.tabContent.advanced.advancedText:SetText(table.concat(lines, "\n"))
 end
 
@@ -800,17 +800,17 @@ function UI:ShowToast(title, message, notificationType)
     if not Crosspaths.db or not Crosspaths.db.settings.ui.showNotifications then
         return
     end
-    
+
     local notifications = Crosspaths.db.settings.notifications
     if not notifications.enableNotifications then
         return
     end
-    
+
     -- Check Do Not Disturb mode
     if notifications.doNotDisturbCombat and InCombatLockdown() then
         return
     end
-    
+
     -- Check specific notification type
     if notificationType then
         if notificationType == "repeat" and not notifications.notifyRepeatEncounters then
@@ -825,7 +825,7 @@ function UI:ShowToast(title, message, notificationType)
             return
         end
     end
-    
+
     -- Check max notifications limit
     local activeToasts = 0
     for i = #self.toastFrames, 1, -1 do
@@ -837,44 +837,44 @@ function UI:ShowToast(title, message, notificationType)
             table.remove(self.toastFrames, i)
         end
     end
-    
+
     local maxNotifications = notifications.maxNotifications or 3
     if activeToasts >= maxNotifications then
         return -- Don't show more notifications than the limit
     end
-    
+
     -- Calculate position based on existing toasts to prevent overlap
     local yOffset = -100
     yOffset = yOffset - (activeToasts * 70) -- 70 pixels per notification (60 height + 10 spacing)
-    
+
     -- Create toast notification
     local toast = CreateFrame("Frame", nil, UIParent)
     toast:SetSize(300, 60)
     toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
-    
+
     -- Background
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
     toast.bg:SetColorTexture(0, 0, 0, 0.8)
-    
+
     -- Title
     toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     toast.title:SetPoint("TOP", toast, "TOP", 0, -5)
     toast.title:SetText(title)
     toast.title:SetTextColor(1, 1, 0)
-    
+
     -- Message
     toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     toast.message:SetPoint("TOP", toast.title, "BOTTOM", 0, -5)
     toast.message:SetText(message)
     toast.message:SetTextColor(1, 1, 1)
-    
+
     -- Play sound if enabled
     if notifications.playSound then
         PlaySound(SOUNDKIT.FRIEND_JOIN_GAME or 5633)
     end
-    
+
     -- Auto-hide
     local duration = notifications.duration or Crosspaths.db.settings.ui.notificationDuration or 3
     C_Timer.After(duration, function()
@@ -882,7 +882,7 @@ function UI:ShowToast(title, message, notificationType)
             toast:Hide()
         end
     end)
-    
+
     table.insert(self.toastFrames, toast)
 end
 
@@ -902,24 +902,24 @@ function UI:SearchPlayers(query)
         self:RefreshPlayersTab()
         return
     end
-    
+
     if not self.tabContent.players then
         return
     end
-    
+
     local results = Crosspaths.Engine:SearchPlayers(query, 20)
     local lines = {}
-    
+
     table.insert(lines, "|cFFFFD700Search results for '" .. query .. "':|r")
     table.insert(lines, "")
-    
+
     if #results == 0 then
         table.insert(lines, "No players found matching your search.")
     else
         for i, player in ipairs(results) do
             local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
             local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-            
+
             -- Add class/race information
             local classText = ""
             if player.class and player.class ~= "" then
@@ -929,18 +929,18 @@ function UI:SearchPlayers(query)
                 end
                 classText = classText .. "]|r"
             end
-            
+
             -- Add level information
             local levelText = ""
             if player.level and player.level > 0 then
                 levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
             end
-            
+
             table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters",
                 i, player.name, groupedText, guildText, classText, levelText, player.count))
         end
     end
-    
+
     self.tabContent.players.resultsText:SetText(table.concat(lines, "\n"))
 end
 
@@ -955,7 +955,7 @@ function UI:ShowSearchResults(query)
         Crosspaths:Message("Usage: /crosspaths search <name>")
         return
     end
-    
+
     local results = Crosspaths.Engine:SearchPlayers(query, 10)
     if #results == 0 then
         Crosspaths:Message("No players found matching '" .. query .. "'")
@@ -1002,7 +1002,7 @@ function UI:ShowHelp()
         "• Do Not Disturb mode during combat",
         "• Notification sound options",
     }
-    
+
     for _, line in ipairs(help) do
         Crosspaths:Message(line)
     end
@@ -1016,9 +1016,9 @@ function UI:ShowDebugStatus()
         local levels = {[1] = "ERROR", [2] = "WARN", [3] = "INFO", [4] = "DEBUG"}
         logLevel = levels[Crosspaths.Logging.logLevel] or "unknown"
     end
-    
+
     Crosspaths:Message("Debug mode: " .. status .. " (log level: " .. logLevel .. ")")
-    
+
     if Crosspaths.debug then
         Crosspaths:Message("Use '/crosspaths debug off' to disable debug mode")
     else
@@ -1029,13 +1029,13 @@ end
 -- Show addon status
 function UI:ShowStatus()
     local lines = {}
-    
+
     -- Basic status
     table.insert(lines, "=== Crosspaths Status ===")
     table.insert(lines, "Version: " .. (Crosspaths.version or "unknown"))
     table.insert(lines, "Enabled: " .. tostring(Crosspaths.db and Crosspaths.db.settings.enabled or false))
     table.insert(lines, "Debug: " .. tostring(Crosspaths.debug or false))
-    
+
     -- Database status
     if Crosspaths.db then
         local playerCount = 0
@@ -1048,7 +1048,7 @@ function UI:ShowStatus()
     else
         table.insert(lines, "Database: NOT INITIALIZED")
     end
-    
+
     -- Tracking settings
     if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.tracking then
         local tracking = Crosspaths.db.settings.tracking
@@ -1059,7 +1059,7 @@ function UI:ShowStatus()
     else
         table.insert(lines, "Tracking settings: NOT FOUND")
     end
-    
+
     -- Session stats
     if Crosspaths.sessionStats then
         local stats = Crosspaths.sessionStats
@@ -1070,15 +1070,15 @@ function UI:ShowStatus()
     else
         table.insert(lines, "Session stats: NOT AVAILABLE")
     end
-    
+
     -- Current zone
     local zone = Crosspaths:GetCurrentZone()
     local context = Crosspaths:GetEncounterContext()
     table.insert(lines, "Current zone: " .. tostring(zone))
     table.insert(lines, "Current context: " .. tostring(context))
-    
+
     table.insert(lines, "=== End Status ===")
-    
+
     for _, line in ipairs(lines) do
         Crosspaths:Message(line)
     end
@@ -1091,7 +1091,7 @@ function UI:InitializeTooltips()
         self.tooltip = CreateFrame("GameTooltip", "CrosspathsTooltip", UIParent, "GameTooltipTemplate")
         self.tooltip:SetFrameStrata("TOOLTIP")
     end
-    
+
     -- Hook into the game's tooltip system to show encounter info
     self:HookGameTooltips()
 end
@@ -1109,35 +1109,35 @@ function UI:AddEncounterInfoToTooltip(tooltip)
     if not Crosspaths.db or not Crosspaths.db.settings.enabled then
         return
     end
-    
+
     local unit = select(2, tooltip:GetUnit())
     if not unit or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
         return
     end
-    
+
     local name, realm = UnitNameUnmodified(unit)
     if not name or name == "" then
         return
     end
-    
+
     local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
     local playerData = Crosspaths.db.players[fullName]
-    
+
     -- Add a separator line
     tooltip:AddLine(" ")
-    
+
     -- Add Crosspaths header
     tooltip:AddLine("|cFF7B68EECrosspaths|r", 0.4, 0.4, 1)
-    
+
     if playerData and playerData.count and playerData.count > 0 then
         local encounterCount = playerData.count
-        
+
         -- Show encounter status with clear feedback
         local statusText = "|cFF00FF00Previously Encountered|r"
         local countColor = encounterCount >= 10 and "|cFFFFD700" or encounterCount >= 5 and "|cFF00FF00" or "|cFFFFFFFF"
         tooltip:AddDoubleLine("Status:", statusText, 0.8, 0.8, 0.8, 0, 1, 0)
         tooltip:AddDoubleLine("Encounters:", countColor .. tostring(encounterCount) .. "|r", 0.8, 0.8, 0.8, 1, 1, 1)
-        
+
         -- Add class and race info
         if playerData.class and playerData.class ~= "" then
             local classInfo = playerData.class
@@ -1146,7 +1146,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             tooltip:AddDoubleLine("Class:", classInfo, 0.8, 0.8, 0.8, 1, 1, 0.8)
         end
-        
+
         -- Add level info with progression indicator
         if playerData.level and playerData.level > 0 then
             local levelText = tostring(playerData.level)
@@ -1159,51 +1159,51 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             tooltip:AddDoubleLine("Level:", levelText, 0.8, 0.8, 0.8, 0.6, 1, 0.6)
         end
-        
+
         -- Add specialization if available
         if playerData.specialization and playerData.specialization ~= "" then
             tooltip:AddDoubleLine("Spec:", playerData.specialization, 0.8, 0.8, 0.8, 1, 0.8, 1)
         end
-        
+
         -- Add item level if available
         if playerData.itemLevel and playerData.itemLevel > 0 then
             tooltip:AddDoubleLine("Item Level:", tostring(playerData.itemLevel), 0.8, 0.8, 0.8, 1, 1, 0.6)
         end
-        
+
         -- Add achievement points if available
         if playerData.achievementPoints and playerData.achievementPoints > 0 then
             tooltip:AddDoubleLine("Achievements:", tostring(playerData.achievementPoints) .. " points", 0.8, 0.8, 0.8, 1, 0.8, 0.6)
         end
-        
+
         -- Add last seen info
         if playerData.lastSeen then
             local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
             tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
         end
-        
+
         -- Add first seen info
         if playerData.firstSeen then
             local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
             tooltip:AddDoubleLine("First seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
         end
-        
+
         -- Add grouped status with enhanced visibility
         if playerData.grouped then
             tooltip:AddDoubleLine("Group Status:", "|cFF00FF00Previously Grouped With You|r", 0.8, 0.8, 0.8, 0, 1, 0)
         else
             tooltip:AddDoubleLine("Group Status:", "|cFF888888Never Grouped|r", 0.8, 0.8, 0.8, 0.5, 0.5, 0.5)
         end
-        
+
         -- Add guild info if available
         if playerData.guild and playerData.guild ~= "" then
             tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
         end
-        
+
         -- Add location info if available
         if playerData.subzone and playerData.subzone ~= "" then
             tooltip:AddDoubleLine("Last location:", playerData.subzone, 0.8, 0.8, 0.8, 0.8, 0.8, 1)
         end
-        
+
         -- Add notes if available (truncated for tooltip)
         if playerData.notes and playerData.notes ~= "" then
             local notes = playerData.notes
@@ -1212,7 +1212,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
         end
-        
+
         -- Add encounter context information
         if playerData.contexts and next(playerData.contexts) then
             local contexts = {}
@@ -1227,7 +1227,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
                 local countB = tonumber(string.match(b, "%((%d+)%)"))
                 return countA > countB
             end)
-            
+
             -- Show top 2 contexts
             local contextText = ""
             for i = 1, math.min(2, #contexts) do
@@ -1239,15 +1239,15 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             tooltip:AddDoubleLine("Contexts:", contextText, 0.8, 0.8, 0.8, 0.8, 1, 0.8)
         end
-        
-        -- Add top zones information  
+
+        -- Add top zones information
         if playerData.zones and next(playerData.zones) then
             local zones = {}
             for zone, count in pairs(playerData.zones) do
                 table.insert(zones, {zone = zone, count = count})
             end
             table.sort(zones, function(a, b) return a.count > b.count end)
-            
+
             -- Show top zone
             if zones[1] then
                 local zoneText = zones[1].zone .. " (" .. zones[1].count .. ")"
@@ -1257,7 +1257,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
                 tooltip:AddDoubleLine("Top zones:", zoneText, 0.8, 0.8, 0.8, 1, 0.8, 0.6)
             end
         end
-        
+
         tooltip:Show()
     else
         -- Show clear indication for never encountered players
@@ -1272,23 +1272,23 @@ function UI:ShowPlayerTooltip(playerName, anchor)
     if not self.tooltip or not Crosspaths.db then
         return
     end
-    
+
     local playerData = Crosspaths.db.players[playerName]
     if not playerData then
         return
     end
-    
+
     self.tooltip:SetOwner(anchor, "ANCHOR_RIGHT")
     self.tooltip:ClearLines()
-    
+
     -- Player name header
     self.tooltip:AddLine(playerName, 1, 1, 1)
-    
+
     -- Basic encounter info
     local encounterCount = playerData.count or 0
     if encounterCount > 0 then
         self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
-        
+
         -- Show class and race info
         if playerData.class and playerData.class ~= "" then
             local classInfo = playerData.class
@@ -1297,7 +1297,7 @@ function UI:ShowPlayerTooltip(playerName, anchor)
             end
             self.tooltip:AddLine("Class: " .. classInfo, 1, 1, 0.8)
         end
-        
+
         -- Show level with progression
         if playerData.level and playerData.level > 0 then
             local levelText = "Level: " .. playerData.level
@@ -1307,49 +1307,49 @@ function UI:ShowPlayerTooltip(playerName, anchor)
             end
             self.tooltip:AddLine(levelText, 0.6, 1, 0.6)
         end
-        
+
         -- Show specialization if available
         if playerData.specialization and playerData.specialization ~= "" then
             self.tooltip:AddLine("Specialization: " .. playerData.specialization, 1, 0.8, 1)
         end
-        
+
         -- Show item level if available
         if playerData.itemLevel and playerData.itemLevel > 0 then
             self.tooltip:AddLine("Item Level: " .. playerData.itemLevel, 1, 1, 0.6)
         end
-        
+
         -- Show achievement points if available
         if playerData.achievementPoints and playerData.achievementPoints > 0 then
             self.tooltip:AddLine("Achievement Points: " .. playerData.achievementPoints, 1, 0.8, 0.6)
         end
-        
+
         -- Show last seen info
         if playerData.lastSeen then
             local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
             self.tooltip:AddLine("Last seen: " .. timeAgo, 0.8, 0.8, 0.8)
         end
-        
+
         -- Show first seen info
         if playerData.firstSeen then
             local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
             self.tooltip:AddLine("First seen: " .. timeAgo, 0.8, 0.8, 0.8)
         end
-        
+
         -- Show grouped status
         if playerData.grouped then
             self.tooltip:AddLine("Status: Previously grouped", 0.6, 1, 0.6)
         end
-        
+
         -- Show guild if available
         if playerData.guild and playerData.guild ~= "" then
             self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
         end
-        
+
         -- Show location if available
         if playerData.subzone and playerData.subzone ~= "" then
             self.tooltip:AddLine("Last location: " .. playerData.subzone, 0.8, 0.8, 1)
         end
-        
+
         -- Show notes if available
         if playerData.notes and playerData.notes ~= "" then
             self.tooltip:AddLine(" ", 1, 1, 1)  -- Blank line
@@ -1359,7 +1359,7 @@ function UI:ShowPlayerTooltip(playerName, anchor)
     else
         self.tooltip:AddLine("No encounter data", 0.5, 0.5, 0.5)
     end
-    
+
     self.tooltip:Show()
 end
 
@@ -1375,10 +1375,10 @@ function UI:FormatTimeAgo(timestamp)
     if not timestamp then
         return "Unknown"
     end
-    
+
     local now = time()
     local diff = now - timestamp
-    
+
     if diff < 60 then
         return "Just now"
     elseif diff < 3600 then
@@ -1399,20 +1399,20 @@ function UI:RemovePlayer(playerName)
         Crosspaths:Message("No player database available")
         return
     end
-    
+
     -- Handle both "Name" and "Name-Realm" formats
     local targetName = playerName
     if not string.find(playerName, "-") then
         targetName = playerName .. "-" .. GetRealmName()
     end
-    
+
     if Crosspaths.db.players[targetName] then
         local playerData = Crosspaths.db.players[targetName]
         local encounters = playerData.count or 0
         Crosspaths.db.players[targetName] = nil
         Crosspaths:Message("Removed " .. targetName .. " (" .. encounters .. " encounters) from tracking")
         Crosspaths:DebugLog("Player removed: " .. targetName, "INFO")
-        
+
         -- Refresh UI if it's open
         if self.mainFrame and self.mainFrame:IsShown() then
             self:RefreshCurrentTab()
@@ -1434,25 +1434,25 @@ function UI:ShowDigestReport(title, digest)
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:SetFrameStrata("HIGH")
-    
+
     -- Title
     frame.title = frame:CreateFontString(nil, "OVERLAY")
     frame.title:SetFontObject("GameFontHighlight")
     frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
     frame.title:SetText(title)
-    
+
     -- Scroll frame for content
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
-    
+
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetSize(450, 800)
     scrollFrame:SetScrollChild(content)
-    
+
     -- Generate content
     self:PopulateDigestContent(content, digest)
-    
+
     -- Close button
     local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
     closeBtn:SetSize(80, 25)
@@ -1461,7 +1461,7 @@ function UI:ShowDigestReport(title, digest)
     closeBtn:SetScript("OnClick", function()
         frame:Hide()
     end)
-    
+
     -- Export button
     local exportBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
     exportBtn:SetSize(80, 25)
@@ -1470,73 +1470,73 @@ function UI:ShowDigestReport(title, digest)
     exportBtn:SetScript("OnClick", function()
         self:ExportDigest(digest, title)
     end)
-    
+
     frame:Show()
 end
 
 -- Populate digest content
 function UI:PopulateDigestContent(content, digest)
     local yOffset = -10
-    
+
     -- Period header
     local periodLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     periodLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
     periodLabel:SetText("|cFFFFD700" .. digest.period:upper() .. " DIGEST|r")
     yOffset = yOffset - 25
-    
+
     local dateRange = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     dateRange:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
-    dateRange:SetText(string.format("|cFFADD8E6Period:|r %s to %s", 
-        os.date("%m/%d/%Y", digest.startTime), 
+    dateRange:SetText(string.format("|cFFADD8E6Period:|r %s to %s",
+        os.date("%m/%d/%Y", digest.startTime),
         os.date("%m/%d/%Y", digest.endTime)))
     yOffset = yOffset - 30
-    
+
     -- Overview stats
     local overviewLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     overviewLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
     overviewLabel:SetText("|cFF00FF00Overview|r")
     yOffset = yOffset - 20
-    
+
     local newPlayers = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     newPlayers:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
     newPlayers:SetText(string.format("• New players discovered: |cFFFFFFFF%d|r", digest.newPlayers))
     yOffset = yOffset - 15
-    
+
     local totalEncounters = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     totalEncounters:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
     totalEncounters:SetText(string.format("• Total encounters: |cFFFFFFFF%d|r", digest.totalEncounters))
     yOffset = yOffset - 15
-    
+
     if digest.averageLevel and digest.averageLevel > 0 then
         local avgLevel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         avgLevel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
         avgLevel:SetText(string.format("• Average player level: |cFFFFFFFF%d|r", digest.averageLevel))
         yOffset = yOffset - 15
     end
-    
+
     if digest.activeDays then
         local activeDays = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         activeDays:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
         activeDays:SetText(string.format("• Active days: |cFFFFFFFF%d|r", digest.activeDays))
         yOffset = yOffset - 15
     end
-    
+
     if digest.peakDay and digest.peakDay ~= "" then
         local peakDay = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         peakDay:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
         peakDay:SetText(string.format("• Peak activity: |cFFFFFFFF%s (%d encounters)|r", digest.peakDay, digest.peakDayEncounters))
         yOffset = yOffset - 15
     end
-    
+
     yOffset = yOffset - 10
-    
+
     -- Top zones
     if digest.topZones and #digest.topZones > 0 then
         local zonesLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         zonesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
         zonesLabel:SetText("|cFF00FF00Top Zones|r")
         yOffset = yOffset - 20
-        
+
         for i, zone in ipairs(digest.topZones) do
             if i <= 5 then
                 local zoneText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1547,14 +1547,14 @@ function UI:PopulateDigestContent(content, digest)
         end
         yOffset = yOffset - 10
     end
-    
+
     -- Top classes
     if digest.topClasses and #digest.topClasses > 0 then
         local classesLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         classesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
         classesLabel:SetText("|cFF00FF00Popular Classes|r")
         yOffset = yOffset - 20
-        
+
         for i, class in ipairs(digest.topClasses) do
             if i <= 5 then
                 local classText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1565,14 +1565,14 @@ function UI:PopulateDigestContent(content, digest)
         end
         yOffset = yOffset - 10
     end
-    
+
     -- Top guilds (for weekly/monthly)
     if digest.topGuilds and #digest.topGuilds > 0 then
         local guildsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         guildsLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
         guildsLabel:SetText("|cFF00FF00Active Guilds|r")
         yOffset = yOffset - 20
-        
+
         for i, guild in ipairs(digest.topGuilds) do
             if i <= 5 then
                 local guildText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1583,14 +1583,14 @@ function UI:PopulateDigestContent(content, digest)
         end
         yOffset = yOffset - 10
     end
-    
+
     -- Top players (for monthly)
     if digest.topPlayers and #digest.topPlayers > 0 then
         local playersLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         playersLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
         playersLabel:SetText("|cFF00FF00Most Encountered Players|r")
         yOffset = yOffset - 20
-        
+
         for i, player in ipairs(digest.topPlayers) do
             if i <= 10 then
                 local playerText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1609,7 +1609,7 @@ function UI:ExportDigest(digest, title)
         digest = digest,
         exportTime = time()
     }
-    
+
     local jsonData = self:TableToJSON(data)
     self:ShowExportFrame(jsonData, title .. " - " .. os.date("%Y-%m-%d"))
 end
@@ -1625,23 +1625,23 @@ function UI:ShowExportFrame(data, filename)
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:SetFrameStrata("HIGH")
-    
+
     -- Title
     frame.title = frame:CreateFontString(nil, "OVERLAY")
     frame.title:SetFontObject("GameFontHighlight")
     frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
     frame.title:SetText("Export: " .. filename)
-    
+
     -- Instructions
     local instructions = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     instructions:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
     instructions:SetText("Copy the data below and save it to a file:")
-    
+
     -- Text area
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -50)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
-    
+
     local editBox = CreateFrame("EditBox", nil, scrollFrame)
     editBox:SetMultiLine(true)
     editBox:SetAutoFocus(false)
@@ -1650,9 +1650,9 @@ function UI:ShowExportFrame(data, filename)
     editBox:SetText(data)
     editBox:SetCursorPosition(0)
     editBox:HighlightText()
-    
+
     scrollFrame:SetScrollChild(editBox)
-    
+
     -- Close button
     local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
     closeBtn:SetSize(80, 25)
@@ -1661,7 +1661,7 @@ function UI:ShowExportFrame(data, filename)
     closeBtn:SetScript("OnClick", function()
         frame:Hide()
     end)
-    
+
     frame:Show()
     editBox:SetFocus()
 end
@@ -1672,20 +1672,20 @@ function UI:ShowAdvancedStats(statType)
         Crosspaths:Message("Engine not available")
         return
     end
-    
+
     local players = Crosspaths.Engine:GetTopPlayersByType(statType, 10)
-    
+
     if #players == 0 then
         Crosspaths:Message("No data available for " .. statType)
         return
     end
-    
+
     local title = "Top " .. string.upper(statType) .. " Players:"
     Crosspaths:Message(title)
-    
+
     for i, player in ipairs(players) do
         local line = string.format("%d. %s", i, player.name)
-        
+
         if statType == "ilvl" or statType == "itemlevel" then
             line = line .. string.format(" (iLvl: %d, %d encounters)", player.itemLevel, player.count)
         elseif statType == "achievements" then
@@ -1694,7 +1694,7 @@ function UI:ShowAdvancedStats(statType)
             local spec = player.specialization and (" - " .. player.specialization) or ""
             line = line .. string.format("%s (%d encounters)", spec, player.count)
         end
-        
+
         Crosspaths:Message(line)
     end
 end

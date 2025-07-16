@@ -29,7 +29,7 @@ function Logging:InitializeVariables()
     if not CrosspathsDB then
         return
     end
-    
+
     if not CrosspathsDB.logs then
         CrosspathsDB.logs = {
             session = {},
@@ -38,15 +38,15 @@ function Logging:InitializeVariables()
             maxErrorLogs = 100,
         }
     end
-    
+
     -- Clear session logs on each login
     CrosspathsDB.logs.session = {}
-    
+
     self.logLevel = LOG_LEVELS.INFO
     if Crosspaths.debug then
         self.logLevel = LOG_LEVELS.DEBUG
     end
-    
+
     self:Log("Logging system initialized with level: " .. LOG_LEVEL_NAMES[self.logLevel], "INFO")
 end
 
@@ -54,12 +54,12 @@ end
 function Logging:Log(message, level)
     level = level or "INFO"
     local levelNum = LOG_LEVELS[level] or LOG_LEVELS.INFO
-    
+
     -- Check if we should log this level
     if levelNum > self.logLevel then
         return
     end
-    
+
     local timestamp = date("%H:%M:%S")
     local logEntry = {
         time = timestamp,
@@ -67,21 +67,21 @@ function Logging:Log(message, level)
         message = tostring(message),
         timestamp = time(),
     }
-    
+
     -- Add to session logs
     if CrosspathsDB and CrosspathsDB.logs then
         table.insert(CrosspathsDB.logs.session, logEntry)
-        
+
         -- Trim session logs if too many
         local maxLogs = CrosspathsDB.logs.maxSessionLogs or 1000
         while #CrosspathsDB.logs.session > maxLogs do
             table.remove(CrosspathsDB.logs.session, 1)
         end
-        
+
         -- Add errors to error log
         if level == "ERROR" then
             table.insert(CrosspathsDB.logs.errors, logEntry)
-            
+
             -- Trim error logs if too many
             local maxErrors = CrosspathsDB.logs.maxErrorLogs or 100
             while #CrosspathsDB.logs.errors > maxErrors do
@@ -89,7 +89,7 @@ function Logging:Log(message, level)
             end
         end
     end
-    
+
     -- Print to console for debug level
     if Crosspaths.debug and level == "ERROR" then
         print("|cFFFF0000[Crosspaths " .. level .. "]|r " .. message)
@@ -156,23 +156,23 @@ function Logging:ExportLogs(includeErrors)
             table.insert(logs, errorLog)
         end
     end
-    
+
     -- Sort by timestamp
     table.sort(logs, function(a, b)
         return a.timestamp < b.timestamp
     end)
-    
+
     local output = {}
     table.insert(output, "Crosspaths Log Export - " .. date("%Y-%m-%d %H:%M:%S"))
     table.insert(output, "Version: " .. (Crosspaths.version or "unknown"))
     table.insert(output, "Total entries: " .. #logs)
     table.insert(output, "")
-    
+
     for _, log in ipairs(logs) do
         local line = string.format("[%s] %s: %s", log.time, log.level, log.message)
         table.insert(output, line)
     end
-    
+
     return table.concat(output, "\n")
 end
 

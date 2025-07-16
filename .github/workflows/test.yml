@@ -1,4 +1,4 @@
-name: Test
+name: Test and Lint
 
 on:
   pull_request:
@@ -7,8 +7,43 @@ on:
     branches: [ main ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Code Quality Checks
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Lua and luacheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y lua5.4 luarocks
+        sudo luarocks install luacheck
+        
+    - name: Run Lua syntax check
+      run: |
+        echo "🔍 Checking Lua syntax for all .lua files..."
+        for file in *.lua; do
+          if [ -f "$file" ]; then
+            echo "  Checking $file..."
+            luac -p "$file" || (echo "❌ Syntax error in $file" && exit 1)
+          fi
+        done
+        echo "✅ All syntax checks passed!"
+        
+    - name: Run luacheck linting
+      run: |
+        echo "🔍 Running luacheck on all .lua files..."
+        if ! luacheck *.lua --globals _G --std none --ignore 11 --ignore 21 --ignore 131 --ignore 143 --ignore 213 --ignore 311 --ignore 312 --ignore 631 --ignore 611 --ignore 432 --ignore 212 --ignore 211 --ignore 231 --ignore 111 --ignore 112 --ignore 113; then
+          echo "❌ Luacheck found warnings or errors. Please fix them before merging."
+          exit 1
+        fi
+        echo "✅ All linting checks passed!"
+
   test:
     runs-on: ubuntu-latest
+    name: Unit Tests and Validation
+    needs: lint
     
     steps:
     - uses: actions/checkout@v4
@@ -18,32 +53,13 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y lua5.4 luarocks
         
-    - name: Install luacheck
-      run: |
-        sudo luarocks install luacheck
-        
-    - name: Run Lua syntax check
-      run: |
-        echo "Checking Lua syntax for all .lua files..."
-        for file in *.lua; do
-          if [ -f "$file" ]; then
-            echo "Checking $file..."
-            luac -p "$file" || (echo "Syntax error in $file" && exit 1)
-          fi
-        done
-        
-    - name: Run luacheck linting
-      run: |
-        echo "Running luacheck on all .lua files..."
-        luacheck *.lua --globals _G --std none --ignore 11 --ignore 21 --ignore 131 --ignore 143 --ignore 213 --ignore 311 --ignore 312 --ignore 631 --ignore 611 --ignore 432 --ignore 212 --ignore 211 --ignore 231 --ignore 111 --ignore 112 --ignore 113
-        
     - name: Validate addon structure
       run: |
-        echo "Validating Crosspaths addon structure..."
+        echo "🔍 Validating Crosspaths addon structure..."
         
         # Check that .toc file exists
         if [ ! -f "Crosspaths.toc" ]; then
-          echo "ERROR: Crosspaths.toc file is missing"
+          echo "❌ ERROR: Crosspaths.toc file is missing"
           exit 1
         fi
         
@@ -56,24 +72,24 @@ jobs:
         done
         
         if [ ${#missing_files[@]} -ne 0 ]; then
-          echo "ERROR: Missing required files: ${missing_files[*]}"
+          echo "❌ ERROR: Missing required files: ${missing_files[*]}"
           exit 1
         fi
         
         # Validate .toc file format
         echo "Validating .toc file format..."
         if ! grep -q "^## Interface:" Crosspaths.toc; then
-          echo "ERROR: Missing Interface version in .toc file"
+          echo "❌ ERROR: Missing Interface version in .toc file"
           exit 1
         fi
         
         if ! grep -q "^## Title:" Crosspaths.toc; then
-          echo "ERROR: Missing Title in .toc file"
+          echo "❌ ERROR: Missing Title in .toc file"
           exit 1
         fi
         
         if ! grep -q "^## Version:" Crosspaths.toc; then
-          echo "ERROR: Missing Version in .toc file"
+          echo "❌ ERROR: Missing Version in .toc file"
           exit 1
         fi
         
@@ -81,16 +97,16 @@ jobs:
         echo "Checking that all files listed in .toc exist..."
         grep -v "^#" Crosspaths.toc | grep -v "^$" | while read -r file; do
           if [ ! -f "$file" ]; then
-            echo "ERROR: File $file listed in .toc but not found"
+            echo "❌ ERROR: File $file listed in .toc but not found"
             exit 1
           fi
         done
         
-        echo "All addon structure validations passed!"
+        echo "✅ All addon structure validations passed!"
         
     - name: Check addon version consistency
       run: |
-        echo "Checking version consistency..."
+        echo "🔍 Checking version consistency..."
         
         # Extract version from .toc file
         TOC_VERSION=$(grep "^## Version:" Crosspaths.toc | cut -d' ' -f3)
@@ -101,48 +117,48 @@ jobs:
         echo "Version in Core.lua: $CORE_VERSION"
         
         if [ "$TOC_VERSION" != "$CORE_VERSION" ]; then
-          echo "ERROR: Version mismatch between Crosspaths.toc ($TOC_VERSION) and Core.lua ($CORE_VERSION)"
+          echo "❌ ERROR: Version mismatch between Crosspaths.toc ($TOC_VERSION) and Core.lua ($CORE_VERSION)"
           exit 1
         fi
         
-        echo "Version consistency check passed!"
+        echo "✅ Version consistency check passed!"
         
     - name: Validate README and documentation
       run: |
-        echo "Validating documentation..."
+        echo "🔍 Validating documentation..."
         
         # Check that essential files exist
         for file in README.md LICENSE CHANGELOG.md; do
           if [ ! -f "$file" ]; then
-            echo "ERROR: Missing documentation file: $file"
+            echo "❌ ERROR: Missing documentation file: $file"
             exit 1
           fi
         done
         
         # Check README has key sections
         if ! grep -q "Installation" README.md; then
-          echo "ERROR: README.md missing Installation section"
+          echo "❌ ERROR: README.md missing Installation section"
           exit 1
         fi
         
         if ! grep -q "Usage" README.md; then
-          echo "ERROR: README.md missing Usage section"
+          echo "❌ ERROR: README.md missing Usage section"
           exit 1
         fi
         
         # Check CHANGELOG has version entry
         if ! grep -q "\[0\.1\.0\]" CHANGELOG.md; then
-          echo "ERROR: CHANGELOG.md missing version 0.1.0 entry"
+          echo "❌ ERROR: CHANGELOG.md missing version 0.1.0 entry"
           exit 1
         fi
         
-        echo "Documentation validation passed!"
+        echo "✅ Documentation validation passed!"
         
     - name: Run unit tests
       run: |
-        echo "Running Crosspaths unit tests..."
+        echo "🧪 Running Crosspaths unit tests..."
         
         # Run the test suite
         ./tests/run_tests.sh
         
-        echo "Unit tests completed successfully!"
+        echo "✅ Unit tests completed successfully!"
