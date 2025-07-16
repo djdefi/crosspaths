@@ -6,11 +6,55 @@ local addonName, Crosspaths = ...
 Crosspaths.UI = {}
 local UI = Crosspaths.UI
 
+-- Design tokens for consistent styling
+local DesignTokens = {
+    colors = {
+        primary = {0.2, 0.4, 0.8, 0.95},      -- Blue accent
+        secondary = {0.4, 0.4, 0.4, 0.9},    -- Medium gray
+        success = {0.2, 0.8, 0.2, 0.9},      -- Green
+        warning = {1.0, 0.8, 0.2, 0.9},      -- Yellow
+        error = {0.8, 0.2, 0.2, 0.9},        -- Red
+        info = {0.4, 0.8, 1.0, 0.9},         -- Light blue
+        background = {0.1, 0.1, 0.1, 0.9},   -- Dark background
+        surface = {0.2, 0.2, 0.2, 0.9},      -- Surface
+        border = {0.6, 0.6, 0.6, 0.8},       -- Border
+        text = {1.0, 1.0, 1.0, 1.0},         -- White text
+        textSecondary = {0.8, 0.8, 0.8, 1.0}, -- Light gray text
+        textMuted = {0.5, 0.5, 0.5, 1.0},    -- Muted text
+    },
+    fonts = {
+        title = "GameFontNormalLarge",
+        header = "GameFontHighlight", 
+        body = "GameFontNormal",
+        small = "GameFontNormalSmall",
+        tooltip = "GameTooltipText",
+    },
+    spacing = {
+        xs = 4,
+        sm = 8,
+        md = 12,
+        lg = 16,
+        xl = 24,
+        xxl = 32,
+    },
+    sizes = {
+        tabHeight = 32,
+        buttonHeight = 28,
+        inputHeight = 24,
+        iconSize = 16,
+        notificationWidth = 320,
+        notificationHeight = 80,
+    }
+}
+
 -- Initialize UI
 function UI:Initialize()
     self.mainFrame = nil
     self.toastFrames = {}
+    self.notificationQueue = {}
     self.currentTab = "summary"
+    self.keyboardFocus = nil
+    self.searchDebounceTimer = nil
     
     -- Create slash commands
     self:RegisterSlashCommands()
@@ -18,7 +62,55 @@ function UI:Initialize()
     -- Initialize tooltip system
     self:InitializeTooltips()
     
-    Crosspaths:DebugLog("UI initialized", "INFO")
+    -- Initialize accessibility features
+    self:InitializeAccessibility()
+    
+    -- Initialize notification system
+    self:InitializeNotificationSystem()
+    
+    Crosspaths:DebugLog("UI initialized with enhanced accessibility and design", "INFO")
+end
+
+-- Initialize accessibility features
+function UI:InitializeAccessibility()
+    -- Create global keyboard handler for accessibility
+    local keyHandler = CreateFrame("Frame")
+    keyHandler:SetScript("OnKeyDown", function(self, key)
+        UI:HandleGlobalKeyDown(key)
+    end)
+    keyHandler:EnableKeyboard(false) -- Only enable when UI is shown
+    self.keyHandler = keyHandler
+    
+    -- Initialize screen reader announcements
+    self.announcer = CreateFrame("Frame")
+    self.announcer.text = self.announcer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    self.announcer.text:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -1000, -1000) -- Off-screen
+    self.announcer.text:SetAlpha(0) -- Invisible but readable by screen readers
+end
+
+-- Initialize enhanced notification system
+function UI:InitializeNotificationSystem()
+    self.notificationTypes = {
+        success = {color = DesignTokens.colors.success, icon = "✓", sound = SOUNDKIT.ACHIEVEMENT_MENU_OPEN},
+        warning = {color = DesignTokens.colors.warning, icon = "⚠", sound = SOUNDKIT.IG_PLAYER_INVITE},
+        error = {color = DesignTokens.colors.error, icon = "✗", sound = SOUNDKIT.IG_PLAYER_INVITE_DECLINE},
+        info = {color = DesignTokens.colors.info, icon = "ℹ", sound = SOUNDKIT.IG_CHAT_EMOTE_BUTTON},
+    }
+    
+    -- Start notification queue processor
+    self:StartNotificationProcessor()
+end
+
+-- Start notification queue processor
+function UI:StartNotificationProcessor()
+    local function processQueue()
+        if #self.notificationQueue > 0 then
+            local notification = table.remove(self.notificationQueue, 1)
+            self:DisplayNotification(notification)
+        end
+        C_Timer.After(0.5, processQueue) -- Process every 0.5 seconds
+    end
+    processQueue()
 end
 
 -- Register slash commands
@@ -106,7 +198,7 @@ function UI:HandleSlashCommand(msg)
     end
 end
 
--- Show main UI
+-- Show main UI with enhanced accessibility
 function UI:Show()
     if not self.mainFrame then
         self:CreateMainFrame()
@@ -114,6 +206,20 @@ function UI:Show()
     
     self.mainFrame:Show()
     self:RefreshCurrentTab()
+    
+    -- Enable keyboard navigation
+    if self.keyHandler then
+        self.keyHandler:EnableKeyboard(true)
+    end
+    
+    -- Focus management
+    self:SetInitialFocus()
+    
+    -- Announce to screen readers
+    self:AnnounceToScreenReader("Crosspaths interface opened. Use Tab to navigate between elements.")
+    
+    -- Play opening sound
+    PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN)
 end
 
 -- Hide main UI
@@ -121,6 +227,17 @@ function UI:Hide()
     if self.mainFrame then
         self.mainFrame:Hide()
     end
+    
+    -- Disable keyboard navigation
+    if self.keyHandler then
+        self.keyHandler:EnableKeyboard(false)
+    end
+    
+    -- Clear focus
+    self.keyboardFocus = nil
+    
+    -- Play closing sound
+    PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE)
 end
 
 -- Toggle main UI
@@ -132,51 +249,340 @@ function UI:Toggle()
     end
 end
 
--- Create main frame
+-- Set initial keyboard focus
+function UI:SetInitialFocus()
+    -- Focus on the currently selected tab
+    if self.mainFrame and self.mainFrame.tabs and self.mainFrame.tabs[self.currentTab] then
+        self:SetKeyboardFocus(self.mainFrame.tabs[self.currentTab])
+    end
+end
+
+-- Handle global keyboard navigation
+function UI:HandleGlobalKeyDown(key)
+    if not self.mainFrame or not self.mainFrame:IsShown() then
+        return
+    end
+    
+    if key == "TAB" then
+        if IsShiftKeyDown() then
+            self:NavigateFocusPrevious()
+        else
+            self:NavigateFocusNext()
+        end
+    elseif key == "ESCAPE" then
+        self:Hide()
+    elseif key == "SPACE" or key == "ENTER" then
+        if self.keyboardFocus and self.keyboardFocus.OnClick then
+            self.keyboardFocus:OnClick()
+        end
+    elseif tonumber(key) and tonumber(key) >= 1 and tonumber(key) <= 5 then
+        -- Number keys 1-5 for quick tab switching
+        local tabIds = {"summary", "players", "guilds", "advanced", "encounters"}
+        local tabId = tabIds[tonumber(key)]
+        if tabId then
+            self:SelectTab(tabId)
+        end
+    end
+end
+
+-- Navigate focus to next element
+function UI:NavigateFocusNext()
+    -- Simple implementation - cycle through tabs
+    local tabOrder = {"summary", "players", "guilds", "advanced", "encounters"}
+    local currentIndex = 1
+    
+    for i, tabId in ipairs(tabOrder) do
+        if tabId == self.currentTab then
+            currentIndex = i
+            break
+        end
+    end
+    
+    local nextIndex = (currentIndex % #tabOrder) + 1
+    local nextTab = tabOrder[nextIndex]
+    
+    if self.mainFrame.tabs[nextTab] then
+        self:SetKeyboardFocus(self.mainFrame.tabs[nextTab])
+        self:SelectTab(nextTab)
+    end
+end
+
+-- Navigate focus to previous element
+function UI:NavigateFocusPrevious()
+    local tabOrder = {"summary", "players", "guilds", "advanced", "encounters"}
+    local currentIndex = 1
+    
+    for i, tabId in ipairs(tabOrder) do
+        if tabId == self.currentTab then
+            currentIndex = i
+            break
+        end
+    end
+    
+    local prevIndex = currentIndex - 1
+    if prevIndex < 1 then
+        prevIndex = #tabOrder
+    end
+    local prevTab = tabOrder[prevIndex]
+    
+    if self.mainFrame.tabs[prevTab] then
+        self:SetKeyboardFocus(self.mainFrame.tabs[prevTab])
+        self:SelectTab(prevTab)
+    end
+end
+
+-- Set keyboard focus with visual indicator
+function UI:SetKeyboardFocus(element)
+    -- Remove focus from previous element
+    if self.keyboardFocus and self.keyboardFocus.focusIndicator then
+        self.keyboardFocus.focusIndicator:Hide()
+    end
+    
+    self.keyboardFocus = element
+    
+    -- Add focus indicator to new element
+    if element then
+        if not element.focusIndicator then
+            element.focusIndicator = element:CreateTexture(nil, "OVERLAY")
+            element.focusIndicator:SetAllPoints()
+            element.focusIndicator:SetColorTexture(unpack(DesignTokens.colors.primary))
+            element.focusIndicator:SetAlpha(0.3)
+        end
+        element.focusIndicator:Show()
+        
+        -- Announce focus change to screen readers
+        if element.accessibilityLabel then
+            self:AnnounceToScreenReader(element.accessibilityLabel)
+        end
+    end
+end
+
+-- Announce text to screen readers
+function UI:AnnounceToScreenReader(text)
+    if self.announcer and self.announcer.text then
+        self.announcer.text:SetText(text)
+        -- Brief delay to ensure screen readers pick up the change
+        C_Timer.After(0.1, function()
+            if self.announcer and self.announcer.text then
+                self.announcer.text:SetText("")
+            end
+        end)
+    end
+end
+
+-- Create main frame with enhanced design and accessibility
 function UI:CreateMainFrame()
     local frame = CreateFrame("Frame", "CrosspathsMainFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(600, 400)
+    frame:SetSize(650, 450) -- Slightly larger for better content display
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetClampedToScreen(true) -- Prevent dragging off-screen
     
-    -- Title
+    -- Enhanced styling
+    frame:SetBackdropColor(unpack(DesignTokens.colors.background))
+    frame:SetBackdropBorderColor(unpack(DesignTokens.colors.border))
+    
+    -- Accessibility attributes
+    frame:SetAttribute("aria-label", "Crosspaths Social Memory Tracker Interface")
+    frame:SetAttribute("role", "dialog")
+    
+    -- Title with improved styling
     frame.title = frame:CreateFontString(nil, "OVERLAY")
-    frame.title:SetFontObject("GameFontHighlight")
-    frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
+    frame.title:SetFontObject(DesignTokens.fonts.title)
+    frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", DesignTokens.spacing.sm, 0)
     frame.title:SetText("Crosspaths - Social Memory Tracker")
+    frame.title:SetTextColor(unpack(DesignTokens.colors.text))
     
-    -- Tab buttons
+    -- Close button accessibility
+    if frame.CloseButton then
+        frame.CloseButton:SetAttribute("aria-label", "Close Crosspaths interface")
+        frame.CloseButton:HookScript("OnClick", function()
+            self:Hide()
+        end)
+    end
+    
+    -- Tab buttons with enhanced accessibility
     self:CreateTabButtons(frame)
     
-    -- Content area
+    -- Content area with loading state support
     frame.content = CreateFrame("Frame", nil, frame)
-    frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -60)
-    frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
+    frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", DesignTokens.spacing.sm, -70)
+    frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -DesignTokens.spacing.sm, DesignTokens.spacing.sm)
+    frame.content:SetAttribute("aria-live", "polite") -- Announce content changes
+    
+    -- Loading indicator
+    frame.loadingIndicator = self:CreateLoadingIndicator(frame.content)
+    
+    -- Error display
+    frame.errorDisplay = self:CreateErrorDisplay(frame.content)
     
     self.mainFrame = frame
     
     -- Create tab content frames
     self:CreateTabContent()
+    
+    -- Set up resize functionality
+    self:SetupResizing(frame)
 end
 
--- Create tab buttons
+-- Create loading indicator
+function UI:CreateLoadingIndicator(parent)
+    local loading = CreateFrame("Frame", nil, parent)
+    loading:SetAllPoints()
+    loading:Hide()
+    
+    -- Background
+    loading.bg = loading:CreateTexture(nil, "BACKGROUND")
+    loading.bg:SetAllPoints()
+    loading.bg:SetColorTexture(unpack(DesignTokens.colors.background))
+    loading.bg:SetAlpha(0.8)
+    
+    -- Spinner (using text for simplicity)
+    loading.spinner = loading:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.title)
+    loading.spinner:SetPoint("CENTER")
+    loading.spinner:SetText("Loading...")
+    loading.spinner:SetTextColor(unpack(DesignTokens.colors.text))
+    
+    -- Animate spinner
+    local rotation = 0
+    loading.animTimer = C_Timer.NewTicker(0.1, function()
+        if loading:IsShown() then
+            rotation = rotation + 10
+            local dots = string.rep(".", (math.floor(rotation / 30) % 3) + 1)
+            loading.spinner:SetText("Loading" .. dots)
+        end
+    end)
+    
+    return loading
+end
+
+-- Create error display
+function UI:CreateErrorDisplay(parent)
+    local error = CreateFrame("Frame", nil, parent)
+    error:SetAllPoints()
+    error:Hide()
+    
+    -- Background
+    error.bg = error:CreateTexture(nil, "BACKGROUND")
+    error.bg:SetAllPoints()
+    error.bg:SetColorTexture(unpack(DesignTokens.colors.error))
+    error.bg:SetAlpha(0.2)
+    
+    -- Error icon and text
+    error.icon = error:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.title)
+    error.icon:SetPoint("CENTER", 0, DesignTokens.spacing.md)
+    error.icon:SetText("⚠")
+    error.icon:SetTextColor(unpack(DesignTokens.colors.error))
+    
+    error.text = error:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    error.text:SetPoint("TOP", error.icon, "BOTTOM", 0, -DesignTokens.spacing.sm)
+    error.text:SetTextColor(unpack(DesignTokens.colors.text))
+    error.text:SetJustifyH("CENTER")
+    error.text:SetWidth(parent:GetWidth() - DesignTokens.spacing.xl)
+    
+    -- Retry button
+    error.retryBtn = CreateFrame("Button", nil, error, "UIPanelButtonTemplate")
+    error.retryBtn:SetSize(100, DesignTokens.sizes.buttonHeight)
+    error.retryBtn:SetPoint("TOP", error.text, "BOTTOM", 0, -DesignTokens.spacing.md)
+    error.retryBtn:SetText("Retry")
+    error.retryBtn:SetScript("OnClick", function()
+        error:Hide()
+        UI:RefreshCurrentTab()
+    end)
+    
+    return error
+end
+
+-- Set up window resizing
+function UI:SetupResizing(frame)
+    -- Add resize handle
+    local resizeBtn = CreateFrame("Button", nil, frame)
+    resizeBtn:SetPoint("BOTTOMRIGHT", -DesignTokens.spacing.xs, DesignTokens.spacing.xs)
+    resizeBtn:SetSize(DesignTokens.sizes.iconSize, DesignTokens.sizes.iconSize)
+    resizeBtn:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    
+    resizeBtn:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" then
+            frame:StartSizing("BOTTOMRIGHT")
+        end
+    end)
+    
+    resizeBtn:SetScript("OnMouseUp", function(self, button)
+        frame:StopMovingOrSizing()
+        -- Save size to settings
+        if Crosspaths.db and Crosspaths.db.settings.ui then
+            Crosspaths.db.settings.ui.width = frame:GetWidth()
+            Crosspaths.db.settings.ui.height = frame:GetHeight()
+        end
+    end)
+    
+    frame:SetResizable(true)
+    frame:SetMinResize(500, 350)
+    frame:SetMaxResize(1000, 800)
+end
+
+-- Show loading state
+function UI:ShowLoading(show, message)
+    if not self.mainFrame then return end
+    
+    local loading = self.mainFrame.loadingIndicator
+    if show then
+        if message then
+            loading.spinner:SetText(message)
+        end
+        loading:Show()
+        self:AnnounceToScreenReader("Loading " .. (message or "content"))
+    else
+        loading:Hide()
+    end
+end
+
+-- Show error state
+function UI:ShowError(message, canRetry)
+    if not self.mainFrame then return end
+    
+    local error = self.mainFrame.errorDisplay
+    error.text:SetText(message or "An error occurred")
+    error.retryBtn:SetShown(canRetry ~= false)
+    error:Show()
+    
+    self:AnnounceToScreenReader("Error: " .. (message or "An error occurred"))
+end
+
+-- Hide error state
+function UI:HideError()
+    if self.mainFrame and self.mainFrame.errorDisplay then
+        self.mainFrame.errorDisplay:Hide()
+    end
+end
+
+-- Create tab buttons with enhanced accessibility and modern design
 function UI:CreateTabButtons(parent)
     local tabs = {
-        {id = "summary", text = "Summary", tooltip = "View overall statistics and summary"},
-        {id = "players", text = "Players", tooltip = "Browse and search tracked players"},
-        {id = "guilds", text = "Guilds", tooltip = "View guild statistics and members"},
-        {id = "advanced", text = "Advanced", tooltip = "View advanced role-based and performance statistics"},
-        {id = "encounters", text = "Encounters", tooltip = "Browse encounter history by zone"},
+        {id = "summary", text = "Summary", tooltip = "View overall statistics and summary", icon = "📊", hotkey = "1"},
+        {id = "players", text = "Players", tooltip = "Browse and search tracked players", icon = "👥", hotkey = "2"},
+        {id = "guilds", text = "Guilds", tooltip = "View guild statistics and members", icon = "🏛", hotkey = "3"},
+        {id = "advanced", text = "Advanced", tooltip = "View advanced role-based and performance statistics", icon = "📈", hotkey = "4"},
+        {id = "encounters", text = "Encounters", tooltip = "Browse encounter history by zone", icon = "🌍", hotkey = "5"},
     }
     
     parent.tabs = {}
+    parent.tabContainer = CreateFrame("Frame", nil, parent)
+    parent.tabContainer:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", DesignTokens.spacing.sm, DesignTokens.sizes.tabHeight + DesignTokens.spacing.xs)
+    parent.tabContainer:SetSize(parent:GetWidth() - (DesignTokens.spacing.sm * 2), DesignTokens.sizes.tabHeight)
+    
+    -- Calculate tab width dynamically
+    local availableWidth = parent.tabContainer:GetWidth() - (#tabs - 1) * DesignTokens.spacing.xs
+    local tabWidth = availableWidth / #tabs
     
     for i, tab in ipairs(tabs) do
-        local button = self:CreateTabButton(parent, i, tab)
+        local button = self:CreateTabButton(parent.tabContainer, i, tab, tabWidth)
         parent.tabs[tab.id] = button
     end
     
@@ -184,103 +590,144 @@ function UI:CreateTabButtons(parent)
     self:SelectTab("summary")
 end
 
--- Create individual tab button with modern styling
-function UI:CreateTabButton(parent, index, tabData)
-    -- Use UIPanelButtonTemplate as a more stable base than manual creation
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+-- Create individual tab button with modern styling and accessibility
+function UI:CreateTabButton(parent, index, tabData, width)
+    local button = CreateFrame("Button", nil, parent)
     button:SetID(index)
-    button:SetSize(95, 28) -- Slightly larger for better readability
-    button:SetText(tabData.text)
-    button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * 105 + 10, 32)
+    button:SetSize(width, DesignTokens.sizes.tabHeight)
+    button:SetPoint("TOPLEFT", parent, "TOPLEFT", (index-1) * (width + DesignTokens.spacing.xs), 0)
     
-    -- Apply modern tab styling
-    self:StyleTabButton(button)
+    -- Accessibility attributes
+    button:SetAttribute("aria-label", tabData.tooltip .. " (Hotkey: " .. tabData.hotkey .. ")")
+    button:SetAttribute("role", "tab")
+    button.accessibilityLabel = tabData.text .. " tab. " .. tabData.tooltip
     
-    -- Add tooltip for accessibility
-    if tabData.tooltip then
-        button:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_TOP")
-            GameTooltip:SetText(tabData.tooltip, 1, 1, 1, 1, true)
-            GameTooltip:Show()
-        end)
-        button:SetScript("OnLeave", function(self)
-            GameTooltip:Hide()
-        end)
-    end
+    -- Modern tab styling
+    self:StyleTabButton(button, tabData)
     
-    -- Tab selection behavior
+    -- Enhanced tooltip with hotkey information
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(tabData.tooltip, 1, 1, 1, 1, true)
+        GameTooltip:AddLine("Hotkey: " .. tabData.hotkey, 0.7, 0.7, 0.7, true)
+        if index > 1 then
+            GameTooltip:AddLine("Use Tab/Shift+Tab to navigate", 0.5, 0.5, 0.5, true)
+        end
+        GameTooltip:Show()
+        
+        -- Audio cue for screen readers
+        UI:AnnounceToScreenReader("Hovering over " .. tabData.text .. " tab")
+    end)
+    
+    button:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    
+    -- Tab selection with enhanced feedback
     button:SetScript("OnClick", function()
         UI:SelectTab(tabData.id)
         PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+        UI:AnnounceToScreenReader(tabData.text .. " tab selected")
+    end)
+    
+    -- Keyboard interaction
+    button:SetScript("OnKeyDown", function(self, key)
+        if key == "SPACE" or key == "ENTER" then
+            self:Click()
+        end
     end)
     
     -- Store tab data
     button.tabId = tabData.id
+    button.tabData = tabData
     button.isChecked = false
     
     return button
 end
 
--- Apply modern styling to tab buttons
-function UI:StyleTabButton(button)
-    -- Use WoW's standard font objects
-    button:SetNormalFontObject("GameFontNormal")
-    button:SetHighlightFontObject("GameFontHighlight")
-    button:SetDisabledFontObject("GameFontDisable")
-    
-    -- Modern color scheme matching WoW UI
-    local normalColor = {0.25, 0.25, 0.25, 0.9}     -- Dark gray
-    local hoverColor = {0.4, 0.4, 0.4, 0.9}         -- Medium gray
-    local pressedColor = {0.15, 0.15, 0.15, 0.9}    -- Darker gray
-    local selectedColor = {0.2, 0.4, 0.8, 0.95}     -- Blue accent
-    
-    -- Create background textures with modern styling
+-- Apply modern styling to tab buttons with enhanced visual design
+function UI:StyleTabButton(button, tabData)
+    -- Create background textures with smooth gradients
     local normalTexture = button:CreateTexture(nil, "BACKGROUND")
     normalTexture:SetAllPoints()
-    normalTexture:SetColorTexture(unpack(normalColor))
+    normalTexture:SetColorTexture(unpack(DesignTokens.colors.surface))
     button:SetNormalTexture(normalTexture)
     
-    local highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
-    highlightTexture:SetAllPoints()
-    highlightTexture:SetColorTexture(unpack(hoverColor))
-    button:SetHighlightTexture(highlightTexture)
+    local hoverTexture = button:CreateTexture(nil, "HIGHLIGHT")
+    hoverTexture:SetAllPoints()
+    hoverTexture:SetColorTexture(0.3, 0.3, 0.3, 0.9) -- Lighter on hover
+    button:SetHighlightTexture(hoverTexture)
     
-    local pushedTexture = button:CreateTexture(nil, "ARTWORK")
+    local pushedTexture = button:CreateTexture(nil, "ARTWORK") 
     pushedTexture:SetAllPoints()
-    pushedTexture:SetColorTexture(unpack(pressedColor))
+    pushedTexture:SetColorTexture(0.15, 0.15, 0.15, 0.9)
     button:SetPushedTexture(pushedTexture)
     
-    -- Add border for modern look
+    -- Border with modern styling
     local border = button:CreateTexture(nil, "BORDER")
-    border:SetAllPoints()
-    border:SetColorTexture(0.6, 0.6, 0.6, 0.8)
     border:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
     border:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
+    border:SetColorTexture(unpack(DesignTokens.colors.border))
     
-    -- Selected state texture
+    -- Selected state with accent color
     local checkedTexture = button:CreateTexture(nil, "ARTWORK")
     checkedTexture:SetAllPoints()
-    checkedTexture:SetColorTexture(unpack(selectedColor))
+    checkedTexture:SetColorTexture(unpack(DesignTokens.colors.primary))
     checkedTexture:Hide()
     
-    -- Store textures and colors for state management
+    -- Icon and text layout
+    if tabData.icon then
+        button.icon = button:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+        button.icon:SetPoint("LEFT", button, "LEFT", DesignTokens.spacing.sm, 0)
+        button.icon:SetText(tabData.icon)
+        button.icon:SetTextColor(unpack(DesignTokens.colors.text))
+        
+        button.text = button:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+        button.text:SetPoint("LEFT", button.icon, "RIGHT", DesignTokens.spacing.xs, 0)
+        button.text:SetText(tabData.text)
+        button.text:SetTextColor(unpack(DesignTokens.colors.text))
+    else
+        button.text = button:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+        button.text:SetPoint("CENTER", button, "CENTER", 0, 0)
+        button.text:SetText(tabData.text)
+        button.text:SetTextColor(unpack(DesignTokens.colors.text))
+    end
+    
+    -- Hotkey indicator
+    button.hotkey = button:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.small)
+    button.hotkey:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -DesignTokens.spacing.xs, DesignTokens.spacing.xs)
+    button.hotkey:SetText(tabData.hotkey)
+    button.hotkey:SetTextColor(unpack(DesignTokens.colors.textMuted))
+    button.hotkey:SetAlpha(0.7)
+    
+    -- Store textures for state management
     button.normalTexture = normalTexture
     button.checkedTexture = checkedTexture
     button.borderTexture = border
-    button.selectedColor = selectedColor
-    button.normalColor = normalColor
     
-    -- Modern checked state implementation
+    -- Enhanced checked state with animation
     function button:SetChecked(checked)
         self.isChecked = checked
         if checked then
             self.checkedTexture:Show()
-            -- Brighten border when selected
-            self.borderTexture:SetColorTexture(0.8, 0.8, 0.8, 1.0)
+            self.borderTexture:SetColorTexture(1.0, 1.0, 1.0, 1.0) -- Bright border
+            if self.text then
+                self.text:SetTextColor(1, 1, 1, 1) -- Bright text
+            end
+            if self.icon then
+                self.icon:SetTextColor(1, 1, 1, 1)
+            end
+            -- Subtle glow effect
+            UIFrameFadeIn(self.checkedTexture, 0.15, 0.8, 1.0)
         else
             self.checkedTexture:Hide()
-            -- Normal border when not selected
-            self.borderTexture:SetColorTexture(0.6, 0.6, 0.6, 0.8)
+            self.borderTexture:SetColorTexture(unpack(DesignTokens.colors.border))
+            if self.text then
+                self.text:SetTextColor(unpack(DesignTokens.colors.text))
+            end
+            if self.icon then
+                self.icon:SetTextColor(unpack(DesignTokens.colors.text))
+            end
         end
     end
     
@@ -380,35 +827,393 @@ function UI:CreateSummaryTab()
     return frame
 end
 
--- Create players tab
+-- Create players tab with enhanced search and filtering
 function UI:CreatePlayersTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
     
-    -- Search box
-    local searchBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    searchBox:SetSize(200, 20)
-    searchBox:SetPoint("TOPLEFT", 10, -10)
+    -- Search and filter container
+    local searchContainer = CreateFrame("Frame", nil, frame)
+    searchContainer:SetHeight(60)
+    searchContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    searchContainer:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+    
+    -- Enhanced search box with icon
+    local searchIcon = searchContainer:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    searchIcon:SetPoint("TOPLEFT", searchContainer, "TOPLEFT", DesignTokens.spacing.sm, -DesignTokens.spacing.sm)
+    searchIcon:SetText("🔍")
+    searchIcon:SetTextColor(unpack(DesignTokens.colors.textMuted))
+    
+    local searchBox = CreateFrame("EditBox", nil, searchContainer, "InputBoxTemplate")
+    searchBox:SetSize(200, DesignTokens.sizes.inputHeight)
+    searchBox:SetPoint("LEFT", searchIcon, "RIGHT", DesignTokens.spacing.xs, 0)
     searchBox:SetAutoFocus(false)
+    searchBox:SetAttribute("aria-label", "Search players by name, guild, class, or level")
+    
+    -- Placeholder text
+    searchBox.placeholder = searchBox:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    searchBox.placeholder:SetPoint("LEFT", searchBox, "LEFT", 5, 0)
+    searchBox.placeholder:SetText("Search players...")
+    searchBox.placeholder:SetTextColor(unpack(DesignTokens.colors.textMuted))
+    searchBox.placeholder:SetAlpha(0.7)
+    
+    -- Enhanced search with debouncing
+    searchBox:SetScript("OnTextChanged", function(self)
+        local text = self:GetText()
+        self.placeholder:SetShown(text == "")
+        
+        -- Cancel previous search timer
+        if UI.searchDebounceTimer then
+            UI.searchDebounceTimer:Cancel()
+        end
+        
+        -- Debounced search
+        UI.searchDebounceTimer = C_Timer.NewTimer(0.3, function()
+            UI:PerformSearch(text, frame)
+        end)
+    end)
+    
     searchBox:SetScript("OnEnterPressed", function(self)
-        UI:ShowSearchResults(self:GetText())
+        UI:PerformSearch(self:GetText(), frame)
         self:ClearFocus()
     end)
     
-    local searchLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    searchLabel:SetPoint("LEFT", searchBox, "RIGHT", 10, 0)
-    searchLabel:SetText("Search players...")
+    searchBox:SetScript("OnEscapePressed", function(self)
+        self:SetText("")
+        self:ClearFocus()
+        UI:PerformSearch("", frame)
+    end)
     
-    -- Results area
-    frame.resultsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.resultsText:SetPoint("TOPLEFT", 10, -40)
-    frame.resultsText:SetJustifyH("LEFT")
-    frame.resultsText:SetJustifyV("TOP")
-    frame.resultsText:SetText("Top players will appear here...")
+    -- Filter dropdown
+    local filterLabel = searchContainer:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    filterLabel:SetPoint("LEFT", searchBox, "RIGHT", DesignTokens.spacing.md, 0)
+    filterLabel:SetText("Filter:")
+    filterLabel:SetTextColor(unpack(DesignTokens.colors.text))
     
+    local filterDropdown = CreateFrame("Frame", nil, searchContainer, "UIDropDownMenuTemplate")
+    filterDropdown:SetPoint("LEFT", filterLabel, "RIGHT", DesignTokens.spacing.xs, 0)
+    UIDropDownMenu_SetWidth(filterDropdown, 100)
+    UIDropDownMenu_SetText(filterDropdown, "All Players")
+    
+    local function filterDropdown_Initialize(self, level)
+        local info = UIDropDownMenu_CreateInfo()
+        local filters = {
+            {text = "All Players", value = "all"},
+            {text = "Grouped Only", value = "grouped"},
+            {text = "Guild Members", value = "guild"},
+            {text = "High Level (70+)", value = "highlevel"},
+            {text = "Recent (7 days)", value = "recent"},
+        }
+        
+        for _, filter in ipairs(filters) do
+            info.text = filter.text
+            info.value = filter.value
+            info.func = function()
+                UIDropDownMenu_SetSelectedValue(filterDropdown, filter.value)
+                UIDropDownMenu_SetText(filterDropdown, filter.text)
+                UI:ApplyPlayerFilter(filter.value, frame)
+            end
+            info.checked = (UIDropDownMenu_GetSelectedValue(filterDropdown) == filter.value)
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end
+    
+    UIDropDownMenu_Initialize(filterDropdown, filterDropdown_Initialize)
+    UIDropDownMenu_SetSelectedValue(filterDropdown, "all")
+    
+    -- Sort dropdown
+    local sortLabel = searchContainer:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    sortLabel:SetPoint("LEFT", filterDropdown, "RIGHT", DesignTokens.spacing.md, 0)
+    sortLabel:SetText("Sort:")
+    sortLabel:SetTextColor(unpack(DesignTokens.colors.text))
+    
+    local sortDropdown = CreateFrame("Frame", nil, searchContainer, "UIDropDownMenuTemplate")
+    sortDropdown:SetPoint("LEFT", sortLabel, "RIGHT", DesignTokens.spacing.xs, 0)
+    UIDropDownMenu_SetWidth(sortDropdown, 120)
+    UIDropDownMenu_SetText(sortDropdown, "Most Encounters")
+    
+    local function sortDropdown_Initialize(self, level)
+        local info = UIDropDownMenu_CreateInfo()
+        local sorts = {
+            {text = "Most Encounters", value = "encounters"},
+            {text = "Alphabetical", value = "name"},
+            {text = "Recent First", value = "recent"},
+            {text = "Level (High-Low)", value = "level"},
+            {text = "Item Level", value = "itemlevel"},
+        }
+        
+        for _, sort in ipairs(sorts) do
+            info.text = sort.text
+            info.value = sort.value
+            info.func = function()
+                UIDropDownMenu_SetSelectedValue(sortDropdown, sort.value)
+                UIDropDownMenu_SetText(sortDropdown, sort.text)
+                UI:ApplyPlayerSort(sort.value, frame)
+            end
+            info.checked = (UIDropDownMenu_GetSelectedValue(sortDropdown) == sort.value)
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end
+    
+    UIDropDownMenu_Initialize(sortDropdown, sortDropdown_Initialize)
+    UIDropDownMenu_SetSelectedValue(sortDropdown, "encounters")
+    
+    -- Results container with scroll
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", searchContainer, "BOTTOMLEFT", 0, -DesignTokens.spacing.sm)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 0)
+    
+    local scrollChild = CreateFrame("Frame", nil, scrollFrame)
+    scrollChild:SetWidth(scrollFrame:GetWidth())
+    scrollChild:SetHeight(1) -- Will be adjusted dynamically
+    scrollFrame:SetScrollChild(scrollChild)
+    
+    -- Results display
+    scrollChild.resultsText = scrollChild:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    scrollChild.resultsText:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", DesignTokens.spacing.sm, -DesignTokens.spacing.sm)
+    scrollChild.resultsText:SetWidth(scrollChild:GetWidth() - DesignTokens.spacing.md)
+    scrollChild.resultsText:SetJustifyH("LEFT")
+    scrollChild.resultsText:SetJustifyV("TOP")
+    scrollChild.resultsText:SetText("Loading players...")
+    scrollChild.resultsText:SetTextColor(unpack(DesignTokens.colors.text))
+    
+    -- Results summary
+    local summaryText = searchContainer:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.small)
+    summaryText:SetPoint("TOPLEFT", searchContainer, "BOTTOMLEFT", DesignTokens.spacing.sm, 0)
+    summaryText:SetTextColor(unpack(DesignTokens.colors.textMuted))
+    
+    -- Store references
     frame.searchBox = searchBox
+    frame.filterDropdown = filterDropdown
+    frame.sortDropdown = sortDropdown
+    frame.resultsText = scrollChild.resultsText
+    frame.scrollChild = scrollChild
+    frame.summaryText = summaryText
+    frame.currentFilter = "all"
+    frame.currentSort = "encounters"
+    frame.currentSearch = ""
     
     return frame
+end
+
+-- Perform search with enhanced functionality
+function UI:PerformSearch(query, frame)
+    if not frame then return end
+    
+    frame.currentSearch = query or ""
+    
+    -- Show loading state
+    frame.resultsText:SetText("Searching...")
+    frame.resultsText:SetTextColor(unpack(DesignTokens.colors.textMuted))
+    
+    -- Perform search asynchronously to avoid UI freezing
+    C_Timer.After(0.1, function()
+        local results = self:GetFilteredPlayers(frame.currentSearch, frame.currentFilter, frame.currentSort)
+        self:DisplayPlayerResults(results, frame)
+    end)
+end
+
+-- Apply player filter
+function UI:ApplyPlayerFilter(filterType, frame)
+    frame.currentFilter = filterType
+    self:PerformSearch(frame.currentSearch, frame)
+end
+
+-- Apply player sort
+function UI:ApplyPlayerSort(sortType, frame)
+    frame.currentSort = sortType
+    self:PerformSearch(frame.currentSearch, frame)
+end
+
+-- Get filtered and sorted players
+function UI:GetFilteredPlayers(query, filter, sort)
+    if not Crosspaths.Engine then
+        return {}
+    end
+    
+    local allPlayers = Crosspaths.Engine:GetTopPlayers(1000) -- Get more for filtering
+    local filtered = {}
+    
+    -- Apply search query
+    if query and query ~= "" then
+        local lowerQuery = string.lower(query)
+        for _, player in ipairs(allPlayers) do
+            local playerName = string.lower(player.name or "")
+            local playerGuild = string.lower(player.guild or "")
+            local playerClass = string.lower(player.class or "")
+            local playerLevel = tostring(player.level or 0)
+            
+            if string.find(playerName, lowerQuery) or 
+               string.find(playerGuild, lowerQuery) or
+               string.find(playerClass, lowerQuery) or
+               string.find(playerLevel, lowerQuery) then
+                table.insert(filtered, player)
+            end
+        end
+    else
+        filtered = allPlayers
+    end
+    
+    -- Apply filter
+    if filter == "grouped" then
+        local groupedOnly = {}
+        for _, player in ipairs(filtered) do
+            if player.grouped then
+                table.insert(groupedOnly, player)
+            end
+        end
+        filtered = groupedOnly
+    elseif filter == "guild" then
+        local guildOnly = {}
+        for _, player in ipairs(filtered) do
+            if player.guild and player.guild ~= "" then
+                table.insert(guildOnly, player)
+            end
+        end
+        filtered = guildOnly
+    elseif filter == "highlevel" then
+        local highlevelOnly = {}
+        for _, player in ipairs(filtered) do
+            if player.level and player.level >= 70 then
+                table.insert(highlevelOnly, player)
+            end
+        end
+        filtered = highlevelOnly
+    elseif filter == "recent" then
+        local recentOnly = {}
+        local weekAgo = time() - (7 * 24 * 60 * 60)
+        for _, player in ipairs(filtered) do
+            if player.lastSeen and player.lastSeen >= weekAgo then
+                table.insert(recentOnly, player)
+            end
+        end
+        filtered = recentOnly
+    end
+    
+    -- Apply sort
+    if sort == "name" then
+        table.sort(filtered, function(a, b)
+            return (a.name or "") < (b.name or "")
+        end)
+    elseif sort == "recent" then
+        table.sort(filtered, function(a, b)
+            return (a.lastSeen or 0) > (b.lastSeen or 0)
+        end)
+    elseif sort == "level" then
+        table.sort(filtered, function(a, b)
+            return (a.level or 0) > (b.level or 0)
+        end)
+    elseif sort == "itemlevel" then
+        table.sort(filtered, function(a, b)
+            return (a.itemLevel or 0) > (b.itemLevel or 0)
+        end)
+    else -- encounters (default)
+        table.sort(filtered, function(a, b)
+            return (a.count or 0) > (b.count or 0)
+        end)
+    end
+    
+    return filtered
+end
+
+-- Display player search results with enhanced formatting
+function UI:DisplayPlayerResults(results, frame)
+    if not frame or not frame.resultsText then return end
+    
+    local lines = {}
+    local maxResults = 50 -- Limit for performance
+    local displayCount = math.min(#results, maxResults)
+    
+    -- Color scheme for different elements
+    local colors = {
+        rank = DesignTokens.colors.textMuted,
+        name = DesignTokens.colors.text,
+        guild = {0.7, 0.7, 1.0, 1.0}, -- Light blue
+        class = {1.0, 0.8, 0.4, 1.0}, -- Gold
+        level = {0.4, 1.0, 0.4, 1.0}, -- Green
+        encounters = {1.0, 1.0, 0.6, 1.0}, -- Light yellow
+        grouped = DesignTokens.colors.success,
+    }
+    
+    if displayCount == 0 then
+        table.insert(lines, "|cFF888888No players found matching your criteria.|r")
+    else
+        for i = 1, displayCount do
+            local player = results[i]
+            local line = ""
+            
+            -- Rank
+            line = line .. string.format("|cFF%02X%02X%02X%d.|r ", 
+                colors.rank[1]*255, colors.rank[2]*255, colors.rank[3]*255, i)
+            
+            -- Name with color coding
+            line = line .. string.format("|cFF%02X%02X%02X%s|r", 
+                colors.name[1]*255, colors.name[2]*255, colors.name[3]*255, player.name)
+            
+            -- Grouped indicator
+            if player.grouped then
+                line = line .. string.format(" |cFF%02X%02X%02X★|r", 
+                    colors.grouped[1]*255, colors.grouped[2]*255, colors.grouped[3]*255)
+            end
+            
+            -- Guild
+            if player.guild and player.guild ~= "" then
+                line = line .. string.format(" |cFF%02X%02X%02X<%s>|r", 
+                    colors.guild[1]*255, colors.guild[2]*255, colors.guild[3]*255, player.guild)
+            end
+            
+            -- Class and Race
+            if player.class and player.class ~= "" then
+                local classText = player.class
+                if player.race and player.race ~= "" then
+                    classText = player.race .. " " .. player.class
+                end
+                line = line .. string.format(" |cFF%02X%02X%02X[%s]|r", 
+                    colors.class[1]*255, colors.class[2]*255, colors.class[3]*255, classText)
+            end
+            
+            -- Level
+            if player.level and player.level > 0 then
+                line = line .. string.format(" |cFF%02X%02X%02XL%d|r", 
+                    colors.level[1]*255, colors.level[2]*255, colors.level[3]*255, player.level)
+            end
+            
+            -- Item Level
+            if player.itemLevel and player.itemLevel > 0 then
+                line = line .. string.format(" |cFF%02X%02X%02XiL%d|r", 
+                    colors.level[1]*255, colors.level[2]*255, colors.level[3]*255, player.itemLevel)
+            end
+            
+            -- Encounters
+            line = line .. string.format(" - |cFF%02X%02X%02X%d encounter%s|r", 
+                colors.encounters[1]*255, colors.encounters[2]*255, colors.encounters[3]*255, 
+                player.count, player.count == 1 and "" or "s")
+            
+            table.insert(lines, line)
+        end
+        
+        if #results > maxResults then
+            table.insert(lines, "")
+            table.insert(lines, string.format("|cFF888888... and %d more (refine search to see all)|r", #results - maxResults))
+        end
+    end
+    
+    -- Update results
+    frame.resultsText:SetText(table.concat(lines, "\n"))
+    frame.resultsText:SetTextColor(unpack(DesignTokens.colors.text))
+    
+    -- Update summary
+    if frame.summaryText then
+        local summary = string.format("Showing %d of %d players", displayCount, #results)
+        if frame.currentSearch ~= "" then
+            summary = summary .. string.format(" (search: \"%s\")", frame.currentSearch)
+        end
+        frame.summaryText:SetText(summary)
+    end
+    
+    -- Adjust scroll child height
+    local textHeight = frame.resultsText:GetStringHeight()
+    frame.scrollChild:SetHeight(math.max(textHeight + DesignTokens.spacing.md, 1))
 end
 
 -- Create guilds tab
@@ -795,60 +1600,452 @@ function UI:RefreshAdvancedTab()
     self.tabContent.advanced.advancedText:SetText(table.concat(lines, "\n"))
 end
 
--- Show toast notification
-function UI:ShowToast(title, message)
+-- Enhanced notification system with queue management and multiple types
+function UI:ShowToast(title, message, notificationType, duration, actionButton)
     if not Crosspaths.db or not Crosspaths.db.settings.ui.showNotifications then
         return
     end
     
-    -- Calculate position based on existing toasts to prevent overlap
-    local yOffset = -100
-    local activeToasts = 0
+    notificationType = notificationType or "info"
+    duration = duration or (Crosspaths.db.settings.ui.notificationDuration or 3)
+    
+    -- Add to queue instead of showing immediately
+    local notification = {
+        title = title,
+        message = message,
+        type = notificationType,
+        duration = duration,
+        actionButton = actionButton,
+        timestamp = time()
+    }
+    
+    table.insert(self.notificationQueue, notification)
+end
+
+-- Display notification from queue
+function UI:DisplayNotification(notification)
+    -- Limit number of active notifications
+    local maxNotifications = 5
+    local activeCount = 0
+    
     for i = #self.toastFrames, 1, -1 do
         local toast = self.toastFrames[i]
         if toast and toast:IsShown() then
-            activeToasts = activeToasts + 1
+            activeCount = activeCount + 1
         else
-            -- Remove inactive toasts from the list
             table.remove(self.toastFrames, i)
         end
     end
     
-    -- Stack notifications vertically with some spacing
-    yOffset = yOffset - (activeToasts * 70) -- 70 pixels per notification (60 height + 10 spacing)
+    if activeCount >= maxNotifications then
+        -- Remove oldest notification
+        if self.toastFrames[1] then
+            self.toastFrames[1]:Hide()
+            table.remove(self.toastFrames, 1)
+        end
+    end
     
-    -- Simple toast implementation
+    -- Calculate position
+    local yOffset = -100 - (activeCount * (DesignTokens.sizes.notificationHeight + DesignTokens.spacing.sm))
+    
+    -- Create enhanced toast
+    local toast = self:CreateEnhancedToast(notification, yOffset)
+    table.insert(self.toastFrames, toast)
+    
+    -- Play notification sound
+    local notificationInfo = self.notificationTypes[notification.type]
+    if notificationInfo and notificationInfo.sound then
+        PlaySound(notificationInfo.sound)
+    end
+    
+    -- Announce to screen readers
+    self:AnnounceToScreenReader(notification.type .. " notification: " .. notification.title .. ". " .. notification.message)
+end
+
+-- Create enhanced toast notification
+function UI:CreateEnhancedToast(notification, yOffset)
     local toast = CreateFrame("Frame", nil, UIParent)
-    toast:SetSize(300, 60)
-    toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
-    toast:SetFrameStrata("HIGH")
+    toast:SetSize(DesignTokens.sizes.notificationWidth, DesignTokens.sizes.notificationHeight)
+    toast:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -DesignTokens.spacing.md, yOffset)
+    toast:SetFrameStrata("TOOLTIP")
     
-    -- Background
+    -- Get notification type info
+    local notificationInfo = self.notificationTypes[notification.type] or self.notificationTypes.info
+    
+    -- Background with type-specific color
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
-    toast.bg:SetColorTexture(0, 0, 0, 0.8)
+    toast.bg:SetColorTexture(unpack(notificationInfo.color))
+    toast.bg:SetAlpha(0.9)
+    
+    -- Border
+    toast.border = toast:CreateTexture(nil, "BORDER")
+    toast.border:SetPoint("TOPLEFT", toast, "TOPLEFT", 1, -1)
+    toast.border:SetPoint("BOTTOMRIGHT", toast, "BOTTOMRIGHT", -1, 1)
+    toast.border:SetColorTexture(1, 1, 1, 0.3)
+    
+    -- Icon
+    toast.icon = toast:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.header)
+    toast.icon:SetPoint("TOPLEFT", toast, "TOPLEFT", DesignTokens.spacing.sm, -DesignTokens.spacing.sm)
+    toast.icon:SetText(notificationInfo.icon)
+    toast.icon:SetTextColor(1, 1, 1, 1)
     
     -- Title
-    toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    toast.title:SetPoint("TOP", toast, "TOP", 0, -5)
-    toast.title:SetText(title)
-    toast.title:SetTextColor(1, 1, 0)
+    toast.title = toast:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.body)
+    toast.title:SetPoint("TOPLEFT", toast.icon, "TOPRIGHT", DesignTokens.spacing.xs, 0)
+    toast.title:SetPoint("TOPRIGHT", toast, "TOPRIGHT", -DesignTokens.spacing.sm, -DesignTokens.spacing.sm)
+    toast.title:SetText(notification.title or "")
+    toast.title:SetTextColor(1, 1, 1, 1)
+    toast.title:SetJustifyH("LEFT")
     
     -- Message
-    toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    toast.message:SetPoint("TOP", toast.title, "BOTTOM", 0, -5)
-    toast.message:SetText(message)
-    toast.message:SetTextColor(1, 1, 1)
+    if notification.message and notification.message ~= "" then
+        toast.message = toast:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.small)
+        toast.message:SetPoint("TOPLEFT", toast.title, "BOTTOMLEFT", 0, -DesignTokens.spacing.xs)
+        toast.message:SetPoint("BOTTOMRIGHT", toast, "BOTTOMRIGHT", -DesignTokens.spacing.sm, DesignTokens.spacing.sm)
+        toast.message:SetText(notification.message)
+        toast.message:SetTextColor(0.9, 0.9, 0.9, 1)
+        toast.message:SetJustifyH("LEFT")
+        toast.message:SetJustifyV("TOP")
+    end
     
-    -- Auto-hide
-    local duration = Crosspaths.db.settings.ui.notificationDuration or 3
-    C_Timer.After(duration, function()
-        if toast then
+    -- Close button
+    toast.closeBtn = CreateFrame("Button", nil, toast)
+    toast.closeBtn:SetSize(16, 16)
+    toast.closeBtn:SetPoint("TOPRIGHT", toast, "TOPRIGHT", -DesignTokens.spacing.xs, -DesignTokens.spacing.xs)
+    
+    toast.closeBtn.text = toast.closeBtn:CreateFontString(nil, "OVERLAY", DesignTokens.fonts.small)
+    toast.closeBtn.text:SetAllPoints()
+    toast.closeBtn.text:SetText("✕")
+    toast.closeBtn.text:SetTextColor(1, 1, 1, 0.7)
+    
+    toast.closeBtn:SetScript("OnClick", function()
+        toast:Hide()
+    end)
+    
+    toast.closeBtn:SetScript("OnEnter", function(self)
+        self.text:SetTextColor(1, 1, 1, 1)
+    end)
+    
+    toast.closeBtn:SetScript("OnLeave", function(self)
+        self.text:SetTextColor(1, 1, 1, 0.7)
+    end)
+    
+    -- Action button if provided
+    if notification.actionButton then
+        toast.actionBtn = CreateFrame("Button", nil, toast, "UIPanelButtonTemplate")
+        toast.actionBtn:SetSize(60, 20)
+        toast.actionBtn:SetPoint("BOTTOMRIGHT", toast, "BOTTOMRIGHT", -DesignTokens.spacing.sm, DesignTokens.spacing.sm)
+        toast.actionBtn:SetText(notification.actionButton.text or "Action")
+        
+        if notification.actionButton.onClick then
+            toast.actionBtn:SetScript("OnClick", function()
+                notification.actionButton.onClick()
+                toast:Hide()
+            end)
+        end
+    end
+    
+    -- Slide in animation
+    toast:SetAlpha(0)
+    toast:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 50, yOffset) -- Start off-screen
+    
+    UIFrameFadeIn(toast, 0.3, 0, 1)
+    toast:SetScript("OnUpdate", function(self, elapsed)
+        local x, y = self:GetCenter()
+        if x > UIParent:GetWidth() - DesignTokens.sizes.notificationWidth/2 - DesignTokens.spacing.md then
+            self:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 
+                -DesignTokens.spacing.md - (UIParent:GetWidth() - DesignTokens.sizes.notificationWidth/2 - DesignTokens.spacing.md - x) * 0.1, yOffset)
+        else
+            self:SetScript("OnUpdate", nil)
+        end
+    end)
+    
+    -- Auto-hide with progress bar
+    local progressBar = CreateFrame("StatusBar", nil, toast)
+    progressBar:SetSize(toast:GetWidth() - DesignTokens.spacing.md, 2)
+    progressBar:SetPoint("BOTTOM", toast, "BOTTOM", 0, 0)
+    progressBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    progressBar:SetStatusBarColor(1, 1, 1, 0.5)
+    progressBar:SetMinMaxValues(0, notification.duration)
+    progressBar:SetValue(notification.duration)
+    
+    local timeLeft = notification.duration
+    local updateTimer = C_Timer.NewTicker(0.1, function()
+        timeLeft = timeLeft - 0.1
+        progressBar:SetValue(timeLeft)
+        if timeLeft <= 0 then
             toast:Hide()
         end
     end)
     
-    table.insert(self.toastFrames, toast)
+    toast:SetScript("OnHide", function()
+        if updateTimer then
+            updateTimer:Cancel()
+        end
+    end)
+    
+    -- Mouse interaction pauses auto-hide
+    toast:SetScript("OnEnter", function()
+        if updateTimer then
+            updateTimer:Cancel()
+            updateTimer = nil
+        end
+        progressBar:Hide()
+    end)
+    
+    toast:SetScript("OnLeave", function()
+        if not updateTimer then
+            updateTimer = C_Timer.NewTicker(0.1, function()
+                timeLeft = timeLeft - 0.1
+                progressBar:SetValue(timeLeft)
+                if timeLeft <= 0 then
+                    toast:Hide()
+                end
+            end)
+            progressBar:Show()
+        end
+    end)
+    
+    return toast
+end
+
+-- Convenience methods for different notification types
+function UI:ShowSuccessToast(title, message, duration)
+    self:ShowToast(title, message, "success", duration)
+end
+
+function UI:ShowWarningToast(title, message, duration)
+    self:ShowToast(title, message, "warning", duration)
+end
+
+function UI:ShowErrorToast(title, message, duration)
+    self:ShowToast(title, message, "error", duration)
+end
+
+function UI:ShowInfoToast(title, message, duration)
+    self:ShowToast(title, message, "info", duration)
+end
+
+-- Refresh players tab with enhanced functionality
+function UI:RefreshPlayersTab()
+    if not self.tabContent.players then
+        return
+    end
+    
+    local frame = self.tabContent.players
+    
+    -- If no search is active, show top players by default
+    if not frame.currentSearch or frame.currentSearch == "" then
+        local results = self:GetFilteredPlayers("", frame.currentFilter or "all", frame.currentSort or "encounters")
+        self:DisplayPlayerResults(results, frame)
+    else
+        -- Refresh current search
+        self:PerformSearch(frame.currentSearch, frame)
+    end
+end
+
+-- Apply player filter
+function UI:ApplyPlayerFilter(filterType, frame)
+    frame.currentFilter = filterType
+    self:PerformSearch(frame.currentSearch, frame)
+end
+
+-- Apply player sort
+function UI:ApplyPlayerSort(sortType, frame)
+    frame.currentSort = sortType
+    self:PerformSearch(frame.currentSearch, frame)
+end
+
+-- Get filtered and sorted players
+function UI:GetFilteredPlayers(query, filter, sort)
+    if not Crosspaths.Engine then
+        return {}
+    end
+    
+    local allPlayers = Crosspaths.Engine:GetTopPlayers(1000) -- Get more for filtering
+    local filtered = {}
+    
+    -- Apply search query
+    if query and query ~= "" then
+        local lowerQuery = string.lower(query)
+        for _, player in ipairs(allPlayers) do
+            local playerName = string.lower(player.name or "")
+            local playerGuild = string.lower(player.guild or "")
+            local playerClass = string.lower(player.class or "")
+            local playerLevel = tostring(player.level or 0)
+            
+            if string.find(playerName, lowerQuery) or 
+               string.find(playerGuild, lowerQuery) or
+               string.find(playerClass, lowerQuery) or
+               string.find(playerLevel, lowerQuery) then
+                table.insert(filtered, player)
+            end
+        end
+    else
+        filtered = allPlayers
+    end
+    
+    -- Apply filter
+    if filter == "grouped" then
+        local groupedOnly = {}
+        for _, player in ipairs(filtered) do
+            if player.grouped then
+                table.insert(groupedOnly, player)
+            end
+        end
+        filtered = groupedOnly
+    elseif filter == "guild" then
+        local guildOnly = {}
+        for _, player in ipairs(filtered) do
+            if player.guild and player.guild ~= "" then
+                table.insert(guildOnly, player)
+            end
+        end
+        filtered = guildOnly
+    elseif filter == "highlevel" then
+        local highlevelOnly = {}
+        for _, player in ipairs(filtered) do
+            if player.level and player.level >= 70 then
+                table.insert(highlevelOnly, player)
+            end
+        end
+        filtered = highlevelOnly
+    elseif filter == "recent" then
+        local recentOnly = {}
+        local weekAgo = time() - (7 * 24 * 60 * 60)
+        for _, player in ipairs(filtered) do
+            if player.lastSeen and player.lastSeen >= weekAgo then
+                table.insert(recentOnly, player)
+            end
+        end
+        filtered = recentOnly
+    end
+    
+    -- Apply sort
+    if sort == "name" then
+        table.sort(filtered, function(a, b)
+            return (a.name or "") < (b.name or "")
+        end)
+    elseif sort == "recent" then
+        table.sort(filtered, function(a, b)
+            return (a.lastSeen or 0) > (b.lastSeen or 0)
+        end)
+    elseif sort == "level" then
+        table.sort(filtered, function(a, b)
+            return (a.level or 0) > (b.level or 0)
+        end)
+    elseif sort == "itemlevel" then
+        table.sort(filtered, function(a, b)
+            return (a.itemLevel or 0) > (b.itemLevel or 0)
+        end)
+    else -- encounters (default)
+        table.sort(filtered, function(a, b)
+            return (a.count or 0) > (b.count or 0)
+        end)
+    end
+    
+    return filtered
+end
+
+-- Display player search results with enhanced formatting
+function UI:DisplayPlayerResults(results, frame)
+    if not frame or not frame.resultsText then return end
+    
+    local lines = {}
+    local maxResults = 50 -- Limit for performance
+    local displayCount = math.min(#results, maxResults)
+    
+    -- Color scheme for different elements
+    local colors = {
+        rank = DesignTokens.colors.textMuted,
+        name = DesignTokens.colors.text,
+        guild = {0.7, 0.7, 1.0, 1.0}, -- Light blue
+        class = {1.0, 0.8, 0.4, 1.0}, -- Gold
+        level = {0.4, 1.0, 0.4, 1.0}, -- Green
+        encounters = {1.0, 1.0, 0.6, 1.0}, -- Light yellow
+        grouped = DesignTokens.colors.success,
+    }
+    
+    if displayCount == 0 then
+        table.insert(lines, "|cFF888888No players found matching your criteria.|r")
+    else
+        for i = 1, displayCount do
+            local player = results[i]
+            local line = ""
+            
+            -- Rank
+            line = line .. string.format("|cFF%02X%02X%02X%d.|r ", 
+                colors.rank[1]*255, colors.rank[2]*255, colors.rank[3]*255, i)
+            
+            -- Name with color coding
+            line = line .. string.format("|cFF%02X%02X%02X%s|r", 
+                colors.name[1]*255, colors.name[2]*255, colors.name[3]*255, player.name)
+            
+            -- Grouped indicator
+            if player.grouped then
+                line = line .. string.format(" |cFF%02X%02X%02X★|r", 
+                    colors.grouped[1]*255, colors.grouped[2]*255, colors.grouped[3]*255)
+            end
+            
+            -- Guild
+            if player.guild and player.guild ~= "" then
+                line = line .. string.format(" |cFF%02X%02X%02X<%s>|r", 
+                    colors.guild[1]*255, colors.guild[2]*255, colors.guild[3]*255, player.guild)
+            end
+            
+            -- Class and Race
+            if player.class and player.class ~= "" then
+                local classText = player.class
+                if player.race and player.race ~= "" then
+                    classText = player.race .. " " .. player.class
+                end
+                line = line .. string.format(" |cFF%02X%02X%02X[%s]|r", 
+                    colors.class[1]*255, colors.class[2]*255, colors.class[3]*255, classText)
+            end
+            
+            -- Level
+            if player.level and player.level > 0 then
+                line = line .. string.format(" |cFF%02X%02X%02XL%d|r", 
+                    colors.level[1]*255, colors.level[2]*255, colors.level[3]*255, player.level)
+            end
+            
+            -- Item Level
+            if player.itemLevel and player.itemLevel > 0 then
+                line = line .. string.format(" |cFF%02X%02X%02XiL%d|r", 
+                    colors.level[1]*255, colors.level[2]*255, colors.level[3]*255, player.itemLevel)
+            end
+            
+            -- Encounters
+            line = line .. string.format(" - |cFF%02X%02X%02X%d encounter%s|r", 
+                colors.encounters[1]*255, colors.encounters[2]*255, colors.encounters[3]*255, 
+                player.count, player.count == 1 and "" or "s")
+            
+            table.insert(lines, line)
+        end
+        
+        if #results > maxResults then
+            table.insert(lines, "")
+            table.insert(lines, string.format("|cFF888888... and %d more (refine search to see all)|r", #results - maxResults))
+        end
+    end
+    
+    -- Update results
+    frame.resultsText:SetText(table.concat(lines, "\n"))
+    frame.resultsText:SetTextColor(unpack(DesignTokens.colors.text))
+    
+    -- Update summary
+    if frame.summaryText then
+        local summary = string.format("Showing %d of %d players", displayCount, #results)
+        if frame.currentSearch ~= "" then
+            summary = summary .. string.format(" (search: \"%s\")", frame.currentSearch)
+        end
+        frame.summaryText:SetText(summary)
+    end
+    
+    -- Adjust scroll child height
+    local textHeight = frame.resultsText:GetStringHeight()
+    frame.scrollChild:SetHeight(math.max(textHeight + DesignTokens.spacing.md, 1))
 end
 
 -- Quick command implementations
@@ -862,51 +2059,16 @@ end
 
 -- Search players and update the players tab
 function UI:SearchPlayers(query)
-    if not query or query == "" then
-        -- If empty query, show top players
-        self:RefreshPlayersTab()
-        return
-    end
-    
     if not self.tabContent.players then
         return
     end
     
-    local results = Crosspaths.Engine:SearchPlayers(query, 20)
-    local lines = {}
-    
-    table.insert(lines, "|cFFFFD700Search results for '" .. query .. "':|r")
-    table.insert(lines, "")
-    
-    if #results == 0 then
-        table.insert(lines, "No players found matching your search.")
-    else
-        for i, player in ipairs(results) do
-            local groupedText = player.grouped and " |cFF00FF00(Grouped)|r" or ""
-            local guildText = player.guild and player.guild ~= "" and (" |cFFFFFFFF<" .. player.guild .. ">|r") or ""
-            
-            -- Add class/race information
-            local classText = ""
-            if player.class and player.class ~= "" then
-                classText = " |cFFAAAAAA[" .. player.class
-                if player.race and player.race ~= "" then
-                    classText = classText .. " " .. player.race
-                end
-                classText = classText .. "]|r"
-            end
-            
-            -- Add level information
-            local levelText = ""
-            if player.level and player.level > 0 then
-                levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
-            end
-            
-            table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters",
-                i, player.name, groupedText, guildText, classText, levelText, player.count))
-        end
+    local frame = self.tabContent.players
+    if frame.searchBox then
+        frame.searchBox:SetText(query or "")
     end
     
-    self.tabContent.players.resultsText:SetText(table.concat(lines, "\n"))
+    self:PerformSearch(query, frame)
 end
 
 function UI:ShowStats()
