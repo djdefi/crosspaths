@@ -606,7 +606,7 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
     else
         if Crosspaths.sessionStats then
             Crosspaths.sessionStats.playersEncountered = (Crosspaths.sessionStats.playersEncountered or 0) + 1
-            -- Keep legacy field for backward compatibility  
+            -- Keep legacy field for backward compatibility
             Crosspaths.sessionStats.playersUpdated = (Crosspaths.sessionStats.playersUpdated or 0) + 1
         end
         Crosspaths:DebugLog("Updating existing player: " .. playerName .. " (previous count: " .. player.count .. ")", "DEBUG")
