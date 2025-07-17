@@ -37,7 +37,7 @@
 
 2. **Find the addon**
    - Search for "Crosspaths" in the WoW section
-   - Or visit the [project page](https://www.curseforge.com/wow/addons/crosspaths)
+   - Or visit the [project page](https://www.curseforge.com/wow/addons/crosspaths-social-memory-tracker)
 
 3. **Install**
    - Click "Install" in the CurseForge app

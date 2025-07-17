@@ -5,7 +5,7 @@ This document describes the setup required for automated CurseForge publishing.
 ## Project Information
 
 - **CurseForge Project ID**: `1308376`
-- **Project URL**: https://www.curseforge.com/wow/addons/crosspaths
+- **Project URL**: https://www.curseforge.com/wow/addons/crosspaths-social-memory-tracker
 - **Game**: World of Warcraft
 - **Addon Name**: Crosspaths
 

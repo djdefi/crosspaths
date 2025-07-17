@@ -13,7 +13,7 @@ The CurseForge publishing pipeline has been set up with the following components
 
 ### Project Information:
 - **CurseForge Project ID**: `1308376`
-- **Project URL**: https://www.curseforge.com/wow/addons/crosspaths
+- **Project URL**: https://www.curseforge.com/wow/addons/crosspaths-social-memory-tracker
 
 ## Required GitHub Secrets (Manual Setup Needed)
 
