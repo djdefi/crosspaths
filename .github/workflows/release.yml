@@ -276,7 +276,7 @@ jobs:
       uses: itsmeow/curseforge-upload@v3
       with:
         token: ${{ secrets.CURSEFORGE_TOKEN }}
-        project_id: ${{ secrets.CURSEFORGE_PROJECT_ID }}
+        project_id: ${{ secrets.CURSEFORGE_PROJECT_ID }}  # CurseForge Project ID: 1308376
         game_endpoint: wow
         file_path: Crosspaths-${{ steps.version.outputs.version }}.zip
         display_name: v${{ steps.version.outputs.version }}
