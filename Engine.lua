@@ -285,13 +285,63 @@ function Engine:GetStatsSummary()
     return stats
 end
 
--- Get recent activity statistics
+-- Get unique player statistics for a specific time period
+function Engine:GetUniquePlayerStats(periodDays)
+    if not Crosspaths.db or not Crosspaths.db.players then
+        return {uniquePlayers = 0, totalEncounters = 0, estimatedPeriodEncounters = 0}
+    end
+
+    local now = time()
+    local periodSeconds = periodDays * 24 * 60 * 60
+    local cutoffTime = now - periodSeconds
+
+    local stats = {
+        uniquePlayers = 0,
+        totalEncounters = 0,
+        estimatedPeriodEncounters = 0
+    }
+
+    for name, player in pairs(Crosspaths.db.players) do
+        local timeSince = now - (player.lastSeen or 0)
+        
+        if timeSince <= periodSeconds then
+            stats.uniquePlayers = stats.uniquePlayers + 1
+            stats.totalEncounters = stats.totalEncounters + (player.count or 0)
+            
+            -- Estimate encounters that occurred within the period
+            local playerActivePeriod = (player.lastSeen or now) - (player.firstSeen or now)
+            local playerTotalEncounters = player.count or 0
+            
+            if playerActivePeriod > 0 and playerTotalEncounters > 0 then
+                -- Calculate what portion of the player's activity overlaps with the recent period
+                local recentPeriodStart = now - periodSeconds
+                local actualPeriodStart = math.max(recentPeriodStart, player.firstSeen or now)
+                local periodOverlap = (player.lastSeen or now) - actualPeriodStart
+                
+                if periodOverlap > 0 then
+                    local periodRatio = periodOverlap / playerActivePeriod
+                    local estimatedEncounters = math.max(1, math.floor(playerTotalEncounters * periodRatio))
+                    stats.estimatedPeriodEncounters = stats.estimatedPeriodEncounters + estimatedEncounters
+                else
+                    stats.estimatedPeriodEncounters = stats.estimatedPeriodEncounters + 1
+                end
+            else
+                -- If no time data, assume at least 1 encounter
+                stats.estimatedPeriodEncounters = stats.estimatedPeriodEncounters + 1
+            end
+        end
+    end
+
+    return stats
+end
+
+-- Get activity statistics with better separation of unique players vs encounters
 function Engine:GetRecentActivity()
     if not Crosspaths.db or not Crosspaths.db.players then
         return {
-            last24h = {players = 0, encounters = 0},
-            last7d = {players = 0, encounters = 0},
-            last30d = {players = 0, encounters = 0}
+            last24h = {players = 0, encounters = 0, uniquePlayers = 0},
+            last7d = {players = 0, encounters = 0, uniquePlayers = 0},
+            last30d = {players = 0, encounters = 0, uniquePlayers = 0}
         }
     end
 
@@ -301,29 +351,102 @@ function Engine:GetRecentActivity()
     local month = 30 * day
 
     local activity = {
-        last24h = {players = 0, encounters = 0},
-        last7d = {players = 0, encounters = 0},
-        last30d = {players = 0, encounters = 0}
+        last24h = {players = 0, encounters = 0, uniquePlayers = 0},
+        last7d = {players = 0, encounters = 0, uniquePlayers = 0},
+        last30d = {players = 0, encounters = 0, uniquePlayers = 0}
     }
 
     for name, player in pairs(Crosspaths.db.players) do
         local timeSince = now - (player.lastSeen or 0)
 
+        -- Count unique players seen in each period
         if timeSince <= day then
-            activity.last24h.players = activity.last24h.players + 1
-            activity.last24h.encounters = activity.last24h.encounters + player.count
+            activity.last24h.uniquePlayers = activity.last24h.uniquePlayers + 1
         end
 
         if timeSince <= week then
-            activity.last7d.players = activity.last7d.players + 1
-            activity.last7d.encounters = activity.last7d.encounters + player.count
+            activity.last7d.uniquePlayers = activity.last7d.uniquePlayers + 1
         end
 
         if timeSince <= month then
-            activity.last30d.players = activity.last30d.players + 1
-            activity.last30d.encounters = activity.last30d.encounters + player.count
+            activity.last30d.uniquePlayers = activity.last30d.uniquePlayers + 1
+        end
+
+        -- Count encounters that occurred within each time period
+        -- Note: We estimate encounters based on time periods since we don't store individual encounter timestamps
+        -- This is an approximation that assumes encounters are evenly distributed over the player's active period
+        local playerActivePeriod = (player.lastSeen or now) - (player.firstSeen or now)
+        local playerTotalEncounters = player.count or 0
+
+        if playerActivePeriod > 0 and playerTotalEncounters > 0 then
+            local encountersPerSecond = playerTotalEncounters / playerActivePeriod
+
+            -- Calculate estimated encounters in each period
+            local dayEncounters = 0
+            local weekEncounters = 0
+            local monthEncounters = 0
+
+            if timeSince <= day then
+                -- If player was seen in last day, estimate encounters in that period
+                -- Calculate what portion of the total time window overlaps with the recent period
+                local recentPeriodStart = now - day
+                local actualPeriodStart = math.max(recentPeriodStart, player.firstSeen or now)
+                local periodOverlap = (player.lastSeen or now) - actualPeriodStart
+                
+                if periodOverlap > 0 and playerActivePeriod > 0 then
+                    local periodRatio = periodOverlap / playerActivePeriod
+                    dayEncounters = math.max(1, math.floor(playerTotalEncounters * periodRatio))
+                else
+                    dayEncounters = 1
+                end
+                activity.last24h.encounters = activity.last24h.encounters + dayEncounters
+            end
+
+            if timeSince <= week then
+                local recentPeriodStart = now - week
+                local actualPeriodStart = math.max(recentPeriodStart, player.firstSeen or now)
+                local periodOverlap = (player.lastSeen or now) - actualPeriodStart
+                
+                if periodOverlap > 0 and playerActivePeriod > 0 then
+                    local periodRatio = periodOverlap / playerActivePeriod
+                    weekEncounters = math.max(1, math.floor(playerTotalEncounters * periodRatio))
+                else
+                    weekEncounters = 1
+                end
+                activity.last7d.encounters = activity.last7d.encounters + weekEncounters
+            end
+
+            if timeSince <= month then
+                local recentPeriodStart = now - month
+                local actualPeriodStart = math.max(recentPeriodStart, player.firstSeen or now)
+                local periodOverlap = (player.lastSeen or now) - actualPeriodStart
+                
+                if periodOverlap > 0 and playerActivePeriod > 0 then
+                    local periodRatio = periodOverlap / playerActivePeriod
+                    monthEncounters = math.max(1, math.floor(playerTotalEncounters * periodRatio))
+                else
+                    monthEncounters = 1
+                end
+                activity.last30d.encounters = activity.last30d.encounters + monthEncounters
+            end
+        else
+            if timeSince <= day then
+                -- If no time data, assume at least 1 encounter if seen recently
+                activity.last24h.encounters = activity.last24h.encounters + 1
+            end
+            if timeSince <= week then
+                activity.last7d.encounters = activity.last7d.encounters + 1
+            end
+            if timeSince <= month then
+                activity.last30d.encounters = activity.last30d.encounters + 1
+            end
         end
     end
+
+    -- Set players count to match uniquePlayers for backward compatibility
+    activity.last24h.players = activity.last24h.uniquePlayers
+    activity.last7d.players = activity.last7d.uniquePlayers  
+    activity.last30d.players = activity.last30d.uniquePlayers
 
     return activity
 end
@@ -781,17 +904,24 @@ function Engine:GenerateDailyDigest()
         startTime = oneDayAgo,
         endTime = now,
         newPlayers = 0,
-        totalEncounters = 0,
+        uniquePlayersActive = 0,
+        estimatedEncounters = 0,
         topZones = {},
         topClasses = {},
         newGuilds = 0,
         averageLevel = 0,
+        activeDays = 1,
         timestamp = now
     }
 
     if not Crosspaths.db or not Crosspaths.db.players then
         return dailyStats
     end
+
+    -- Use the utility function to get accurate period statistics
+    local periodStats = self:GetUniquePlayerStats(1) -- 1 day
+    dailyStats.uniquePlayersActive = periodStats.uniquePlayers
+    dailyStats.estimatedEncounters = periodStats.estimatedPeriodEncounters
 
     local levelSum = 0
     local playerCount = 0
@@ -800,39 +930,41 @@ function Engine:GenerateDailyDigest()
     local guilds = {}
 
     for playerName, player in pairs(Crosspaths.db.players) do
-        if player.encounters then
-            for _, encounter in ipairs(player.encounters) do
-                if encounter.timestamp and encounter.timestamp >= oneDayAgo then
-                    dailyStats.totalEncounters = dailyStats.totalEncounters + 1
+        local timeSinceLastSeen = now - (player.lastSeen or 0)
+        local timeSinceFirstSeen = now - (player.firstSeen or 0)
 
-                    if encounter.zone then
-                        zones[encounter.zone] = (zones[encounter.zone] or 0) + 1
-                    end
-                end
-            end
-        end
-
-        -- Check if player was first seen today
+        -- Check if player was first seen today (new player)
         if player.firstSeen and player.firstSeen >= oneDayAgo then
             dailyStats.newPlayers = dailyStats.newPlayers + 1
         end
 
-        -- Aggregate level data
-        if player.level and player.level > 0 then
-            levelSum = levelSum + player.level
-            playerCount = playerCount + 1
-        end
+        -- Only include data for players active in the last day
+        if timeSinceLastSeen <= (24 * 60 * 60) then
+            -- Aggregate level data
+            if player.level and player.level > 0 then
+                levelSum = levelSum + player.level
+                playerCount = playerCount + 1
+            end
 
-        -- Aggregate class data
-        if player.class then
-            classes[player.class] = (classes[player.class] or 0) + 1
-        end
+            -- Aggregate class data
+            if player.class then
+                classes[player.class] = (classes[player.class] or 0) + 1
+            end
 
-        -- Aggregate guild data
-        if player.guild and player.firstSeen and player.firstSeen >= oneDayAgo then
-            if not guilds[player.guild] then
-                guilds[player.guild] = true
-                dailyStats.newGuilds = dailyStats.newGuilds + 1
+            -- Count zones where this player was encountered
+            -- Since we don't have time-stamped encounters, we count all zones for active players
+            if player.zones then
+                for zone, count in pairs(player.zones) do
+                    zones[zone] = (zones[zone] or 0) + 1 -- Count unique players per zone
+                end
+            end
+
+            -- Aggregate guild data (new guilds discovered today)
+            if player.guild and player.guild ~= "" and player.firstSeen and player.firstSeen >= oneDayAgo then
+                if not guilds[player.guild] then
+                    guilds[player.guild] = true
+                    dailyStats.newGuilds = dailyStats.newGuilds + 1
+                end
             end
         end
     end
@@ -842,10 +974,10 @@ function Engine:GenerateDailyDigest()
         dailyStats.averageLevel = math.floor(levelSum / playerCount)
     end
 
-    -- Sort and get top zones
+    -- Sort and get top zones (by unique players, not encounters)
     local sortedZones = {}
-    for zone, count in pairs(zones) do
-        table.insert(sortedZones, {zone = zone, count = count})
+    for zone, playerCount in pairs(zones) do
+        table.insert(sortedZones, {zone = zone, count = playerCount})
     end
     table.sort(sortedZones, function(a, b) return a.count > b.count end)
     dailyStats.topZones = {unpack(sortedZones, 1, 5)}
@@ -871,13 +1003,14 @@ function Engine:GenerateWeeklyDigest()
         startTime = oneWeekAgo,
         endTime = now,
         newPlayers = 0,
-        totalEncounters = 0,
+        uniquePlayersActive = 0,
+        estimatedEncounters = 0,
         topZones = {},
         topClasses = {},
         topGuilds = {},
         newGuilds = 0,
         averageLevel = 0,
-        activeDays = 0,
+        activeDays = 7, -- Approximate
         timestamp = now
     }
 
@@ -885,51 +1018,57 @@ function Engine:GenerateWeeklyDigest()
         return weeklyStats
     end
 
+    -- Use the utility function to get accurate period statistics
+    local periodStats = self:GetUniquePlayerStats(7) -- 7 days
+    weeklyStats.uniquePlayersActive = periodStats.uniquePlayers
+    weeklyStats.estimatedEncounters = periodStats.estimatedPeriodEncounters
+
     local levelSum = 0
     local playerCount = 0
     local zones = {}
     local classes = {}
     local guilds = {}
-    local activeDays = {}
+    local guildCounts = {}
 
     for playerName, player in pairs(Crosspaths.db.players) do
-        if player.encounters then
-            for _, encounter in ipairs(player.encounters) do
-                if encounter.timestamp and encounter.timestamp >= oneWeekAgo then
-                    weeklyStats.totalEncounters = weeklyStats.totalEncounters + 1
+        local timeSinceLastSeen = now - (player.lastSeen or 0)
 
-                    if encounter.zone then
-                        zones[encounter.zone] = (zones[encounter.zone] or 0) + 1
-                    end
-
-                    -- Track active days
-                    local dayKey = os.date("%Y-%m-%d", encounter.timestamp)
-                    activeDays[dayKey] = true
-                end
-            end
-        end
-
-        -- Check if player was first seen this week
+        -- Check if player was first seen this week (new player)
         if player.firstSeen and player.firstSeen >= oneWeekAgo then
             weeklyStats.newPlayers = weeklyStats.newPlayers + 1
         end
 
-        -- Aggregate level data
-        if player.level and player.level > 0 then
-            levelSum = levelSum + player.level
-            playerCount = playerCount + 1
-        end
+        -- Only include data for players active in the last week
+        if timeSinceLastSeen <= (7 * 24 * 60 * 60) then
+            -- Aggregate level data
+            if player.level and player.level > 0 then
+                levelSum = levelSum + player.level
+                playerCount = playerCount + 1
+            end
 
-        -- Aggregate class data
-        if player.class then
-            classes[player.class] = (classes[player.class] or 0) + 1
-        end
+            -- Aggregate class data
+            if player.class then
+                classes[player.class] = (classes[player.class] or 0) + 1
+            end
 
-        -- Aggregate guild data
-        if player.guild then
-            guilds[player.guild] = (guilds[player.guild] or 0) + 1
-            if player.firstSeen and player.firstSeen >= oneWeekAgo then
-                weeklyStats.newGuilds = weeklyStats.newGuilds + 1
+            -- Count zones where this player was encountered
+            if player.zones then
+                for zone, count in pairs(player.zones) do
+                    zones[zone] = (zones[zone] or 0) + 1 -- Count unique players per zone
+                end
+            end
+
+            -- Aggregate guild data
+            if player.guild and player.guild ~= "" then
+                guildCounts[player.guild] = (guildCounts[player.guild] or 0) + 1
+                
+                -- Count new guilds discovered this week
+                if player.firstSeen and player.firstSeen >= oneWeekAgo then
+                    if not guilds[player.guild] then
+                        guilds[player.guild] = true
+                        weeklyStats.newGuilds = weeklyStats.newGuilds + 1
+                    end
+                end
             end
         end
     end
@@ -939,15 +1078,10 @@ function Engine:GenerateWeeklyDigest()
         weeklyStats.averageLevel = math.floor(levelSum / playerCount)
     end
 
-    -- Count active days
-    for _ in pairs(activeDays) do
-        weeklyStats.activeDays = weeklyStats.activeDays + 1
-    end
-
-    -- Sort and get top zones
+    -- Sort and get top zones (by unique players)
     local sortedZones = {}
-    for zone, count in pairs(zones) do
-        table.insert(sortedZones, {zone = zone, count = count})
+    for zone, playerCount in pairs(zones) do
+        table.insert(sortedZones, {zone = zone, count = playerCount})
     end
     table.sort(sortedZones, function(a, b) return a.count > b.count end)
     weeklyStats.topZones = {unpack(sortedZones, 1, 5)}
@@ -962,7 +1096,7 @@ function Engine:GenerateWeeklyDigest()
 
     -- Sort and get top guilds
     local sortedGuilds = {}
-    for guild, count in pairs(guilds) do
+    for guild, count in pairs(guildCounts) do
         table.insert(sortedGuilds, {guild = guild, count = count})
     end
     table.sort(sortedGuilds, function(a, b) return a.count > b.count end)
@@ -981,14 +1115,15 @@ function Engine:GenerateMonthlyDigest()
         startTime = oneMonthAgo,
         endTime = now,
         newPlayers = 0,
-        totalEncounters = 0,
+        uniquePlayersActive = 0,
+        estimatedEncounters = 0,
         topZones = {},
         topClasses = {},
         topGuilds = {},
         topPlayers = {},
         newGuilds = 0,
         averageLevel = 0,
-        activeDays = 0,
+        activeDays = 30, -- Approximate
         peakDayEncounters = 0,
         peakDay = "",
         timestamp = now
@@ -998,60 +1133,65 @@ function Engine:GenerateMonthlyDigest()
         return monthlyStats
     end
 
+    -- Use the utility function to get accurate period statistics
+    local periodStats = self:GetUniquePlayerStats(30) -- 30 days
+    monthlyStats.uniquePlayersActive = periodStats.uniquePlayers
+    monthlyStats.estimatedEncounters = periodStats.estimatedPeriodEncounters
+
     local levelSum = 0
     local playerCount = 0
     local zones = {}
     local classes = {}
+    local guildCounts = {}
     local guilds = {}
-    local players = {}
-    local dailyEncounters = {}
+    local activePlayers = {}
 
     for playerName, player in pairs(Crosspaths.db.players) do
-        local playerEncounters = 0
+        local timeSinceLastSeen = now - (player.lastSeen or 0)
 
-        if player.encounters then
-            for _, encounter in ipairs(player.encounters) do
-                if encounter.timestamp and encounter.timestamp >= oneMonthAgo then
-                    monthlyStats.totalEncounters = monthlyStats.totalEncounters + 1
-                    playerEncounters = playerEncounters + 1
-
-                    if encounter.zone then
-                        zones[encounter.zone] = (zones[encounter.zone] or 0) + 1
-                    end
-
-                    -- Track daily encounters
-                    local dayKey = os.date("%Y-%m-%d", encounter.timestamp)
-                    dailyEncounters[dayKey] = (dailyEncounters[dayKey] or 0) + 1
-                end
-            end
-        end
-
-        -- Track player encounter counts
-        if playerEncounters > 0 then
-            table.insert(players, {name = playerName, count = playerEncounters})
-        end
-
-        -- Check if player was first seen this month
+        -- Check if player was first seen this month (new player)
         if player.firstSeen and player.firstSeen >= oneMonthAgo then
             monthlyStats.newPlayers = monthlyStats.newPlayers + 1
         end
 
-        -- Aggregate level data
-        if player.level and player.level > 0 then
-            levelSum = levelSum + player.level
-            playerCount = playerCount + 1
-        end
+        -- Only include data for players active in the last month
+        if timeSinceLastSeen <= (30 * 24 * 60 * 60) then
+            -- Track active players for top players list
+            table.insert(activePlayers, {
+                name = playerName, 
+                count = player.count or 0,
+                lastSeen = player.lastSeen
+            })
 
-        -- Aggregate class data
-        if player.class then
-            classes[player.class] = (classes[player.class] or 0) + 1
-        end
+            -- Aggregate level data
+            if player.level and player.level > 0 then
+                levelSum = levelSum + player.level
+                playerCount = playerCount + 1
+            end
 
-        -- Aggregate guild data
-        if player.guild then
-            guilds[player.guild] = (guilds[player.guild] or 0) + 1
-            if player.firstSeen and player.firstSeen >= oneMonthAgo then
-                monthlyStats.newGuilds = monthlyStats.newGuilds + 1
+            -- Aggregate class data
+            if player.class then
+                classes[player.class] = (classes[player.class] or 0) + 1
+            end
+
+            -- Count zones where this player was encountered
+            if player.zones then
+                for zone, count in pairs(player.zones) do
+                    zones[zone] = (zones[zone] or 0) + 1 -- Count unique players per zone
+                end
+            end
+
+            -- Aggregate guild data
+            if player.guild and player.guild ~= "" then
+                guildCounts[player.guild] = (guildCounts[player.guild] or 0) + 1
+                
+                -- Count new guilds discovered this month
+                if player.firstSeen and player.firstSeen >= oneMonthAgo then
+                    if not guilds[player.guild] then
+                        guilds[player.guild] = true
+                        monthlyStats.newGuilds = monthlyStats.newGuilds + 1
+                    end
+                end
             end
         end
     end
@@ -1061,30 +1201,14 @@ function Engine:GenerateMonthlyDigest()
         monthlyStats.averageLevel = math.floor(levelSum / playerCount)
     end
 
-    -- Find peak day
-    local peakDay = ""
-    local peakCount = 0
-    for day, count in pairs(dailyEncounters) do
-        if count > peakCount then
-            peakCount = count
-            peakDay = day
-        end
-    end
-    monthlyStats.peakDay = peakDay
-    monthlyStats.peakDayEncounters = peakCount
-    monthlyStats.activeDays = 0
-    for _ in pairs(dailyEncounters) do
-        monthlyStats.activeDays = monthlyStats.activeDays + 1
-    end
+    -- Sort and get top players (by total encounters)
+    table.sort(activePlayers, function(a, b) return a.count > b.count end)
+    monthlyStats.topPlayers = {unpack(activePlayers, 1, 10)}
 
-    -- Sort and get top players
-    table.sort(players, function(a, b) return a.count > b.count end)
-    monthlyStats.topPlayers = {unpack(players, 1, 10)}
-
-    -- Sort and get top zones
+    -- Sort and get top zones (by unique players)
     local sortedZones = {}
-    for zone, count in pairs(zones) do
-        table.insert(sortedZones, {zone = zone, count = count})
+    for zone, playerCount in pairs(zones) do
+        table.insert(sortedZones, {zone = zone, count = playerCount})
     end
     table.sort(sortedZones, function(a, b) return a.count > b.count end)
     monthlyStats.topZones = {unpack(sortedZones, 1, 10)}
@@ -1096,6 +1220,23 @@ function Engine:GenerateMonthlyDigest()
     end
     table.sort(sortedClasses, function(a, b) return a.count > b.count end)
     monthlyStats.topClasses = {unpack(sortedClasses, 1, 5)}
+
+    -- Sort and get top guilds
+    local sortedGuilds = {}
+    for guild, count in pairs(guildCounts) do
+        table.insert(sortedGuilds, {guild = guild, count = count})
+    end
+    table.sort(sortedGuilds, function(a, b) return a.count > b.count end)
+    monthlyStats.topGuilds = {unpack(sortedGuilds, 1, 10)}
+
+    -- Estimate peak day (simplified approach)
+    if monthlyStats.estimatedEncounters > 0 then
+        monthlyStats.peakDayEncounters = math.floor(monthlyStats.estimatedEncounters / 30 * 1.5) -- Assume peak day is 50% above average
+        monthlyStats.peakDay = "Estimated peak activity"
+    end
+
+    return monthlyStats
+end
 
     -- Sort and get top guilds
     local sortedGuilds = {}
