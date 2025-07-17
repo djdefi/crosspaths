@@ -597,13 +597,17 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         Crosspaths.db.players[playerName] = player
 
         if Crosspaths.sessionStats then
-            Crosspaths.sessionStats.playersAdded = Crosspaths.sessionStats.playersAdded + 1
+            Crosspaths.sessionStats.newPlayers = (Crosspaths.sessionStats.newPlayers or 0) + 1
+            -- Keep legacy field for backward compatibility
+            Crosspaths.sessionStats.playersAdded = (Crosspaths.sessionStats.playersAdded or 0) + 1
         end
 
         Crosspaths:DebugLog("New player added: " .. playerName, "INFO")
     else
         if Crosspaths.sessionStats then
-            Crosspaths.sessionStats.playersUpdated = Crosspaths.sessionStats.playersUpdated + 1
+            Crosspaths.sessionStats.playersEncountered = (Crosspaths.sessionStats.playersEncountered or 0) + 1
+            -- Keep legacy field for backward compatibility  
+            Crosspaths.sessionStats.playersUpdated = (Crosspaths.sessionStats.playersUpdated or 0) + 1
         end
         Crosspaths:DebugLog("Updating existing player: " .. playerName .. " (previous count: " .. player.count .. ")", "DEBUG")
 
@@ -661,7 +665,9 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
     self:MarkEncounteredInSession(playerName)
 
     if Crosspaths.sessionStats then
-        Crosspaths.sessionStats.encountersDetected = Crosspaths.sessionStats.encountersDetected + 1
+        Crosspaths.sessionStats.totalEncounters = (Crosspaths.sessionStats.totalEncounters or 0) + 1
+        -- Keep legacy field for backward compatibility
+        Crosspaths.sessionStats.encountersDetected = (Crosspaths.sessionStats.encountersDetected or 0) + 1
     end
 
     Crosspaths:DebugLog("NEW encounter recorded successfully: " .. playerName .. " (total encounters: " .. player.count .. ", source: " .. source .. ", grouped: " .. tostring(isGrouped) .. ")", "INFO")

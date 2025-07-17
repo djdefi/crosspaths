@@ -130,11 +130,16 @@ end
 -- Initialize session statistics
 function Crosspaths:InitializeSessionStats()
     self.sessionStats = {
+        sessionStartTime = time(),
+        totalEncounters = 0,
+        playersEncountered = 0,
+        newPlayers = 0,
+        eventsHandled = 0,
+        -- Keep legacy fields for backward compatibility
         startTime = time(),
         encountersDetected = 0,
         playersAdded = 0,
         playersUpdated = 0,
-        eventsHandled = 0,
     }
 end
 

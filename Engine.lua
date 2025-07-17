@@ -410,13 +410,13 @@ function Engine:GetSessionStats()
     end
 
     local sessionTime = time() - (Crosspaths.sessionStats.sessionStartTime or time())
-    local avgInterval = Crosspaths.sessionStats.totalEncounters > 0 and
-                       (sessionTime / Crosspaths.sessionStats.totalEncounters) or 0
+    local totalEncounters = Crosspaths.sessionStats.totalEncounters or 0
+    local avgInterval = totalEncounters > 0 and (sessionTime / totalEncounters) or 0
 
     return {
         playersEncountered = Crosspaths.sessionStats.playersEncountered or 0,
         newPlayers = Crosspaths.sessionStats.newPlayers or 0,
-        totalEncounters = Crosspaths.sessionStats.totalEncounters or 0,
+        totalEncounters = totalEncounters,
         sessionStartTime = Crosspaths.sessionStats.sessionStartTime or time(),
         sessionDuration = sessionTime,
         averageEncounterInterval = avgInterval
