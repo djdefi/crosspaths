@@ -445,7 +445,7 @@ function Engine:GetRecentActivity()
 
     -- Set players count to match uniquePlayers for backward compatibility
     activity.last24h.players = activity.last24h.uniquePlayers
-    activity.last7d.players = activity.last7d.uniquePlayers  
+    activity.last7d.players = activity.last7d.uniquePlayers
     activity.last30d.players = activity.last30d.uniquePlayers
 
     return activity
@@ -976,8 +976,8 @@ function Engine:GenerateDailyDigest()
 
     -- Sort and get top zones (by unique players, not encounters)
     local sortedZones = {}
-    for zone, playerCount in pairs(zones) do
-        table.insert(sortedZones, {zone = zone, count = playerCount})
+    for zone, zonePlayerCount in pairs(zones) do
+        table.insert(sortedZones, {zone = zone, count = zonePlayerCount})
     end
     table.sort(sortedZones, function(a, b) return a.count > b.count end)
     dailyStats.topZones = {unpack(sortedZones, 1, 5)}
@@ -1080,8 +1080,8 @@ function Engine:GenerateWeeklyDigest()
 
     -- Sort and get top zones (by unique players)
     local sortedZones = {}
-    for zone, playerCount in pairs(zones) do
-        table.insert(sortedZones, {zone = zone, count = playerCount})
+    for zone, zonePlayerCount in pairs(zones) do
+        table.insert(sortedZones, {zone = zone, count = zonePlayerCount})
     end
     table.sort(sortedZones, function(a, b) return a.count > b.count end)
     weeklyStats.topZones = {unpack(sortedZones, 1, 5)}
@@ -1158,7 +1158,7 @@ function Engine:GenerateMonthlyDigest()
         if timeSinceLastSeen <= (30 * 24 * 60 * 60) then
             -- Track active players for top players list
             table.insert(activePlayers, {
-                name = playerName, 
+                name = playerName,
                 count = player.count or 0,
                 lastSeen = player.lastSeen
             })
@@ -1207,8 +1207,8 @@ function Engine:GenerateMonthlyDigest()
 
     -- Sort and get top zones (by unique players)
     local sortedZones = {}
-    for zone, playerCount in pairs(zones) do
-        table.insert(sortedZones, {zone = zone, count = playerCount})
+    for zone, zonePlayerCount in pairs(zones) do
+        table.insert(sortedZones, {zone = zone, count = zonePlayerCount})
     end
     table.sort(sortedZones, function(a, b) return a.count > b.count end)
     monthlyStats.topZones = {unpack(sortedZones, 1, 10)}
