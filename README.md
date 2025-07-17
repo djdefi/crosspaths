@@ -13,6 +13,10 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
   - Proximity (nameplates, mouseover interactions)
   - Direct interaction (targeting, focusing)
   - Combat participation (damage, healing, buffs)
+- **Enhanced Detection Methods** (configurable):
+  - Mouseover/proximity tracking with smart throttling
+  - Target and focus change tracking
+  - Combat log analysis for meaningful interactions
 - **Session-based counting** - Only 1 encounter per player per zone per session
 - Records encounter history with timestamps and context
 
