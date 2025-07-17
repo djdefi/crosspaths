@@ -9,22 +9,21 @@ if not TitanPanelUtils then
 end
 
 Crosspaths.TitanPanel = {}
-local TitanPanel = Crosspaths.TitanPanel
 
 local TITAN_CROSSPATHS_ID = "Crosspaths"
 local TITAN_CROSSPATHS_FREQUENCY = 30 -- Update every 30 seconds
 
--- Plugin registration data
-local titanPluginInfo = {
+-- Plugin definition for TitanPanel
+local TitanCrosspaths = {
     id = TITAN_CROSSPATHS_ID,
     category = "Information",
-    version = Crosspaths.version or "0.1.9",
+    version = Crosspaths.version or "0.1.11",
     menuText = "Crosspaths",
     buttonTextFunction = "TitanPanelCrosspathsButton_GetButtonText",
     tooltipTitle = "Crosspaths - Social Memory Tracker",
-    tooltipTextFunction = "TitanPanelCrosspathsButton_GetTooltipText",
-    iconWidth = 16,
+    tooltipTextFunction = "TitanPanelCrosspathsButton_GetTooltipText", 
     icon = "Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon",
+    iconWidth = 16,
     controlVariables = {
         ShowIcon = true,
         ShowLabelText = true,
@@ -43,14 +42,14 @@ local titanPluginInfo = {
 }
 
 -- Initialize Titan Panel plugin
-function TitanPanel:Initialize()
+function Crosspaths.TitanPanel:Initialize()
     if not TitanPanelUtils then
         Crosspaths:DebugLog("Titan Panel not detected, skipping integration", "INFO")
         return
     end
 
-    -- Register the plugin
-    TitanPanelUtils:RegisterPlugin(titanPluginInfo)
+    -- Register the plugin using TitanPanel API
+    TitanPanelUtils_RegisterPlugin(TitanCrosspaths)
 
     Crosspaths:DebugLog("Titan Panel plugin registered", "INFO")
 end
@@ -266,7 +265,7 @@ function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
 end
 
 -- Update button periodically
-function TitanPanel:StartUpdateTimer()
+function Crosspaths.TitanPanel:StartUpdateTimer()
     if not TitanPanelUtils then
         return
     end
@@ -281,7 +280,7 @@ function TitanPanel:StartUpdateTimer()
 end
 
 -- Stop update timer
-function TitanPanel:StopUpdateTimer()
+function Crosspaths.TitanPanel:StopUpdateTimer()
     if self.updateTimer then
         self.updateTimer:Cancel()
         self.updateTimer = nil
