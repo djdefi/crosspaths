@@ -1238,17 +1238,6 @@ function Engine:GenerateMonthlyDigest()
     return monthlyStats
 end
 
-    -- Sort and get top guilds
-    local sortedGuilds = {}
-    for guild, count in pairs(guilds) do
-        table.insert(sortedGuilds, {guild = guild, count = count})
-    end
-    table.sort(sortedGuilds, function(a, b) return a.count > b.count end)
-    monthlyStats.topGuilds = {unpack(sortedGuilds, 1, 10)}
-
-    return monthlyStats
-end
-
 -- Schedule digest notifications
 function Engine:CheckDigestSchedule()
     if not Crosspaths.db or not Crosspaths.db.settings.digests then
