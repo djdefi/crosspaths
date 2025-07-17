@@ -674,15 +674,19 @@ function UI:CreateAdvancedTab()
     scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 10)
 
+    -- Create content frame to hold the text
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(scroll:GetWidth() - 20, 2000) -- Set a large height for scrolling
+
     -- Text display for advanced stats
-    frame.advancedText = scroll:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    frame.advancedText:SetPoint("TOPLEFT", 0, 0)
-    frame.advancedText:SetWidth(scroll:GetWidth() - 20)
+    frame.advancedText = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    frame.advancedText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    frame.advancedText:SetWidth(content:GetWidth())
     frame.advancedText:SetJustifyH("LEFT")
     frame.advancedText:SetJustifyV("TOP")
     frame.advancedText:SetText("Advanced statistics will appear here...")
 
-    scroll:SetScrollChild(frame.advancedText)
+    scroll:SetScrollChild(content)
 
     return frame
 end
@@ -1223,8 +1227,8 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             -- Sort by frequency
             table.sort(contexts, function(a, b)
-                local countA = tonumber(string.match(a, "%((%d+)%)"))
-                local countB = tonumber(string.match(b, "%((%d+)%)"))
+                local countA = tonumber(string.match(a, "%((%d+)%)")) or 0
+                local countB = tonumber(string.match(b, "%((%d+)%)")) or 0
                 return countA > countB
             end)
 
