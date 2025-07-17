@@ -185,25 +185,41 @@ local function loadEngine()
     end
     
     function Engine:GetSessionStats()
-        if not Crosspaths.sessionStats then
+        -- Ensure sessionStats is properly initialized
+        if not Crosspaths.sessionStats or type(Crosspaths.sessionStats) ~= "table" then
             return {
                 playersEncountered = 0,
                 newPlayers = 0,
                 totalEncounters = 0,
                 sessionStartTime = time(),
+                sessionDuration = 0,
                 averageEncounterInterval = 0
             }
         end
         
-        local sessionTime = time() - (Crosspaths.sessionStats.sessionStartTime or time())
-        local avgInterval = Crosspaths.sessionStats.totalEncounters > 0 and 
-                           (sessionTime / Crosspaths.sessionStats.totalEncounters) or 0
+        -- Ensure all required fields exist
+        if not Crosspaths.sessionStats.sessionStartTime then
+            Crosspaths.sessionStats.sessionStartTime = time()
+        end
+        if not Crosspaths.sessionStats.totalEncounters then
+            Crosspaths.sessionStats.totalEncounters = 0
+        end
+        if not Crosspaths.sessionStats.playersEncountered then
+            Crosspaths.sessionStats.playersEncountered = 0
+        end
+        if not Crosspaths.sessionStats.newPlayers then
+            Crosspaths.sessionStats.newPlayers = 0
+        end
+        
+        local sessionTime = time() - Crosspaths.sessionStats.sessionStartTime
+        local totalEncounters = Crosspaths.sessionStats.totalEncounters
+        local avgInterval = totalEncounters > 0 and (sessionTime / totalEncounters) or 0
         
         return {
-            playersEncountered = Crosspaths.sessionStats.playersEncountered or 0,
-            newPlayers = Crosspaths.sessionStats.newPlayers or 0,
-            totalEncounters = Crosspaths.sessionStats.totalEncounters or 0,
-            sessionStartTime = Crosspaths.sessionStats.sessionStartTime or time(),
+            playersEncountered = Crosspaths.sessionStats.playersEncountered,
+            newPlayers = Crosspaths.sessionStats.newPlayers,
+            totalEncounters = totalEncounters,
+            sessionStartTime = Crosspaths.sessionStats.sessionStartTime,
             sessionDuration = sessionTime,
             averageEncounterInterval = avgInterval
         }
@@ -623,6 +639,22 @@ TestRunner.runTest("Edge Cases - Nil Database", function()
     
     -- Restore original database
     Crosspaths.db = originalDB
+end)
+
+TestRunner.runTest("Edge Cases - Empty SessionStats", function()
+    -- Test the specific fix for nil comparison error when sessionStats is empty
+    local originalSessionStats = Crosspaths.sessionStats
+    Crosspaths.sessionStats = {} -- Empty table, not nil
+    
+    local sessionStats = Engine:GetSessionStats()
+    TestRunner.assertNotNil(sessionStats, "Should handle empty sessionStats without error")
+    TestRunner.assertType(sessionStats, "table", "Should return valid table for empty sessionStats")
+    TestRunner.assertEqual(sessionStats.totalEncounters, 0, "Should have 0 totalEncounters for empty sessionStats")
+    TestRunner.assertEqual(sessionStats.playersEncountered, 0, "Should have 0 playersEncountered for empty sessionStats")
+    TestRunner.assertEqual(sessionStats.averageEncounterInterval, 0, "Should have 0 averageEncounterInterval for empty sessionStats")
+    
+    -- Restore original sessionStats
+    Crosspaths.sessionStats = originalSessionStats
 end)
 
 -- Run all tests and display results

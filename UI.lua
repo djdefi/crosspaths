@@ -1067,9 +1067,9 @@ function UI:ShowStatus()
     -- Session stats
     if Crosspaths.sessionStats then
         local stats = Crosspaths.sessionStats
-        table.insert(lines, "Session encounters: " .. tostring(stats.encountersDetected))
-        table.insert(lines, "Players added: " .. tostring(stats.playersAdded))
-        table.insert(lines, "Players updated: " .. tostring(stats.playersUpdated))
+        table.insert(lines, "Session encounters: " .. tostring(stats.totalEncounters or stats.encountersDetected or 0))
+        table.insert(lines, "Players encountered: " .. tostring(stats.playersEncountered or stats.playersAdded or 0))
+        table.insert(lines, "New players: " .. tostring(stats.newPlayers or stats.playersUpdated or 0))
         table.insert(lines, "Events handled: " .. tostring(stats.eventsHandled))
     else
         table.insert(lines, "Session stats: NOT AVAILABLE")

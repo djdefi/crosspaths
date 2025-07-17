@@ -399,25 +399,45 @@ end
 
 -- Get current session statistics
 function Engine:GetSessionStats()
-    if not Crosspaths.sessionStats then
-        return {
-            playersEncountered = 0,
-            newPlayers = 0,
-            totalEncounters = 0,
-            sessionStartTime = time(),
-            averageEncounterInterval = 0
-        }
+    -- Ensure sessionStats is properly initialized
+    if not Crosspaths.sessionStats or type(Crosspaths.sessionStats) ~= "table" then
+        Crosspaths:DebugLog("SessionStats not initialized, reinitializing", "WARNING")
+        if Crosspaths.InitializeSessionStats then
+            Crosspaths:InitializeSessionStats()
+        else
+            Crosspaths.sessionStats = {
+                sessionStartTime = time(),
+                totalEncounters = 0,
+                playersEncountered = 0,
+                newPlayers = 0,
+                eventsHandled = 0
+            }
+        end
     end
 
-    local sessionTime = time() - (Crosspaths.sessionStats.sessionStartTime or time())
-    local avgInterval = Crosspaths.sessionStats.totalEncounters > 0 and
-                       (sessionTime / Crosspaths.sessionStats.totalEncounters) or 0
+    -- Ensure all required fields exist
+    if not Crosspaths.sessionStats.sessionStartTime then
+        Crosspaths.sessionStats.sessionStartTime = time()
+    end
+    if not Crosspaths.sessionStats.totalEncounters then
+        Crosspaths.sessionStats.totalEncounters = 0
+    end
+    if not Crosspaths.sessionStats.playersEncountered then
+        Crosspaths.sessionStats.playersEncountered = 0
+    end
+    if not Crosspaths.sessionStats.newPlayers then
+        Crosspaths.sessionStats.newPlayers = 0
+    end
+
+    local sessionTime = time() - Crosspaths.sessionStats.sessionStartTime
+    local totalEncounters = Crosspaths.sessionStats.totalEncounters
+    local avgInterval = totalEncounters > 0 and (sessionTime / totalEncounters) or 0
 
     return {
-        playersEncountered = Crosspaths.sessionStats.playersEncountered or 0,
-        newPlayers = Crosspaths.sessionStats.newPlayers or 0,
-        totalEncounters = Crosspaths.sessionStats.totalEncounters or 0,
-        sessionStartTime = Crosspaths.sessionStats.sessionStartTime or time(),
+        playersEncountered = Crosspaths.sessionStats.playersEncountered,
+        newPlayers = Crosspaths.sessionStats.newPlayers,
+        totalEncounters = totalEncounters,
+        sessionStartTime = Crosspaths.sessionStats.sessionStartTime,
         sessionDuration = sessionTime,
         averageEncounterInterval = avgInterval
     }
