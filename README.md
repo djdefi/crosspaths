@@ -42,7 +42,7 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
 4. Enable the addon in your AddOns list
 
 ### CurseForge
-*Coming soon - addon will be available on CurseForge*
+Available on [CurseForge](https://www.curseforge.com/wow/addons/crosspaths) - installs automatically with the CurseForge app
 
 ## Usage
 
@@ -96,7 +96,7 @@ Crosspaths respects your privacy and Blizzard's social contract:
 - **Logging.lua** - Debug and error tracking
 
 ### Contributing
-Contributions are welcome! Please read our contributing guidelines and submit pull requests for any improvements.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on development setup, code style, and submitting changes.
 
 ### Building
 The addon uses GitHub Actions for automated testing and releases:

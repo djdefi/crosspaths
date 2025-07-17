@@ -31,7 +31,17 @@
 
 ### Method 2: CurseForge Client
 
-*Coming soon - addon will be available through the CurseForge app*
+1. **Install CurseForge App**
+   - Download from [CurseForge](https://www.curseforge.com/download/app)
+   - Install and set up the client
+
+2. **Find the addon**
+   - Search for "Crosspaths" in the WoW section
+   - Or visit the [project page](https://www.curseforge.com/wow/addons/crosspaths)
+
+3. **Install**
+   - Click "Install" in the CurseForge app
+   - The addon will be automatically downloaded and installed
 
 ## Verification
 
