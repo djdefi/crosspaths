@@ -499,9 +499,9 @@ function UI:RefreshSummaryTab()
     -- Recent activity
     table.insert(lines, "")
     table.insert(lines, "|cFF80FF80Recent Activity:|r")
-    table.insert(lines, string.format("  Last 24 Hours: |cFFFFFFFF%d players, %d encounters|r", activity.last24h.players, activity.last24h.encounters))
-    table.insert(lines, string.format("  Last 7 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last7d.players, activity.last7d.encounters))
-    table.insert(lines, string.format("  Last 30 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last30d.players, activity.last30d.encounters))
+    table.insert(lines, string.format("  Last 24 Hours: |cFFFFFFFF%d unique players|r, |cFFAAFFAA~%d encounters|r", activity.last24h.uniquePlayers, activity.last24h.encounters))
+    table.insert(lines, string.format("  Last 7 Days: |cFFFFFFFF%d unique players|r, |cFFAAFFAA~%d encounters|r", activity.last7d.uniquePlayers, activity.last7d.encounters))
+    table.insert(lines, string.format("  Last 30 Days: |cFFFFFFFF%d unique players|r, |cFFAAFFAA~%d encounters|r", activity.last30d.uniquePlayers, activity.last30d.encounters))
 
     -- Time range information
     if stats.oldestEncounter then
@@ -1506,9 +1506,14 @@ function UI:PopulateDigestContent(content, digest)
     newPlayers:SetText(string.format("• New players discovered: |cFFFFFFFF%d|r", digest.newPlayers))
     yOffset = yOffset - 15
 
+    local uniqueActive = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    uniqueActive:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+    uniqueActive:SetText(string.format("• Unique players active: |cFFFFFFFF%d|r", digest.uniquePlayersActive or digest.totalEncounters or 0))
+    yOffset = yOffset - 15
+
     local totalEncounters = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     totalEncounters:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
-    totalEncounters:SetText(string.format("• Total encounters: |cFFFFFFFF%d|r", digest.totalEncounters))
+    totalEncounters:SetText(string.format("• Estimated encounters: |cFFFFFFFF~%d|r", digest.estimatedEncounters or digest.totalEncounters or 0))
     yOffset = yOffset - 15
 
     if digest.averageLevel and digest.averageLevel > 0 then

@@ -31,7 +31,7 @@
 
 ### Method 2: CurseForge Client
 
-*Coming soon - addon will be available through the CurseForge app*
+*Addon is configured for CurseForge publishing - automated releases through GitHub workflows*
 
 ## Verification
 
@@ -51,8 +51,12 @@ Once installed, you can verify the addon is working by:
 ## Basic Usage
 
 - `/crosspaths` or `/cp` - Open main interface
-- `/crosspaths top` - Show top players in chat
-- `/crosspaths stats` - Display summary statistics
+- `/crosspaths top` - Show top players in chat  
+- `/crosspaths stats [tanks|healers|dps|ilvl|achievements]` - Display summary or advanced statistics
+- `/crosspaths search <name>` - Search for specific players
+- `/crosspaths export [json|csv]` - Export your data
+- `/crosspaths remove <player-name>` - Remove player from tracking
+- `/crosspaths digest [daily|weekly|monthly]` - Generate digest reports
 - `/cpconfig` - Open configuration panel
 
 ## Troubleshooting
@@ -73,9 +77,10 @@ Once installed, you can verify the addon is working by:
 - Monitor memory usage in the addon list
 
 ### Data Problems
-- Use `/crosspaths export` to backup your data
-- Clear corrupted data with `/crosspaths clear confirm`
-- Check the debug log for error messages
+- Use `/crosspaths export [json|csv]` to backup your data
+- Clear corrupted data with `/crosspaths clear confirm` (requires confirmation)
+- Remove specific problem players with `/crosspaths remove <player-name>`
+- Check the debug log with `/crosspaths debug on` for error messages
 
 ## Support
 

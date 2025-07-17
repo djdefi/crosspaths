@@ -13,6 +13,10 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
   - Proximity (nameplates, mouseover interactions)
   - Direct interaction (targeting, focusing)
   - Combat participation (damage, healing, buffs)
+- **Enhanced Detection Methods** (configurable):
+  - Mouseover/proximity tracking with smart throttling
+  - Target and focus change tracking
+  - Combat log analysis for meaningful interactions
 - **Session-based counting** - Only 1 encounter per player per zone per session
 - Records encounter history with timestamps and context
 
@@ -26,6 +30,20 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
 - Get notified when encountering frequent players
 - Alerts for previous group members
 - Customizable notification thresholds
+- **Do Not Disturb mode** - Disable notifications during combat
+- **Granular controls** - Enable/disable specific notification types
+- **Sound options** - Customizable notification sounds
+
+### 📈 Advanced Analytics
+- **Role-based statistics** - View top tanks, healers, and DPS players
+- **Performance metrics** - Track item level and achievement data
+- **Digest reports** - Generate daily, weekly, or monthly summaries
+- **Historical analysis** - Review encounter patterns over time
+
+### 🔧 System Integration
+- **Titan Panel support** - Display encounter stats in Titan Panel
+- **Debug mode** - Advanced troubleshooting and logging options
+- **Data management** - Remove specific players or clear all data
 
 ### 💾 Data Management
 - Local data storage (respects Blizzard's social contract)
@@ -42,16 +60,21 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
 4. Enable the addon in your AddOns list
 
 ### CurseForge
-*Coming soon - addon will be available on CurseForge*
+*Addon is configured for CurseForge publishing - releases are automated through GitHub workflows*
 
 ## Usage
 
 ### Slash Commands
 - `/crosspaths` or `/cp` - Open main interface
 - `/crosspaths top` - Show top players in chat
-- `/crosspaths stats` - Display summary statistics
+- `/crosspaths stats [tanks|healers|dps|ilvl|achievements]` - Display summary or advanced statistics
 - `/crosspaths search <name>` - Search for specific players
 - `/crosspaths export [json|csv]` - Export your data
+- `/crosspaths remove <player-name>` - Remove player from tracking
+- `/crosspaths clear confirm` - Clear all data (requires confirmation)
+- `/crosspaths debug [on|off]` - Toggle debug mode
+- `/crosspaths status` - Show addon status and diagnostics
+- `/crosspaths digest [daily|weekly|monthly]` - Generate digest reports
 - `/cpconfig` - Open configuration panel
 
 ### Interface
@@ -59,16 +82,18 @@ The main interface features multiple tabs:
 - **Summary** - Overview statistics and top players
 - **Players** - Detailed player list with search
 - **Guilds** - Guild encounter statistics  
+- **Advanced** - Role-based statistics (tanks, healers, DPS, item level, achievements)
 - **Encounters** - Zone and context analysis
 
 ## Configuration
 
 Access configuration via `/cpconfig` or the main interface. Customize:
 
-- **Tracking Settings** - What types of encounters to track
-- **Notifications** - When and how to be notified
-- **Data Management** - Pruning and storage options
+- **Tracking Settings** - What types of encounters to track (groups, nameplates, mouseover, targeting, combat)
+- **Notifications** - When and how to be notified, including Do Not Disturb mode
+- **Data Management** - Pruning and storage options, player removal tools
 - **UI Settings** - Interface appearance and behavior
+- **Advanced Features** - Digest report settings, debug mode, Titan Panel integration
 
 ## Privacy & Data
 
@@ -94,13 +119,15 @@ Crosspaths respects your privacy and Blizzard's social contract:
 - **UI.lua** - User interface and slash commands
 - **Config.lua** - Settings management
 - **Logging.lua** - Debug and error tracking
+- **TitanPanel.lua** - Titan Panel integration plugin
 
 ### Contributing
 Contributions are welcome! Please read our contributing guidelines and submit pull requests for any improvements.
 
 ### Building
 The addon uses GitHub Actions for automated testing and releases:
-- Lua syntax checking and linting
+- Lua syntax checking and linting with luacheck
+- Comprehensive unit testing (181+ test cases)
 - Automated releases to GitHub and CurseForge
 - Version management and changelog generation
 
@@ -129,6 +156,21 @@ Crosspaths only tracks what it can detect through the WoW API. Some limitations:
 - Players must be within detection range (nameplates, interaction range)
 - Some player information (class, level) may only be available when grouped
 - Cross-realm players are tracked with their full "Name-Realm" identifier
+
+### What are digest reports?
+Digest reports are periodic summaries of your encounter activity:
+- **Daily** - Shows encounters from the past 24 hours
+- **Weekly** - Shows encounters from the past 7 days  
+- **Monthly** - Shows encounters from the past 30 days
+
+Access them via `/crosspaths digest [daily|weekly|monthly]` or the main interface.
+
+### How do I manage my data?
+Crosspaths provides several data management tools:
+- **Remove specific players**: `/crosspaths remove <player-name>`
+- **Clear all data**: `/crosspaths clear confirm` (requires confirmation)
+- **Export data**: `/crosspaths export [json|csv]` for backup or analysis
+- **Automatic pruning**: Configure in settings to automatically clean old data
 
 ## License
 
