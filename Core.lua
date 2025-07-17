@@ -141,6 +141,9 @@ function Crosspaths:InitializeSessionStats()
         playersAdded = 0,
         playersUpdated = 0,
     }
+    self:DebugLog("Session statistics initialized with fields: " .. 
+                 "sessionStartTime=" .. tostring(self.sessionStats.sessionStartTime) .. 
+                 ", totalEncounters=" .. tostring(self.sessionStats.totalEncounters), "INFO")
 end
 
 -- Debug print function
