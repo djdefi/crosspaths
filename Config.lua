@@ -38,12 +38,7 @@ end
 
 -- Create config frame
 function Config:CreateConfigFrame()
-    -- Get UI constants from the UI module for consistency
-    local UI = Crosspaths.UI
-    local GetResponsiveSize
-    
-    -- Access GetResponsiveSize function from UI module's local scope
-    -- For now, implement a simple responsive config window size
+    -- Create responsive config window
     local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
     local screenHeight = GetScreenHeight() * UIParent:GetEffectiveScale()
     
