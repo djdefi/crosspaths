@@ -49,9 +49,13 @@ function Config:CreateConfigFrame()
     local frame = CreateFrame("Frame", "CrosspathsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
     frame:SetSize(width, height)
     
-    -- Set minimum and maximum size constraints
-    frame:SetMinResize(400, 500)
-    frame:SetMaxResize(800, 900)
+    -- Set minimum and maximum size constraints (if supported by frame type)
+    if frame.SetMinResize then
+        frame:SetMinResize(400, 500)
+    end
+    if frame.SetMaxResize then
+        frame:SetMaxResize(800, 900)
+    end
     
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
