@@ -657,6 +657,48 @@ TestRunner.runTest("Edge Cases - Empty SessionStats", function()
     Crosspaths.sessionStats = originalSessionStats
 end)
 
+TestRunner.runTest("Edge Cases - Nil TotalEncounters Field", function()
+    -- Test the specific fix for the reported runtime error - nil comparison
+    local originalSessionStats = Crosspaths.sessionStats
+    Crosspaths.sessionStats = {
+        sessionStartTime = time(),
+        totalEncounters = nil,  -- Explicitly nil to reproduce the bug
+        playersEncountered = 0,
+        newPlayers = 0
+    }
+    
+    local sessionStats = Engine:GetSessionStats()
+    TestRunner.assertNotNil(sessionStats, "Should handle nil totalEncounters without error")
+    TestRunner.assertType(sessionStats, "table", "Should return valid table despite nil totalEncounters")
+    TestRunner.assertEqual(sessionStats.totalEncounters, 0, "Should default to 0 for nil totalEncounters")
+    TestRunner.assertEqual(sessionStats.averageEncounterInterval, 0, "Should have 0 averageEncounterInterval when totalEncounters is nil")
+    TestRunner.assertType(sessionStats.sessionDuration, "number", "Session duration should be calculated even with nil totalEncounters")
+    
+    -- Restore original sessionStats
+    Crosspaths.sessionStats = originalSessionStats
+end)
+
+TestRunner.runTest("Edge Cases - Nil SessionStartTime Field", function()
+    -- Test the fix for nil sessionStartTime causing arithmetic errors
+    local originalSessionStats = Crosspaths.sessionStats
+    Crosspaths.sessionStats = {
+        sessionStartTime = nil,  -- Explicitly nil to reproduce potential bug
+        totalEncounters = 5,
+        playersEncountered = 3,
+        newPlayers = 1
+    }
+    
+    local sessionStats = Engine:GetSessionStats()
+    TestRunner.assertNotNil(sessionStats, "Should handle nil sessionStartTime without error")
+    TestRunner.assertType(sessionStats, "table", "Should return valid table despite nil sessionStartTime")
+    TestRunner.assertType(sessionStats.sessionStartTime, "number", "Should provide valid sessionStartTime")
+    TestRunner.assertEqual(sessionStats.sessionDuration, 0, "Should have 0 sessionDuration when sessionStartTime is nil")
+    TestRunner.assertEqual(sessionStats.totalEncounters, 5, "Should preserve totalEncounters value")
+    
+    -- Restore original sessionStats
+    Crosspaths.sessionStats = originalSessionStats
+end)
+
 -- Run all tests and display results
 print("Running Crosspaths Engine Tests...")
 print("==================================")
