@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.13] - 2025-07-29
+
+### Added
+- Initial plan
+- Implement responsive UI sizing and consistent styling constants
+- Add helper functions and clean up repetitive UI code patterns
+- Add comprehensive UI improvements documentation
+- Fix luacheck warnings: remove trailing whitespace
+- Merge pull request #36 from djdefi/copilot/fix-35
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.12] - 2025-07-29
 
 ### Added
