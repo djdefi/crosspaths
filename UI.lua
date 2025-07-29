@@ -96,10 +96,14 @@ local function CreateStandardFrame(name, parent, windowType, frameStrata)
     local width, height = GetResponsiveSize(windowType)
     frame:SetSize(width, height)
     
-    -- Set minimum and maximum size constraints
+    -- Set minimum and maximum size constraints (if supported by frame type)
     local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
-    frame:SetMinResize(constants.MIN_WIDTH, constants.MIN_HEIGHT)
-    frame:SetMaxResize(constants.MAX_WIDTH, constants.MAX_HEIGHT)
+    if frame.SetMinResize then
+        frame:SetMinResize(constants.MIN_WIDTH, constants.MIN_HEIGHT)
+    end
+    if frame.SetMaxResize then
+        frame:SetMaxResize(constants.MAX_WIDTH, constants.MAX_HEIGHT)
+    end
     
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
