@@ -38,10 +38,29 @@ end
 
 -- Create config frame
 function Config:CreateConfigFrame()
+    -- Get UI constants from the UI module for consistency
+    local UI = Crosspaths.UI
+    local GetResponsiveSize
+    
+    -- Access GetResponsiveSize function from UI module's local scope
+    -- For now, implement a simple responsive config window size
+    local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
+    local screenHeight = GetScreenHeight() * UIParent:GetEffectiveScale()
+    
+    -- Calculate responsive size for config window (60% of screen, with limits)
+    local width = math.max(400, math.min(800, screenWidth * 0.6))
+    local height = math.max(500, math.min(900, screenHeight * 0.75))
+    
     local frame = CreateFrame("Frame", "CrosspathsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(500, 600)
+    frame:SetSize(width, height)
+    
+    -- Set minimum and maximum size constraints
+    frame:SetMinResize(400, 500)
+    frame:SetMaxResize(800, 900)
+    
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
+    frame:SetResizable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
@@ -53,13 +72,14 @@ function Config:CreateConfigFrame()
     frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
     frame.title:SetText("Crosspaths Configuration")
 
-    -- Scroll frame for content
+    -- Scroll frame for content with responsive sizing
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 10)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetSize(450, 800)
+    -- Make content size responsive to the scroll frame
+    content:SetSize(scrollFrame:GetWidth() - 20, 800)
     scrollFrame:SetScrollChild(content)
 
     frame.content = content
