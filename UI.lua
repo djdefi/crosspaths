@@ -80,9 +80,9 @@ local function GetResponsiveSize(windowType)
     local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
     
     -- Calculate responsive size (70% of screen, but within min/max bounds)
-    local width = math.max(constants.MIN_WIDTH, 
+    local width = math.max(constants.MIN_WIDTH,
                   math.min(constants.MAX_WIDTH, screenWidth * 0.7))
-    local height = math.max(constants.MIN_HEIGHT, 
+    local height = math.max(constants.MIN_HEIGHT,
                    math.min(constants.MAX_HEIGHT, screenHeight * 0.7))
     
     return width, height
@@ -120,7 +120,7 @@ end
 local function CreateStandardCloseButton(parent, onClickCallback)
     local closeBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
     closeBtn:SetSize(80, UI_CONSTANTS.SPACING.BUTTON_HEIGHT)
-    closeBtn:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 
+    closeBtn:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT",
                      -UI_CONSTANTS.SPACING.WINDOW_MARGIN, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     closeBtn:SetText("Close")
     closeBtn:SetScript("OnClick", onClickCallback or function() parent:Hide() end)
