@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.12] - 2025-07-29
+
+### Added
+- Initial plan
+- Complete CurseForge publishing setup with project ID 1308376
+- Add setup status documentation for CurseForge publishing
+- Initial plan
+- Fix runtime nil comparison error in GetSessionStats function
+- Add defensive programming to GetSessionStats to handle empty sessionStats
+- Fix luacheck warnings and add test for empty sessionStats nil comparison fix
+- Merge pull request #32 from djdefi/copilot/fix-31
+- Update CurseForge URL slug to crosspaths-social-memory-tracker
+- Merge pull request #28 from djdefi/copilot/fix-27
+- Initial plan
+- Fix runtime nil comparison error in GetSessionStats function
+- Merge pull request #34 from djdefi/copilot/fix-33
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.11] - 2025-07-17
 
 ### Added
