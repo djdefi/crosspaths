@@ -6,6 +6,127 @@ local addonName, Crosspaths = ...
 Crosspaths.UI = {}
 local UI = Crosspaths.UI
 
+-- UI Constants for consistency and responsiveness
+local UI_CONSTANTS = {
+    -- Window sizes (min, default, max)
+    MAIN_WINDOW = {
+        MIN_WIDTH = 500,
+        MIN_HEIGHT = 350,
+        DEFAULT_WIDTH = 650,
+        DEFAULT_HEIGHT = 450,
+        MAX_WIDTH = 1200,
+        MAX_HEIGHT = 800
+    },
+    CONFIG_WINDOW = {
+        MIN_WIDTH = 400,
+        MIN_HEIGHT = 500,
+        DEFAULT_WIDTH = 520,
+        DEFAULT_HEIGHT = 650,
+        MAX_WIDTH = 800,
+        MAX_HEIGHT = 900
+    },
+    EXPORT_WINDOW = {
+        MIN_WIDTH = 500,
+        MIN_HEIGHT = 350,
+        DEFAULT_WIDTH = 650,
+        DEFAULT_HEIGHT = 450,
+        MAX_WIDTH = 1000,
+        MAX_HEIGHT = 700
+    },
+    DIGEST_WINDOW = {
+        MIN_WIDTH = 450,
+        MIN_HEIGHT = 550,
+        DEFAULT_WIDTH = 550,
+        DEFAULT_HEIGHT = 650,
+        MAX_WIDTH = 800,
+        MAX_HEIGHT = 900
+    },
+    
+    -- Colors for consistent UI theming
+    COLORS = {
+        -- Tab button colors
+        TAB_NORMAL = {0.25, 0.25, 0.25, 0.9},
+        TAB_HOVER = {0.4, 0.4, 0.4, 0.9},
+        TAB_PRESSED = {0.15, 0.15, 0.15, 0.9},
+        TAB_SELECTED = {0.2, 0.4, 0.8, 0.95},
+        TAB_BORDER = {0.6, 0.6, 0.6, 0.8},
+        TAB_BORDER_SELECTED = {0.8, 0.8, 0.8, 1.0},
+        
+        -- Toast notification colors
+        TOAST_BG = {0, 0, 0, 0.8},
+        TOAST_TITLE = {1, 1, 0, 1},
+        TOAST_TEXT = {1, 1, 1, 1}
+    },
+    
+    -- Spacing and layout
+    SPACING = {
+        WINDOW_MARGIN = 10,
+        TAB_HEIGHT = 28,
+        TAB_WIDTH = 95,
+        TAB_SPACING = 105,
+        BUTTON_HEIGHT = 25,
+        SCROLL_BAR_WIDTH = 30,
+        SEARCH_BOX_WIDTH = 200,
+        SEARCH_BOX_HEIGHT = 24,
+        INPUT_BOX_HEIGHT = 20
+    }
+}
+
+-- Helper function to get responsive window size based on screen dimensions
+local function GetResponsiveSize(windowType)
+    local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
+    local screenHeight = GetScreenHeight() * UIParent:GetEffectiveScale()
+    
+    local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
+    
+    -- Calculate responsive size (70% of screen, but within min/max bounds)
+    local width = math.max(constants.MIN_WIDTH,
+                  math.min(constants.MAX_WIDTH, screenWidth * 0.7))
+    local height = math.max(constants.MIN_HEIGHT,
+                   math.min(constants.MAX_HEIGHT, screenHeight * 0.7))
+    
+    return width, height
+end
+
+-- Helper function to create a standard resizable frame with common properties
+local function CreateStandardFrame(name, parent, windowType, frameStrata)
+    local frame = CreateFrame("Frame", name, parent or UIParent, "BasicFrameTemplateWithInset")
+    
+    -- Use responsive sizing
+    local width, height = GetResponsiveSize(windowType)
+    frame:SetSize(width, height)
+    
+    -- Set minimum and maximum size constraints
+    local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
+    frame:SetMinResize(constants.MIN_WIDTH, constants.MIN_HEIGHT)
+    frame:SetMaxResize(constants.MAX_WIDTH, constants.MAX_HEIGHT)
+    
+    frame:SetPoint("CENTER")
+    frame:SetMovable(true)
+    frame:SetResizable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    
+    if frameStrata then
+        frame:SetFrameStrata(frameStrata)
+    end
+    
+    return frame
+end
+
+-- Helper function to create a standard close button
+local function CreateStandardCloseButton(parent, onClickCallback)
+    local closeBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    closeBtn:SetSize(80, UI_CONSTANTS.SPACING.BUTTON_HEIGHT)
+    closeBtn:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT",
+                     -UI_CONSTANTS.SPACING.WINDOW_MARGIN, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    closeBtn:SetText("Close")
+    closeBtn:SetScript("OnClick", onClickCallback or function() parent:Hide() end)
+    return closeBtn
+end
+
 -- Initialize UI
 function UI:Initialize()
     self.mainFrame = nil
@@ -148,14 +269,7 @@ end
 
 -- Create main frame
 function UI:CreateMainFrame()
-    local frame = CreateFrame("Frame", "CrosspathsMainFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(600, 400)
-    frame:SetPoint("CENTER")
-    frame:SetMovable(true)
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    local frame = CreateStandardFrame("CrosspathsMainFrame", UIParent, "MAIN_WINDOW")
 
     -- Title
     frame.title = frame:CreateFontString(nil, "OVERLAY")
@@ -166,10 +280,10 @@ function UI:CreateMainFrame()
     -- Tab buttons
     self:CreateTabButtons(frame)
 
-    -- Content area
+    -- Content area with responsive margins
     frame.content = CreateFrame("Frame", nil, frame)
-    frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -60)
-    frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
+    frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -60)
+    frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.WINDOW_MARGIN, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
 
     self.mainFrame = frame
 
@@ -203,9 +317,9 @@ function UI:CreateTabButton(parent, index, tabData)
     -- Use UIPanelButtonTemplate as a more stable base than manual creation
     local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     button:SetID(index)
-    button:SetSize(95, 28) -- Slightly larger for better readability
+    button:SetSize(UI_CONSTANTS.SPACING.TAB_WIDTH, UI_CONSTANTS.SPACING.TAB_HEIGHT)
     button:SetText(tabData.text)
-    button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * 105 + 10, 32)
+    button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * UI_CONSTANTS.SPACING.TAB_SPACING + UI_CONSTANTS.SPACING.WINDOW_MARGIN, 32)
 
     -- Apply modern tab styling
     self:StyleTabButton(button)
@@ -242,11 +356,11 @@ function UI:StyleTabButton(button)
     button:SetHighlightFontObject("GameFontHighlight")
     button:SetDisabledFontObject("GameFontDisable")
 
-    -- Modern color scheme matching WoW UI
-    local normalColor = {0.25, 0.25, 0.25, 0.9}     -- Dark gray
-    local hoverColor = {0.4, 0.4, 0.4, 0.9}         -- Medium gray
-    local pressedColor = {0.15, 0.15, 0.15, 0.9}    -- Darker gray
-    local selectedColor = {0.2, 0.4, 0.8, 0.95}     -- Blue accent
+    -- Use consistent color scheme from constants
+    local normalColor = UI_CONSTANTS.COLORS.TAB_NORMAL
+    local hoverColor = UI_CONSTANTS.COLORS.TAB_HOVER
+    local pressedColor = UI_CONSTANTS.COLORS.TAB_PRESSED
+    local selectedColor = UI_CONSTANTS.COLORS.TAB_SELECTED
 
     -- Create background textures with modern styling
     local normalTexture = button:CreateTexture(nil, "BACKGROUND")
@@ -267,7 +381,7 @@ function UI:StyleTabButton(button)
     -- Add border for modern look
     local border = button:CreateTexture(nil, "BORDER")
     border:SetAllPoints()
-    border:SetColorTexture(0.6, 0.6, 0.6, 0.8)
+    border:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TAB_BORDER))
     border:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
     border:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
 
@@ -290,11 +404,11 @@ function UI:StyleTabButton(button)
         if checked then
             self.checkedTexture:Show()
             -- Brighten border when selected
-            self.borderTexture:SetColorTexture(0.8, 0.8, 0.8, 1.0)
+            self.borderTexture:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TAB_BORDER_SELECTED))
         else
             self.checkedTexture:Hide()
             -- Normal border when not selected
-            self.borderTexture:SetColorTexture(0.6, 0.6, 0.6, 0.8)
+            self.borderTexture:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TAB_BORDER))
         end
     end
 
@@ -384,9 +498,9 @@ function UI:CreateSummaryTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
 
-    -- Stats display
+    -- Stats display with consistent spacing
     frame.statsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.statsText:SetPoint("TOPLEFT", 10, -10)
+    frame.statsText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     frame.statsText:SetJustifyH("LEFT")
     frame.statsText:SetJustifyV("TOP")
     frame.statsText:SetText("Loading statistics...")
@@ -399,10 +513,10 @@ function UI:CreatePlayersTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
 
-    -- Search box
+    -- Search box with standardized sizing
     local searchBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    searchBox:SetSize(200, 20)
-    searchBox:SetPoint("TOPLEFT", 10, -10)
+    searchBox:SetSize(UI_CONSTANTS.SPACING.SEARCH_BOX_WIDTH, UI_CONSTANTS.SPACING.SEARCH_BOX_HEIGHT)
+    searchBox:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     searchBox:SetAutoFocus(false)
     searchBox:SetScript("OnEnterPressed", function(self)
         UI:ShowSearchResults(self:GetText())
@@ -410,12 +524,12 @@ function UI:CreatePlayersTab()
     end)
 
     local searchLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    searchLabel:SetPoint("LEFT", searchBox, "RIGHT", 10, 0)
+    searchLabel:SetPoint("LEFT", searchBox, "RIGHT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, 0)
     searchLabel:SetText("Search players...")
 
-    -- Results area
+    -- Results area with proper spacing
     frame.resultsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.resultsText:SetPoint("TOPLEFT", 10, -40)
+    frame.resultsText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -40)
     frame.resultsText:SetJustifyH("LEFT")
     frame.resultsText:SetJustifyV("TOP")
     frame.resultsText:SetText("Top players will appear here...")
@@ -431,7 +545,7 @@ function UI:CreateGuildsTab()
     frame:SetAllPoints()
 
     frame.guildsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.guildsText:SetPoint("TOPLEFT", 10, -10)
+    frame.guildsText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     frame.guildsText:SetJustifyH("LEFT")
     frame.guildsText:SetJustifyV("TOP")
     frame.guildsText:SetText("Guild statistics will appear here...")
@@ -445,7 +559,7 @@ function UI:CreateEncountersTab()
     frame:SetAllPoints()
 
     frame.encountersText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.encountersText:SetPoint("TOPLEFT", 10, -10)
+    frame.encountersText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     frame.encountersText:SetJustifyH("LEFT")
     frame.encountersText:SetJustifyV("TOP")
     frame.encountersText:SetText("Recent encounters will appear here...")
@@ -665,14 +779,13 @@ end
 
 -- Create advanced stats tab
 function UI:CreateAdvancedTab()
-    local frame = CreateFrame("Frame", nil, self.mainFrame.Inset)
+    local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
-    frame:Hide()
 
-    -- Main scroll frame for advanced statistics
+    -- Main scroll frame for advanced statistics with consistent spacing
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
-    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 10)
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
 
     -- Create content frame to hold the text
     local content = CreateFrame("Frame", nil, scroll)
@@ -860,19 +973,19 @@ function UI:ShowToast(title, message, notificationType)
     -- Background
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
-    toast.bg:SetColorTexture(0, 0, 0, 0.8)
+    toast.bg:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BG))
 
     -- Title
     toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     toast.title:SetPoint("TOP", toast, "TOP", 0, -5)
     toast.title:SetText(title)
-    toast.title:SetTextColor(1, 1, 0)
+    toast.title:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TITLE))
 
     -- Message
     toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     toast.message:SetPoint("TOP", toast.title, "BOTTOM", 0, -5)
     toast.message:SetText(message)
-    toast.message:SetTextColor(1, 1, 1)
+    toast.message:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TEXT))
 
     -- Play sound if enabled
     if notifications.playSound then
@@ -1428,16 +1541,8 @@ end
 
 -- Show digest report in a window
 function UI:ShowDigestReport(title, digest)
-    -- Create digest report frame
-    local frame = CreateFrame("Frame", "CrosspathsDigestFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(500, 600)
-    frame:SetPoint("CENTER")
-    frame:SetMovable(true)
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-    frame:SetFrameStrata("HIGH")
+    -- Create digest report frame using standard helper
+    local frame = CreateStandardFrame("CrosspathsDigestFrame", UIParent, "DIGEST_WINDOW", "HIGH")
 
     -- Title
     frame.title = frame:CreateFontString(nil, "OVERLAY")
@@ -1445,31 +1550,25 @@ function UI:ShowDigestReport(title, digest)
     frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
     frame.title:SetText(title)
 
-    -- Scroll frame for content
+    -- Scroll frame for content with responsive sizing
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
+    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -30)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, 40)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetSize(450, 800)
+    content:SetSize(scrollFrame:GetWidth() - 20, 800)
     scrollFrame:SetScrollChild(content)
 
     -- Generate content
     self:PopulateDigestContent(content, digest)
 
-    -- Close button
-    local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
-    closeBtn:SetSize(80, 25)
-    closeBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
-    closeBtn:SetText("Close")
-    closeBtn:SetScript("OnClick", function()
-        frame:Hide()
-    end)
+    -- Close button using standard helper
+    local closeBtn = CreateStandardCloseButton(frame)
 
-    -- Export button
+    -- Export button with standard sizing
     local exportBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
-    exportBtn:SetSize(80, 25)
-    exportBtn:SetPoint("RIGHT", closeBtn, "LEFT", -10, 0)
+    exportBtn:SetSize(80, UI_CONSTANTS.SPACING.BUTTON_HEIGHT)
+    exportBtn:SetPoint("RIGHT", closeBtn, "LEFT", -UI_CONSTANTS.SPACING.WINDOW_MARGIN, 0)
     exportBtn:SetText("Export")
     exportBtn:SetScript("OnClick", function()
         self:ExportDigest(digest, title)
@@ -1620,15 +1719,7 @@ end
 
 -- Show export frame with digest data
 function UI:ShowExportFrame(data, filename)
-    local frame = CreateFrame("Frame", "CrosspathsExportFrame", UIParent, "BasicFrameTemplateWithInset")
-    frame:SetSize(600, 400)
-    frame:SetPoint("CENTER")
-    frame:SetMovable(true)
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-    frame:SetFrameStrata("HIGH")
+    local frame = CreateStandardFrame("CrosspathsExportFrame", UIParent, "EXPORT_WINDOW", "HIGH")
 
     -- Title
     frame.title = frame:CreateFontString(nil, "OVERLAY")
@@ -1638,33 +1729,27 @@ function UI:ShowExportFrame(data, filename)
 
     -- Instructions
     local instructions = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    instructions:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -30)
+    instructions:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -30)
     instructions:SetText("Copy the data below and save it to a file:")
 
-    -- Text area
+    -- Text area with responsive sizing
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -50)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
+    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -50)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, 40)
 
     local editBox = CreateFrame("EditBox", nil, scrollFrame)
     editBox:SetMultiLine(true)
     editBox:SetAutoFocus(false)
     editBox:SetFontObject("ChatFontNormal")
-    editBox:SetWidth(550)
+    editBox:SetWidth(scrollFrame:GetWidth() - 20)
     editBox:SetText(data)
     editBox:SetCursorPosition(0)
     editBox:HighlightText()
 
     scrollFrame:SetScrollChild(editBox)
 
-    -- Close button
-    local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
-    closeBtn:SetSize(80, 25)
-    closeBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
-    closeBtn:SetText("Close")
-    closeBtn:SetScript("OnClick", function()
-        frame:Hide()
-    end)
+    -- Close button using standard helper
+    local closeBtn = CreateStandardCloseButton(frame)
 
     frame:Show()
     editBox:SetFocus()
