@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial plan
 - Fix SetMinResize runtime error with robust method checking
 - Merge pull request #40 from djdefi/copilot/fix-39
+- Bump version from 0.1.13 to 0.1.14
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.14] - 2025-07-30
+
+### Added
+- Initial plan
+- Fix SetMinResize runtime error by adding existence checks
+- Merge pull request #38 from djdefi/copilot/fix-37
+- Initial plan
+- Fix SetMinResize runtime error with robust method checking
+- Merge pull request #40 from djdefi/copilot/fix-39
 
 ### Changed
 - 
