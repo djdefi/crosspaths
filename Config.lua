@@ -50,11 +50,11 @@ function Config:CreateConfigFrame()
     frame:SetSize(width, height)
     
     -- Set minimum and maximum size constraints (if supported by frame type)
-    if frame.SetMinResize then
-        frame:SetMinResize(400, 500)
+    if frame.SetMinResize and type(frame.SetMinResize) == "function" then
+        pcall(frame.SetMinResize, frame, 400, 500)
     end
-    if frame.SetMaxResize then
-        frame:SetMaxResize(800, 900)
+    if frame.SetMaxResize and type(frame.SetMaxResize) == "function" then
+        pcall(frame.SetMaxResize, frame, 800, 900)
     end
     
     frame:SetPoint("CENTER")

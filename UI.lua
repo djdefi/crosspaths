@@ -98,11 +98,11 @@ local function CreateStandardFrame(name, parent, windowType, frameStrata)
     
     -- Set minimum and maximum size constraints (if supported by frame type)
     local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
-    if frame.SetMinResize then
-        frame:SetMinResize(constants.MIN_WIDTH, constants.MIN_HEIGHT)
+    if frame.SetMinResize and type(frame.SetMinResize) == "function" then
+        pcall(frame.SetMinResize, frame, constants.MIN_WIDTH, constants.MIN_HEIGHT)
     end
-    if frame.SetMaxResize then
-        frame:SetMaxResize(constants.MAX_WIDTH, constants.MAX_HEIGHT)
+    if frame.SetMaxResize and type(frame.SetMaxResize) == "function" then
+        pcall(frame.SetMaxResize, frame, constants.MAX_WIDTH, constants.MAX_HEIGHT)
     end
     
     frame:SetPoint("CENTER")
