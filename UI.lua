@@ -1086,8 +1086,20 @@ function UI:SearchPlayers(query)
                 levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
             end
 
+            -- Truncate player name if too long to prevent overflow
+            local playerName = player.name
+            if string.len(playerName) > 20 then
+                playerName = string.sub(playerName, 1, 17) .. "..."
+            end
+            
+            -- Truncate guild name if too long
+            if player.guild and string.len(player.guild) > 15 then
+                local truncatedGuild = string.sub(player.guild, 1, 12) .. "..."
+                guildText = " |cFFFFFFFF<" .. truncatedGuild .. ">|r"
+            end
+
             table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters",
-                i, player.name, groupedText, guildText, classText, levelText, player.count))
+                i, playerName, groupedText, guildText, classText, levelText, player.count))
         end
     end
 

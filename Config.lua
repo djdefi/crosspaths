@@ -305,11 +305,11 @@ function Config:CreateTrackingSettings(parent)
     local distanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     distanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT + CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     distanceLabel:SetText("Minimum move distance (0.001-0.1):")
-    yOffset = yOffset - 20
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     local distanceEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     distanceEditBox:SetSize(80, 20)
-    distanceEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    distanceEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT + CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     distanceEditBox:SetAutoFocus(false)
     distanceEditBox:SetScript("OnEnterPressed", function(self)
         local value = tonumber(self:GetText()) or 0.01
@@ -320,17 +320,17 @@ function Config:CreateTrackingSettings(parent)
         self:ClearFocus()
     end)
     parent.distanceEditBox = distanceEditBox
-    yOffset = yOffset - 35
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Pruning settings
     local pruneLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    pruneLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    pruneLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     pruneLabel:SetText("Auto-prune data older than (days):")
-    yOffset = yOffset - 20
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     local pruneEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     pruneEditBox:SetSize(60, 20)
-    pruneEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    pruneEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     pruneEditBox:SetAutoFocus(false)
     pruneEditBox:SetNumeric(true)
     pruneEditBox:SetScript("OnEnterPressed", function(self)
@@ -342,7 +342,7 @@ function Config:CreateTrackingSettings(parent)
         self:ClearFocus()
     end)
     parent.pruneEditBox = pruneEditBox
-    yOffset = yOffset - 50
+    yOffset = yOffset - CONFIG_SPACING.SUBSECTION_SPACING
 
     parent.trackingYOffset = yOffset
 end
@@ -353,13 +353,13 @@ function Config:CreateNotificationSettings(parent)
 
     -- Section header
     local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    header:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     header:SetText("|cFFFFD700Notification Settings|r")
-    yOffset = yOffset - 30
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     -- Master notification toggle
     local masterCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    masterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    masterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     masterCheck.Text:SetText("Enable All Notifications")
     masterCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.enableNotifications = self:GetChecked()
@@ -370,33 +370,33 @@ function Config:CreateNotificationSettings(parent)
         end
     end)
     parent.masterCheck = masterCheck
-    yOffset = yOffset - 35
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Notification types subsection
     local typesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    typesLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    typesLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     typesLabel:SetText("|cFFADD8E6Notification Types:|r")
-    yOffset = yOffset - 20
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     -- Repeat encounters
     local repeatCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    repeatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    repeatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
     repeatCheck.Text:SetText("Repeat Encounters")
     repeatCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyRepeatEncounters = self:GetChecked()
     end)
     parent.repeatCheck = repeatCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Frequent players
     local frequentCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    frequentCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    frequentCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
     frequentCheck.Text:SetText("Frequent Players")
     frequentCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyFrequentPlayers = self:GetChecked()
     end)
     parent.frequentCheck = frequentCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Previous group members
     local groupMemberCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
