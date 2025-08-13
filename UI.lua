@@ -1269,7 +1269,7 @@ function UI:ShowTitanPanelStatus()
         table.insert(lines, "TitanPanelUtils: AVAILABLE")
         
         -- Check if our plugin is registered
-        if TitanPanelUtils:IsRegistered and TitanPanelUtils:IsRegistered("Crosspaths") then
+        if TitanPanelUtils.IsRegistered and TitanPanelUtils:IsRegistered("Crosspaths") then
             table.insert(lines, "Crosspaths plugin: REGISTERED")
         else
             table.insert(lines, "Crosspaths plugin: NOT REGISTERED")

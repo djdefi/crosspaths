@@ -8,8 +8,8 @@ if not TitanPanelUtils then
     -- Delay the check to ensure all addons are loaded
     local checkFrame = CreateFrame("Frame")
     checkFrame:RegisterEvent("ADDON_LOADED")
-    checkFrame:SetScript("OnEvent", function(self, event, addonName)
-        if addonName == "Titan" or addonName == "TitanClassic" then
+    checkFrame:SetScript("OnEvent", function(self, event, loadedAddonName)
+        if loadedAddonName == "Titan" or loadedAddonName == "TitanClassic" then
             -- TitanPanel was loaded after us, try to initialize
             if TitanPanelUtils and Crosspaths and Crosspaths.TitanPanel then
                 Crosspaths.TitanPanel:Initialize()

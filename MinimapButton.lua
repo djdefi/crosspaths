@@ -24,7 +24,7 @@ local MINIMAP_BUTTON_CONFIG = {
 -- Initialize minimap button
 function MinimapButton:Initialize()
     -- Don't initialize if disabled in settings
-    if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.ui and 
+    if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.ui and
        Crosspaths.db.settings.ui.hideMinimapButton then
         return
     end
@@ -56,7 +56,7 @@ function MinimapButton:CreateButton()
     overlay:SetPoint("TOPLEFT", 0, 0)
     overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     
-    -- Background  
+    -- Background
     local background = button:CreateTexture(nil, "BORDER")
     background:SetSize(20, 20)
     background:SetPoint("CENTER", 0, 0)
