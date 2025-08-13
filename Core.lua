@@ -263,6 +263,12 @@ function Crosspaths:OnInitialize()
             self:DebugLog("Titan Panel module initialized")
         end
 
+        -- Initialize Minimap Button
+        if self.MinimapButton then
+            self.MinimapButton:Initialize()
+            self:DebugLog("Minimap button module initialized")
+        end
+
         self:Message("Crosspaths " .. self.version .. " initialized successfully")
         self:DebugLog("Crosspaths initialization completed successfully", "INFO")
     end)

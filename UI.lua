@@ -245,6 +245,12 @@ function UI:HandleSlashCommand(msg)
         else
             Crosspaths:Message("Usage: /crosspaths digest [daily|weekly|monthly]")
         end
+    elseif command == "minimap" then
+        if Crosspaths.MinimapButton then
+            Crosspaths.MinimapButton:Toggle()
+        else
+            Crosspaths:Message("Minimap button module not available")
+        end
     elseif command == "help" then
         self:ShowHelp()
     else
@@ -1155,12 +1161,14 @@ function UI:ShowHelp()
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
+        "/crosspaths minimap - Toggle minimap button",
         "/cpconfig - Open configuration panel",
         "",
         "New Features:",
         "• Enhanced notification options with granular controls",
         "• Daily/Weekly/Monthly digest reports",
         "• Titan Panel integration (if available)",
+        "• Minimap button for easy UI access",
         "• Do Not Disturb mode during combat",
         "• Notification sound options",
     }

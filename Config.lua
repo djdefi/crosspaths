@@ -648,7 +648,38 @@ function Config:CreateUISettings(parent)
     notifCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.ui.showNotifications = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    notifCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Enable or disable toast notifications for encounters", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    notifCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.notifCheck = notifCheck
+    yOffset = yOffset - 25
+
+    -- Show minimap button
+    local minimapCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    minimapCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    minimapCheck.Text:SetText("Show Minimap Button")
+    minimapCheck:SetScript("OnClick", function(self)
+        -- Toggle minimap button visibility
+        if Crosspaths.MinimapButton then
+            Crosspaths.MinimapButton:Toggle()
+        end
+    end)
+    -- Add tooltip for accessibility
+    minimapCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Show or hide the Crosspaths minimap button for easy UI access", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    minimapCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    parent.minimapCheck = minimapCheck
     yOffset = yOffset - 25
 
     -- Notification duration
@@ -813,6 +844,9 @@ function Config:RefreshSettings()
     -- UI settings
     if content.notifCheck then
         content.notifCheck:SetChecked(Crosspaths.db.settings.ui.showNotifications)
+    end
+    if content.minimapCheck then
+        content.minimapCheck:SetChecked(not Crosspaths.db.settings.ui.hideMinimapButton)
     end
     if content.durationEditBox then
         content.durationEditBox:SetText(tostring(Crosspaths.db.settings.ui.notificationDuration or 3))

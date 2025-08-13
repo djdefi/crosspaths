@@ -14,3 +14,4 @@ Engine.lua
 UI.lua
 Config.lua
 TitanPanel.lua
+MinimapButton.lua
