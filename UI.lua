@@ -249,8 +249,10 @@ function UI:HandleSlashCommand(msg)
         if Crosspaths.MinimapButton then
             Crosspaths.MinimapButton:Toggle()
         else
-            Crosspaths:Message("Minimap button module not available")
+            Crosspaths:Message("Minimap button not available")
         end
+    elseif command == "titanpanel" or command == "titan" then
+        self:ShowTitanPanelStatus()
     elseif command == "help" then
         self:ShowHelp()
     else
@@ -1162,6 +1164,7 @@ function UI:ShowHelp()
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
         "/crosspaths minimap - Toggle minimap button",
+        "/crosspaths titanpanel - Check TitanPanel integration status",
         "/cpconfig - Open configuration panel",
         "",
         "New Features:",
@@ -1249,6 +1252,64 @@ function UI:ShowStatus()
 
     table.insert(lines, "=== End Status ===")
 
+    for _, line in ipairs(lines) do
+        Crosspaths:Message(line)
+    end
+end
+
+-- Show TitanPanel integration status
+function UI:ShowTitanPanelStatus()
+    local lines = {}
+    
+    table.insert(lines, "=== TitanPanel Integration Status ===")
+    
+    -- Check if TitanPanel is available
+    if TitanPanelUtils then
+        table.insert(lines, "TitanPanel: DETECTED")
+        table.insert(lines, "TitanPanelUtils: AVAILABLE")
+        
+        -- Check if our plugin is registered
+        if TitanPanelUtils:IsRegistered and TitanPanelUtils:IsRegistered("Crosspaths") then
+            table.insert(lines, "Crosspaths plugin: REGISTERED")
+        else
+            table.insert(lines, "Crosspaths plugin: NOT REGISTERED")
+        end
+        
+        -- Check if our module is initialized
+        if Crosspaths.TitanPanel then
+            table.insert(lines, "TitanPanel module: LOADED")
+        else
+            table.insert(lines, "TitanPanel module: NOT LOADED")
+        end
+        
+        table.insert(lines, "")
+        table.insert(lines, "To use TitanPanel integration:")
+        table.insert(lines, "1. Right-click on your TitanPanel bar")
+        table.insert(lines, "2. Select 'Plugins'")
+        table.insert(lines, "3. Look for 'Crosspaths' in the Information category")
+        table.insert(lines, "4. Enable it to show Crosspaths stats on your bar")
+        
+    elseif TitanUtils_RegisterPlugin then
+        table.insert(lines, "TitanPanel: LEGACY VERSION DETECTED")
+        table.insert(lines, "Crosspaths: Attempting legacy integration")
+        
+        if Crosspaths.TitanPanel then
+            table.insert(lines, "TitanPanel module: LOADED")
+        else
+            table.insert(lines, "TitanPanel module: NOT LOADED")
+        end
+        
+    else
+        table.insert(lines, "TitanPanel: NOT INSTALLED")
+        table.insert(lines, "")
+        table.insert(lines, "To get TitanPanel integration:")
+        table.insert(lines, "1. Install the TitanPanel addon from CurseForge or WowInterface")
+        table.insert(lines, "2. Restart WoW or reload UI (/reload)")
+        table.insert(lines, "3. Crosspaths will automatically integrate with TitanPanel")
+    end
+    
+    table.insert(lines, "=== End TitanPanel Status ===")
+    
     for _, line in ipairs(lines) do
         Crosspaths:Message(line)
     end

@@ -258,9 +258,13 @@ function Crosspaths:OnInitialize()
 
         -- Initialize Titan Panel integration if available
         if self.TitanPanel then
-            self.TitanPanel:Initialize()
-            self.TitanPanel:StartUpdateTimer()
-            self:DebugLog("Titan Panel module initialized")
+            local success = self.TitanPanel:Initialize()
+            if success then
+                self.TitanPanel:StartUpdateTimer()
+                self:DebugLog("Titan Panel module initialized successfully")
+            else
+                self:DebugLog("Titan Panel module initialization failed", "WARN")
+            end
         end
 
         -- Initialize Minimap Button
