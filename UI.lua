@@ -41,7 +41,7 @@ local UI_CONSTANTS = {
         MAX_WIDTH = 800,
         MAX_HEIGHT = 900
     },
-    
+
     -- Colors for consistent UI theming
     COLORS = {
         -- Tab button colors
@@ -51,13 +51,13 @@ local UI_CONSTANTS = {
         TAB_SELECTED = {0.2, 0.4, 0.8, 0.95},
         TAB_BORDER = {0.6, 0.6, 0.6, 0.8},
         TAB_BORDER_SELECTED = {0.8, 0.8, 0.8, 1.0},
-        
+
         -- Toast notification colors
         TOAST_BG = {0, 0, 0, 0.8},
         TOAST_TITLE = {1, 1, 0, 1},
         TOAST_TEXT = {1, 1, 1, 1}
     },
-    
+
     -- Spacing and layout
     SPACING = {
         WINDOW_MARGIN = 10,
@@ -83,26 +83,26 @@ local UI_CONSTANTS = {
 local function GetResponsiveSize(windowType)
     local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
     local screenHeight = GetScreenHeight() * UIParent:GetEffectiveScale()
-    
+
     local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
-    
+
     -- Calculate responsive size (70% of screen, but within min/max bounds)
     local width = math.max(constants.MIN_WIDTH,
                   math.min(constants.MAX_WIDTH, screenWidth * 0.7))
     local height = math.max(constants.MIN_HEIGHT,
                    math.min(constants.MAX_HEIGHT, screenHeight * 0.7))
-    
+
     return width, height
 end
 
 -- Helper function to create a standard resizable frame with common properties
 local function CreateStandardFrame(name, parent, windowType, frameStrata)
     local frame = CreateFrame("Frame", name, parent or UIParent, "BasicFrameTemplateWithInset")
-    
+
     -- Use responsive sizing
     local width, height = GetResponsiveSize(windowType)
     frame:SetSize(width, height)
-    
+
     -- Set minimum and maximum size constraints (if supported by frame type)
     local constants = UI_CONSTANTS[windowType] or UI_CONSTANTS.MAIN_WINDOW
     if frame.SetMinResize and type(frame.SetMinResize) == "function" then
@@ -111,7 +111,7 @@ local function CreateStandardFrame(name, parent, windowType, frameStrata)
     if frame.SetMaxResize and type(frame.SetMaxResize) == "function" then
         pcall(frame.SetMaxResize, frame, constants.MAX_WIDTH, constants.MAX_HEIGHT)
     end
-    
+
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:SetResizable(true)
@@ -119,11 +119,11 @@ local function CreateStandardFrame(name, parent, windowType, frameStrata)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-    
+
     if frameStrata then
         frame:SetFrameStrata(frameStrata)
     end
-    
+
     return frame
 end
 
@@ -210,8 +210,31 @@ function UI:HandleSlashCommand(msg)
     elseif command == "cleanup" then
         if args[2] == "confirm" then
             Crosspaths:CleanupSelfEncounters()
+        elseif args[2] == "data" and args[3] == "confirm" then
+            local stats = Crosspaths.Engine:ValidateAndCleanData()
+            Crosspaths:Message(string.format("Data cleanup completed: %d duplicates, %d invalid encounters, %d invalid levels, %d normalized names removed",
+                stats.duplicatesRemoved, stats.invalidEncounters, stats.invalidLevels, stats.normalizedNames))
+        elseif args[2] == "duplicates" then
+            local duplicates = Crosspaths.Engine:DetectDuplicatePlayers()
+            if #duplicates > 0 then
+                Crosspaths:Message(string.format("Found %d potential duplicate groups:", #duplicates))
+                for i, dup in ipairs(duplicates) do
+                    if i <= 5 then -- Show top 5
+                        Crosspaths:Message(string.format("  %s: %d players (confidence: %d%%)",
+                            dup.baseName, #dup.players, math.floor(dup.confidence)))
+                    end
+                end
+                if #duplicates > 5 then
+                    Crosspaths:Message(string.format("  ... and %d more", #duplicates - 5))
+                end
+            else
+                Crosspaths:Message("No potential duplicates detected")
+            end
         else
-            Crosspaths:Message("Use '/crosspaths cleanup confirm' to remove self-encounter data")
+            Crosspaths:Message("Usage:")
+            Crosspaths:Message("  /crosspaths cleanup confirm - Remove self-encounter data")
+            Crosspaths:Message("  /crosspaths cleanup data confirm - Clean invalid data and duplicates")
+            Crosspaths:Message("  /crosspaths cleanup duplicates - Detect potential duplicate players")
         end
     elseif command == "debug" then
         if args[2] == "on" then
@@ -234,6 +257,20 @@ function UI:HandleSlashCommand(msg)
             Crosspaths:Message("Debug mode disabled")
         else
             self:ShowDebugStatus()
+        end
+    elseif command == "analytics" or command == "analysis" then
+        local analysisType = args[2] or "activity"
+        if analysisType == "activity" then
+            local patterns = Crosspaths.Engine:AnalyzeActivityPatterns()
+            self:ShowActivityAnalysis(patterns)
+        elseif analysisType == "social" then
+            local networks = Crosspaths.Engine:AnalyzeSocialNetworks()
+            self:ShowSocialAnalysis(networks)
+        elseif analysisType == "progression" then
+            local progression = Crosspaths.Engine:AnalyzeProgressionTrends()
+            self:ShowProgressionAnalysis(progression)
+        else
+            Crosspaths:Message("Usage: /crosspaths analytics [activity|social|progression]")
         end
     elseif command == "status" then
         self:ShowStatus()
@@ -344,12 +381,12 @@ function UI:CreateTabButton(parent, index, tabData)
     button:SetID(index)
     button:SetSize(UI_CONSTANTS.SPACING.TAB_WIDTH, UI_CONSTANTS.SPACING.TAB_HEIGHT)
     button:SetText(tabData.text)
-    
+
     -- Calculate responsive tab spacing to prevent overflow
     local windowWidth = parent:GetWidth() or UI_CONSTANTS.MAIN_WINDOW.DEFAULT_WIDTH
     local availableWidth = windowWidth - (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     local totalTabs = 5 -- Summary, Players, Guilds, Advanced, Encounters
-    
+
     -- Use default spacing if it fits, otherwise calculate needed spacing
     if totalTabs * UI_CONSTANTS.SPACING.TAB_SPACING + (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN) <= windowWidth then
         tabSpacing = UI_CONSTANTS.SPACING.TAB_SPACING
@@ -357,7 +394,7 @@ function UI:CreateTabButton(parent, index, tabData)
         -- Calculate spacing to fit all tabs, with minimum spacing being tab width
         tabSpacing = math.max(UI_CONSTANTS.SPACING.TAB_WIDTH * 0.8, availableWidth / totalTabs)
     end
-    
+
     button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * tabSpacing + UI_CONSTANTS.SPACING.WINDOW_MARGIN, 32)
 
     -- Apply modern tab styling
@@ -1013,7 +1050,7 @@ function UI:ShowToast(title, message, notificationType)
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
     toast.bg:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BG))
-    
+
     -- Add subtle border for better visibility
     toast.border = toast:CreateTexture(nil, "BORDER")
     toast.border:SetAllPoints()
@@ -1119,7 +1156,7 @@ function UI:SearchPlayers(query)
             if string.len(playerName) > 20 then
                 playerName = string.sub(playerName, 1, 17) .. "..."
             end
-            
+
             -- Truncate guild name if too long
             if player.guild and string.len(player.guild) > 15 then
                 local truncatedGuild = string.sub(player.guild, 1, 12) .. "..."
@@ -1181,6 +1218,9 @@ function UI:ShowHelp()
         "/crosspaths remove <player-name> - Remove player from tracking",
         "/crosspaths clear confirm - Clear all data",
         "/crosspaths cleanup confirm - Remove self-encounter data",
+        "/crosspaths cleanup data confirm - Clean invalid data and duplicates",
+        "/crosspaths cleanup duplicates - Detect potential duplicate players",
+        "/crosspaths analytics [activity|social|progression] - Advanced analysis",
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
@@ -1191,6 +1231,8 @@ function UI:ShowHelp()
         "New Features:",
         "• Enhanced notification options with granular controls",
         "• Daily/Weekly/Monthly digest reports",
+        "• Advanced analytics: activity patterns, social networks, progression",
+        "• Comprehensive data cleanup and duplicate detection",
         "• Titan Panel integration (if available)",
         "• Minimap button for easy UI access",
         "• Do Not Disturb mode during combat",
@@ -1281,45 +1323,45 @@ end
 -- Show TitanPanel integration status
 function UI:ShowTitanPanelStatus()
     local lines = {}
-    
+
     table.insert(lines, "=== TitanPanel Integration Status ===")
-    
+
     -- Check if TitanPanel is available
     if TitanPanelUtils then
         table.insert(lines, "TitanPanel: DETECTED")
         table.insert(lines, "TitanPanelUtils: AVAILABLE")
-        
+
         -- Check if our plugin is registered
         if TitanPanelUtils.IsRegistered and TitanPanelUtils:IsRegistered("Crosspaths") then
             table.insert(lines, "Crosspaths plugin: REGISTERED")
         else
             table.insert(lines, "Crosspaths plugin: NOT REGISTERED")
         end
-        
+
         -- Check if our module is initialized
         if Crosspaths.TitanPanel then
             table.insert(lines, "TitanPanel module: LOADED")
         else
             table.insert(lines, "TitanPanel module: NOT LOADED")
         end
-        
+
         table.insert(lines, "")
         table.insert(lines, "To use TitanPanel integration:")
         table.insert(lines, "1. Right-click on your TitanPanel bar")
         table.insert(lines, "2. Select 'Plugins'")
         table.insert(lines, "3. Look for 'Crosspaths' in the Information category")
         table.insert(lines, "4. Enable it to show Crosspaths stats on your bar")
-        
+
     elseif TitanUtils_RegisterPlugin then
         table.insert(lines, "TitanPanel: LEGACY VERSION DETECTED")
         table.insert(lines, "Crosspaths: Attempting legacy integration")
-        
+
         if Crosspaths.TitanPanel then
             table.insert(lines, "TitanPanel module: LOADED")
         else
             table.insert(lines, "TitanPanel module: NOT LOADED")
         end
-        
+
     else
         table.insert(lines, "TitanPanel: NOT INSTALLED")
         table.insert(lines, "")
@@ -1328,9 +1370,9 @@ function UI:ShowTitanPanelStatus()
         table.insert(lines, "2. Restart WoW or reload UI (/reload)")
         table.insert(lines, "3. Crosspaths will automatically integrate with TitanPanel")
     end
-    
+
     table.insert(lines, "=== End TitanPanel Status ===")
-    
+
     for _, line in ipairs(lines) do
         Crosspaths:Message(line)
     end
@@ -1973,5 +2015,164 @@ function UI:ShowAdvancedStats(statType)
         end
 
         Crosspaths:Message(line)
+    end
+end
+
+-- ============================================================================
+-- ENHANCED ANALYTICS DISPLAY FUNCTIONS
+-- ============================================================================
+
+-- Show activity pattern analysis
+function UI:ShowActivityAnalysis(patterns)
+    if not patterns then
+        Crosspaths:Message("Unable to generate activity analysis")
+        return
+    end
+
+    Crosspaths:Message("=== Activity Pattern Analysis ===")
+
+    -- Peak times
+    Crosspaths:Message(string.format("Peak Hour: %02d:00 (%d encounters)",
+        patterns.peakHour or 0, patterns.peakHourCount or 0))
+    Crosspaths:Message(string.format("Peak Day: %s (%d encounters)",
+        patterns.peakDay or "Unknown", patterns.peakDayCount or 0))
+
+    -- Hourly breakdown
+    if patterns.hourlyActivity then
+        Crosspaths:Message("Hourly Activity Distribution:")
+        local sortedHours = {}
+        for hour, count in pairs(patterns.hourlyActivity) do
+            table.insert(sortedHours, {hour = hour, count = count})
+        end
+        table.sort(sortedHours, function(a, b) return a.count > b.count end)
+
+        for i = 1, math.min(5, #sortedHours) do
+            local hourData = sortedHours[i]
+            if hourData.count > 0 then
+                Crosspaths:Message(string.format("  %02d:00 - %d encounters", hourData.hour, hourData.count))
+            end
+        end
+    end
+
+    -- Daily breakdown
+    if patterns.dailyActivity then
+        Crosspaths:Message("Daily Activity Distribution:")
+        local dayNames = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+        local sortedDays = {}
+        for day, count in pairs(patterns.dailyActivity) do
+            table.insert(sortedDays, {day = day, name = dayNames[day], count = count})
+        end
+        table.sort(sortedDays, function(a, b) return a.count > b.count end)
+
+        for i = 1, math.min(7, #sortedDays) do
+            local dayData = sortedDays[i]
+            if dayData.count > 0 then
+                Crosspaths:Message(string.format("  %s - %d encounters", dayData.name, dayData.count))
+            end
+        end
+    end
+end
+
+-- Show social network analysis
+function UI:ShowSocialAnalysis(networks)
+    if not networks then
+        Crosspaths:Message("Unable to generate social network analysis")
+        return
+    end
+
+    Crosspaths:Message("=== Social Network Analysis ===")
+
+    Crosspaths:Message(string.format("Total Players: %d", networks.totalConnections or 0))
+    Crosspaths:Message(string.format("Network Density: %.1f%%", (networks.networkDensity or 0) * 100))
+
+    -- Top social hubs
+    if networks.topSocialHubs and #networks.topSocialHubs > 0 then
+        Crosspaths:Message("Top Social Hubs:")
+        for i, hub in ipairs(networks.topSocialHubs) do
+            if i <= 5 then
+                Crosspaths:Message(string.format("  %d. %s - %d players, %d encounters (%.1f density)",
+                    i, hub.zone, hub.uniquePlayers, hub.totalEncounters, hub.density))
+            end
+        end
+    end
+
+    -- Strong connections
+    if networks.strongConnections then
+        local strongZones = 0
+        for _ in pairs(networks.strongConnections) do
+            strongZones = strongZones + 1
+        end
+        if strongZones > 0 then
+            Crosspaths:Message(string.format("Strong Connection Zones: %d", strongZones))
+            local zoneCount = 0
+            for zoneName, players in pairs(networks.strongConnections) do
+                if zoneCount < 3 then
+                    Crosspaths:Message(string.format("  %s: %d dedicated players", zoneName, #players))
+                    zoneCount = zoneCount + 1
+                end
+            end
+        end
+    end
+end
+
+-- Show progression analysis
+function UI:ShowProgressionAnalysis(progression)
+    if not progression then
+        Crosspaths:Message("Unable to generate progression analysis")
+        return
+    end
+
+    Crosspaths:Message("=== Progression Analysis ===")
+
+    -- Level trends
+    if progression.levelTrends and #progression.levelTrends > 0 then
+        Crosspaths:Message(string.format("Fastest Progressors (Average: %.2f levels/day):",
+            progression.averageLevelGain or 0))
+        for i, trend in ipairs(progression.levelTrends) do
+            if i <= 5 then
+                Crosspaths:Message(string.format("  %d. %s - %.2f levels/day (%d levels gained)",
+                    i, trend.player, trend.rate, trend.levelGain))
+            end
+        end
+    end
+
+    -- Class distribution
+    if progression.classDistribution then
+        Crosspaths:Message("Class Distribution:")
+        local sortedClasses = {}
+        for class, count in pairs(progression.classDistribution) do
+            table.insert(sortedClasses, {class = class, count = count})
+        end
+        table.sort(sortedClasses, function(a, b) return a.count > b.count end)
+
+        for i, classData in ipairs(sortedClasses) do
+            if i <= 5 then
+                Crosspaths:Message(string.format("  %d. %s - %d players", i, classData.class, classData.count))
+            end
+        end
+    end
+
+    -- Top guilds by progression
+    if progression.guildProgression then
+        local sortedGuilds = {}
+        for guildName, data in pairs(progression.guildProgression) do
+            table.insert(sortedGuilds, {
+                name = guildName,
+                members = data.memberCount,
+                avgLevel = data.averageLevel,
+                activity = data.encountersPerMember
+            })
+        end
+        table.sort(sortedGuilds, function(a, b) return a.avgLevel > b.avgLevel end)
+
+        if #sortedGuilds > 0 then
+            Crosspaths:Message("Top Guilds by Average Level:")
+            for i, guild in ipairs(sortedGuilds) do
+                if i <= 5 then
+                    Crosspaths:Message(string.format("  %d. %s - %.1f avg level (%d members)",
+                        i, guild.name, guild.avgLevel, guild.members))
+                end
+            end
+        end
     end
 end

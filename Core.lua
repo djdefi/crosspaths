@@ -118,6 +118,14 @@ function Crosspaths:OnVersionUpgrade(oldVersion, newVersion)
     -- Clean up self-encounters for versions before 0.1.16
     if not oldVersion or self:CompareVersions(oldVersion, "0.1.16") < 0 then
         self:CleanupSelfEncounters()
+        
+        -- Also run comprehensive data cleanup for major version upgrades
+        if self.Engine and self.Engine.ValidateAndCleanData then
+            local stats = self.Engine:ValidateAndCleanData()
+            if stats.totalCleaned > 0 then
+                self:DebugLog(string.format("Version upgrade data cleanup: %d items cleaned", stats.totalCleaned), "INFO")
+            end
+        end
     end
 end
 
