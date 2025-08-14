@@ -1771,3 +1771,461 @@ function Engine:CountTotalPlayers()
     end
     return count
 end
+
+-- ============================================================================
+-- QUEST LINE AND PATH ANALYTICS
+-- ============================================================================
+
+-- Get zone progression patterns for path analysis
+function Engine:GetZoneProgressionPatterns(timeWindow)
+    timeWindow = timeWindow or (7 * 24 * 60 * 60) -- Default 7 days
+    local cutoffTime = time() - timeWindow
+    
+    if not Crosspaths.db or not Crosspaths.db.players then
+        return {
+            patterns = {},
+            totalPlayers = 0,
+            commonPaths = {},
+            questLineCorrelations = {}
+        }
+    end
+    
+    local playerPaths = {}
+    local zonePairs = {}
+    local zoneSequences = {}
+    
+    Crosspaths:DebugLog("Analyzing zone progression patterns for quest line detection", "INFO")
+    
+    -- Extract zone progression for each player
+    for playerName, player in pairs(Crosspaths.db.players) do
+        if player.encounters then
+            local playerZones = {}
+            
+            -- Get chronologically ordered encounters within time window
+            local recentEncounters = {}
+            for _, encounter in ipairs(player.encounters) do
+                if encounter.timestamp and encounter.timestamp >= cutoffTime and encounter.zone then
+                    table.insert(recentEncounters, encounter)
+                end
+            end
+            
+            -- Sort by timestamp
+            table.sort(recentEncounters, function(a, b) return a.timestamp < b.timestamp end)
+            
+            -- Extract zone progression path
+            local lastZone = nil
+            for _, encounter in ipairs(recentEncounters) do
+                local zone = self:NormalizeZoneName(encounter.zone)
+                if zone ~= lastZone then
+                    table.insert(playerZones, {
+                        zone = zone,
+                        timestamp = encounter.timestamp,
+                        level = encounter.level
+                    })
+                    
+                    -- Track zone transitions
+                    if lastZone then
+                        local pairKey = lastZone .. " -> " .. zone
+                        zonePairs[pairKey] = (zonePairs[pairKey] or 0) + 1
+                    end
+                    
+                    lastZone = zone
+                end
+            end
+            
+            if #playerZones >= 2 then
+                playerPaths[playerName] = playerZones
+                
+                -- Create sequence key for pattern matching
+                local sequenceKey = ""
+                for i, zoneData in ipairs(playerZones) do
+                    if i <= 5 then -- Limit to first 5 zones for pattern matching
+                        sequenceKey = sequenceKey .. (i > 1 and "," or "") .. zoneData.zone
+                    end
+                end
+                
+                if sequenceKey ~= "" then
+                    zoneSequences[sequenceKey] = (zoneSequences[sequenceKey] or 0) + 1
+                end
+            end
+        end
+    end
+    
+    -- Find common quest line patterns
+    local commonPaths = {}
+    for sequence, count in pairs(zoneSequences) do
+        if count >= 2 then -- At least 2 players followed this path
+            table.insert(commonPaths, {
+                path = sequence,
+                playerCount = count,
+                likelihood = count / #playerPaths * 100
+            })
+        end
+    end
+    
+    -- Sort by player count
+    table.sort(commonPaths, function(a, b) return a.playerCount > b.playerCount end)
+    
+    -- Analyze zone transition correlations
+    local questLineCorrelations = {}
+    for transition, count in pairs(zonePairs) do
+        if count >= 2 then
+            local zones = {}
+            for zone in string.gmatch(transition, "([^%->]+)") do
+                table.insert(zones, zone:match("^%s*(.-)%s*$")) -- Trim whitespace
+            end
+            
+            if #zones == 2 then
+                table.insert(questLineCorrelations, {
+                    fromZone = zones[1],
+                    toZone = zones[2],
+                    playerCount = count,
+                    strength = count / #playerPaths * 100
+                })
+            end
+        end
+    end
+    
+    -- Sort by strength
+    table.sort(questLineCorrelations, function(a, b) return a.strength > b.strength end)
+    
+    return {
+        patterns = playerPaths,
+        totalPlayers = 0,
+        commonPaths = {unpack(commonPaths, 1, 10)}, -- Top 10
+        questLineCorrelations = {unpack(questLineCorrelations, 1, 15)} -- Top 15
+    }
+end
+
+-- Detect players following similar quest lines
+function Engine:DetectSimilarQuestLines(playerName, similarityThreshold)
+    similarityThreshold = similarityThreshold or 0.6 -- 60% similarity
+    
+    if not Crosspaths.db or not Crosspaths.db.players or not playerName then
+        return {
+            similarPlayers = {},
+            targetPlayerPath = {},
+            confidence = 0
+        }
+    end
+    
+    local targetPlayer = Crosspaths.db.players[playerName]
+    if not targetPlayer or not targetPlayer.encounters then
+        return {
+            similarPlayers = {},
+            targetPlayerPath = {},
+            confidence = 0
+        }
+    end
+    
+    -- Get target player's zone progression
+    local targetPath = self:ExtractZoneProgression(targetPlayer)
+    if #targetPath < 2 then
+        return {
+            similarPlayers = {},
+            targetPlayerPath = targetPath,
+            confidence = 0
+        }
+    end
+    
+    Crosspaths:DebugLog("Finding similar quest lines for " .. playerName, "INFO")
+    
+    local similarPlayers = {}
+    
+    -- Compare with other players
+    for otherPlayerName, otherPlayer in pairs(Crosspaths.db.players) do
+        if otherPlayerName ~= playerName and otherPlayer.encounters then
+            local otherPath = self:ExtractZoneProgression(otherPlayer)
+            
+            if #otherPath >= 2 then
+                local similarity = self:CalculatePathSimilarity(targetPath, otherPath)
+                
+                if similarity >= similarityThreshold then
+                    table.insert(similarPlayers, {
+                        name = otherPlayerName,
+                        similarity = similarity,
+                        path = otherPath,
+                        sharedZones = self:GetSharedZones(targetPath, otherPath),
+                        level = otherPlayer.level,
+                        class = otherPlayer.class
+                    })
+                end
+            end
+        end
+    end
+    
+    -- Sort by similarity
+    table.sort(similarPlayers, function(a, b) return a.similarity > b.similarity end)
+    
+    -- Calculate overall confidence
+    local confidence = 0
+    if #similarPlayers > 0 then
+        local totalSimilarity = 0
+        for _, similar in ipairs(similarPlayers) do
+            totalSimilarity = totalSimilarity + similar.similarity
+        end
+        confidence = totalSimilarity / #similarPlayers
+    end
+    
+    return {
+        similarPlayers = {unpack(similarPlayers, 1, 10)}, -- Top 10 most similar
+        targetPlayerPath = targetPath,
+        confidence = confidence
+    }
+end
+
+-- Extract zone progression from player encounters
+function Engine:ExtractZoneProgression(player)
+    local progression = {}
+    local cutoffTime = time() - (14 * 24 * 60 * 60) -- Last 14 days
+    
+    if not player.encounters then
+        return progression
+    end
+    
+    -- Get recent encounters
+    local recentEncounters = {}
+    for _, encounter in ipairs(player.encounters) do
+        if encounter.timestamp and encounter.timestamp >= cutoffTime and encounter.zone then
+            table.insert(recentEncounters, encounter)
+        end
+    end
+    
+    -- Sort by timestamp
+    table.sort(recentEncounters, function(a, b) return a.timestamp < b.timestamp end)
+    
+    -- Extract unique zone progression
+    local lastZone = nil
+    for _, encounter in ipairs(recentEncounters) do
+        local zone = self:NormalizeZoneName(encounter.zone)
+        if zone ~= lastZone then
+            table.insert(progression, {
+                zone = zone,
+                timestamp = encounter.timestamp,
+                level = encounter.level or 0
+            })
+            lastZone = zone
+        end
+    end
+    
+    return progression
+end
+
+-- Calculate similarity between two zone progression paths
+function Engine:CalculatePathSimilarity(path1, path2)
+    if #path1 == 0 or #path2 == 0 then
+        return 0
+    end
+    
+    -- Extract zone names
+    local zones1 = {}
+    local zones2 = {}
+    
+    for _, step in ipairs(path1) do
+        table.insert(zones1, step.zone)
+    end
+    
+    for _, step in ipairs(path2) do
+        table.insert(zones2, step.zone)
+    end
+    
+    -- Calculate Jaccard similarity (intersection over union)
+    local set1 = {}
+    local set2 = {}
+    
+    for _, zone in ipairs(zones1) do
+        set1[zone] = true
+    end
+    
+    for _, zone in ipairs(zones2) do
+        set2[zone] = true
+    end
+    
+    -- Count intersection and union
+    local intersection = 0
+    local union = 0
+    
+    for zone in pairs(set1) do
+        union = union + 1
+        if set2[zone] then
+            intersection = intersection + 1
+        end
+    end
+    
+    for zone in pairs(set2) do
+        if not set1[zone] then
+            union = union + 1
+        end
+    end
+    
+    -- Calculate sequence similarity bonus
+    local sequenceBonus = self:CalculateSequenceSimilarity(zones1, zones2)
+    
+    -- Combine Jaccard similarity with sequence bonus
+    local baseSimilarity = union > 0 and intersection / union or 0
+    return math.min(1.0, baseSimilarity + (sequenceBonus * 0.3))
+end
+
+-- Calculate sequence similarity bonus
+function Engine:CalculateSequenceSimilarity(zones1, zones2)
+    local maxLength = math.min(#zones1, #zones2, 5) -- Compare up to 5 zones
+    if maxLength == 0 then return 0 end
+    
+    local matches = 0
+    for i = 1, maxLength do
+        if zones1[i] == zones2[i] then
+            matches = matches + 1
+        end
+    end
+    
+    return matches / maxLength
+end
+
+-- Get shared zones between two paths
+function Engine:GetSharedZones(path1, path2)
+    local shared = {}
+    local zones1 = {}
+    
+    for _, step in ipairs(path1) do
+        zones1[step.zone] = true
+    end
+    
+    for _, step in ipairs(path2) do
+        if zones1[step.zone] then
+            table.insert(shared, step.zone)
+        end
+    end
+    
+    return shared
+end
+
+-- Get quest line insights for a specific zone
+function Engine:GetQuestLineInsights(zoneName, timeWindow)
+    timeWindow = timeWindow or (7 * 24 * 60 * 60) -- Default 7 days
+    local cutoffTime = time() - timeWindow
+    
+    if not Crosspaths.db or not Crosspaths.db.players or not zoneName then
+        return {
+            totalVisitors = 0,
+            averageTimeSpent = 0,
+            levelRange = { min = 0, max = 0 },
+            progressionFrom = {},
+            progressionTo = {},
+            peakHours = {}
+        }
+    end
+    
+    local normalizedZone = self:NormalizeZoneName(zoneName)
+    local visitors = {}
+    local timeSpent = {}
+    local levels = {}
+    local fromZones = {}
+    local toZones = {}
+    local hourlyActivity = {}
+    
+    Crosspaths:DebugLog("Analyzing quest line insights for zone: " .. normalizedZone, "INFO")
+    
+    for playerName, player in pairs(Crosspaths.db.players) do
+        if player.encounters then
+            local zoneEncounters = {}
+            local playerProgression = self:ExtractZoneProgression(player)
+            
+            -- Find encounters in this zone
+            for _, encounter in ipairs(player.encounters) do
+                if encounter.timestamp and encounter.timestamp >= cutoffTime and
+                   encounter.zone and self:NormalizeZoneName(encounter.zone) == normalizedZone then
+                    table.insert(zoneEncounters, encounter)
+                    
+                    -- Track levels
+                    if encounter.level then
+                        table.insert(levels, encounter.level)
+                    end
+                    
+                    -- Track hourly activity
+                    local hour = tonumber(os.date("%H", encounter.timestamp))
+                    hourlyActivity[hour] = (hourlyActivity[hour] or 0) + 1
+                end
+            end
+            
+            if #zoneEncounters > 0 then
+                visitors[playerName] = zoneEncounters
+                
+                -- Calculate time spent in zone
+                if #zoneEncounters > 1 then
+                    table.sort(zoneEncounters, function(a, b) return a.timestamp < b.timestamp end)
+                    local duration = zoneEncounters[#zoneEncounters].timestamp - zoneEncounters[1].timestamp
+                    table.insert(timeSpent, duration)
+                end
+                
+                -- Analyze progression patterns
+                for i, step in ipairs(playerProgression) do
+                    if step.zone == normalizedZone then
+                        -- Where did they come from?
+                        if i > 1 then
+                            local fromZone = playerProgression[i-1].zone
+                            fromZones[fromZone] = (fromZones[fromZone] or 0) + 1
+                        end
+                        
+                        -- Where did they go?
+                        if i < #playerProgression then
+                            local toZone = playerProgression[i+1].zone
+                            toZones[toZone] = (toZones[toZone] or 0) + 1
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Calculate averages and insights
+    local totalVisitors = 0
+    for _ in pairs(visitors) do
+        totalVisitors = totalVisitors + 1
+    end
+    
+    local averageTimeSpent = 0
+    if #timeSpent > 0 then
+        local total = 0
+        for _, duration in ipairs(timeSpent) do
+            total = total + duration
+        end
+        averageTimeSpent = total / #timeSpent
+    end
+    
+    local levelRange = { min = 0, max = 0 }
+    if #levels > 0 then
+        table.sort(levels)
+        levelRange.min = levels[1]
+        levelRange.max = levels[#levels]
+    end
+    
+    -- Top progression paths
+    local progressionFrom = {}
+    for zone, count in pairs(fromZones) do
+        table.insert(progressionFrom, { zone = zone, count = count })
+    end
+    table.sort(progressionFrom, function(a, b) return a.count > b.count end)
+    
+    local progressionTo = {}
+    for zone, count in pairs(toZones) do
+        table.insert(progressionTo, { zone = zone, count = count })
+    end
+    table.sort(progressionTo, function(a, b) return a.count > b.count end)
+    
+    -- Peak hours
+    local peakHours = {}
+    for hour, count in pairs(hourlyActivity) do
+        table.insert(peakHours, { hour = hour, count = count })
+    end
+    table.sort(peakHours, function(a, b) return a.count > b.count end)
+    
+    return {
+        totalVisitors = totalVisitors,
+        averageTimeSpent = averageTimeSpent,
+        levelRange = levelRange,
+        progressionFrom = {unpack(progressionFrom, 1, 5)}, -- Top 5
+        progressionTo = {unpack(progressionTo, 1, 5)}, -- Top 5
+        peakHours = {unpack(peakHours, 1, 6)} -- Top 6 hours
+    }
+end

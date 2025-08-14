@@ -223,13 +223,34 @@ function Tracker:HandleNameplateAdded(unitToken)
         local lastTime = self.lastUpdate[contextKey] or 0
         local throttleTime = Crosspaths.db.settings.tracking.throttleMs or self.updateThrottle
 
-        -- Apply more aggressive throttling based on context
-        if context == "raid" then
-            throttleTime = throttleTime * 4 -- 4x throttle time for raids (2000ms default)
-        elseif context == "party" then
-            throttleTime = throttleTime * 2 -- 2x throttle time for parties (1000ms default)
+        -- Apply more aggressive throttling based on context to prevent inflation
+        if context == "cinematic" then
+            -- Completely block tracking during cinematics
+            Crosspaths:DebugLog("Blocking nameplate tracking during cinematic for " .. fullName, "DEBUG")
+            return
+        elseif context == "loading" then
+            -- Completely block tracking during loading
+            Crosspaths:DebugLog("Blocking nameplate tracking during loading for " .. fullName, "DEBUG")
+            return
+        elseif context == "phase" then
+            -- High throttling for phase transitions to prevent duplicate counting
+            throttleTime = throttleTime * 10 -- 10x throttle time for phase changes
+        elseif context == "raid_instance" or context == "raid_dungeon" then
+            throttleTime = throttleTime * 6 -- 6x throttle time for raid instances (3000ms default)
+        elseif context == "raid_world" or context == "raid_other" then
+            throttleTime = throttleTime * 4 -- 4x throttle time for world raids (2000ms default)
+        elseif context == "party_dungeon" or context == "party_scenario" then
+            throttleTime = throttleTime * 4 -- 4x throttle time for dungeon groups (2000ms default)
+        elseif context == "party_world" or context == "party_instance" then
+            throttleTime = throttleTime * 2 -- 2x throttle time for world parties (1000ms default)
+        elseif context == "solo_scenario" or context == "solo_dungeon" or context == "solo_raid" then
+            throttleTime = throttleTime * 3 -- 3x throttle time for solo instances (1500ms default)
         elseif context == "instance" then
-            throttleTime = throttleTime * 3 -- 3x throttle time for instances (1500ms default)
+            throttleTime = throttleTime * 3 -- 3x throttle time for generic instances (1500ms default)
+        elseif string.find(context, "raid") then
+            throttleTime = throttleTime * 4 -- Default raid throttling
+        elseif string.find(context, "party") then
+            throttleTime = throttleTime * 2 -- Default party throttling
         end
 
         -- Additional throttling for same player regardless of context (global deduplication)

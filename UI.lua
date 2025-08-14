@@ -269,8 +269,27 @@ function UI:HandleSlashCommand(msg)
         elseif analysisType == "progression" then
             local progression = Crosspaths.Engine:AnalyzeProgressionTrends()
             self:ShowProgressionAnalysis(progression)
+        elseif analysisType == "questlines" or analysisType == "paths" then
+            local patterns = Crosspaths.Engine:GetZoneProgressionPatterns()
+            self:ShowQuestLineAnalysis(patterns)
+        elseif analysisType == "similar" then
+            local playerName = args[3]
+            if not playerName then
+                Crosspaths:Message("Usage: /crosspaths analytics similar <playername>")
+                return
+            end
+            local similar = Crosspaths.Engine:DetectSimilarQuestLines(playerName)
+            self:ShowSimilarQuestLines(playerName, similar)
+        elseif analysisType == "zone" then
+            local zoneName = args[3]
+            if not zoneName then
+                Crosspaths:Message("Usage: /crosspaths analytics zone <zonename>")
+                return
+            end
+            local insights = Crosspaths.Engine:GetQuestLineInsights(zoneName)
+            self:ShowZoneInsights(zoneName, insights)
         else
-            Crosspaths:Message("Usage: /crosspaths analytics [activity|social|progression]")
+            Crosspaths:Message("Usage: /crosspaths analytics [activity|social|progression|questlines|similar <player>|zone <zone>]")
         end
     elseif command == "status" then
         self:ShowStatus()
@@ -1220,7 +1239,7 @@ function UI:ShowHelp()
         "/crosspaths cleanup confirm - Remove self-encounter data",
         "/crosspaths cleanup data confirm - Clean invalid data and duplicates",
         "/crosspaths cleanup duplicates - Detect potential duplicate players",
-        "/crosspaths analytics [activity|social|progression] - Advanced analysis",
+        "/crosspaths analytics [activity|social|progression|questlines|similar <player>|zone <zone>] - Advanced analysis",
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
@@ -1232,6 +1251,9 @@ function UI:ShowHelp()
         "• Enhanced notification options with granular controls",
         "• Daily/Weekly/Monthly digest reports",
         "• Advanced analytics: activity patterns, social networks, progression",
+        "• Quest line & path analysis: detect players following similar routes",
+        "• Zone progression insights and quest line correlations",
+        "• Enhanced deduplication for dungeons, raids, cinematics, and phases",
         "• Comprehensive data cleanup and duplicate detection",
         "• Titan Panel integration (if available)",
         "• Minimap button for easy UI access",
@@ -2174,5 +2196,162 @@ function UI:ShowProgressionAnalysis(progression)
                 end
             end
         end
+    end
+end
+
+-- Show quest line and path analysis
+function UI:ShowQuestLineAnalysis(patterns)
+    if not patterns then
+        Crosspaths:Message("No quest line patterns found.")
+        return
+    end
+    
+    Crosspaths:Message("Quest Line & Path Analysis")
+    Crosspaths:Message("==========================")
+    
+    -- Show common quest paths
+    if patterns.commonPaths and #patterns.commonPaths > 0 then
+        Crosspaths:Message("Most Common Quest Paths:")
+        for i, path in ipairs(patterns.commonPaths) do
+            if i <= 5 then
+                Crosspaths:Message(string.format("  %d. %s (%d players, %.1f%% likelihood)",
+                    i, path.path, path.playerCount, path.likelihood))
+            end
+        end
+        Crosspaths:Message("")
+    end
+    
+    -- Show zone correlations
+    if patterns.questLineCorrelations and #patterns.questLineCorrelations > 0 then
+        Crosspaths:Message("Strong Zone Progression Correlations:")
+        for i, correlation in ipairs(patterns.questLineCorrelations) do
+            if i <= 8 then
+                Crosspaths:Message(string.format("  %s → %s (%d players, %.1f%% strength)",
+                    correlation.fromZone, correlation.toZone, correlation.playerCount, correlation.strength))
+            end
+        end
+    end
+    
+    if (#patterns.commonPaths == 0) and (#patterns.questLineCorrelations == 0) then
+        Crosspaths:Message("No significant quest line patterns detected. Need more data or longer observation period.")
+    end
+end
+
+-- Show similar quest lines for a player
+function UI:ShowSimilarQuestLines(playerName, similar)
+    if not similar then
+        Crosspaths:Message("Unable to analyze quest lines for " .. playerName)
+        return
+    end
+    
+    Crosspaths:Message("Similar Quest Lines for " .. playerName)
+    Crosspaths:Message("=====================================")
+    
+    -- Show player's path
+    if similar.targetPlayerPath and #similar.targetPlayerPath > 0 then
+        local pathStr = ""
+        for i, step in ipairs(similar.targetPlayerPath) do
+            if i <= 6 then -- Show first 6 zones
+                pathStr = pathStr .. (i > 1 and " → " or "") .. step.zone
+            end
+        end
+        Crosspaths:Message("Player's Path: " .. pathStr)
+        Crosspaths:Message("")
+    end
+    
+    -- Show similar players
+    if similar.similarPlayers and #similar.similarPlayers > 0 then
+        Crosspaths:Message(string.format("Found %d players with similar quest paths (%.1f%% confidence):",
+            #similar.similarPlayers, similar.confidence * 100))
+        
+        for i, player in ipairs(similar.similarPlayers) do
+            if i <= 8 then
+                local sharedZonesStr = ""
+                if player.sharedZones and #player.sharedZones > 0 then
+                    sharedZonesStr = " (shared: " .. table.concat(player.sharedZones, ", ", 1, 3)
+                    if #player.sharedZones > 3 then
+                        sharedZonesStr = sharedZonesStr .. "..."
+                    end
+                    sharedZonesStr = sharedZonesStr .. ")"
+                end
+                
+                local levelStr = player.level and ("L" .. player.level) or "L?"
+                local classStr = player.class or "Unknown"
+                
+                Crosspaths:Message(string.format("  %d. %s (%s %s) - %.1f%% similar%s",
+                    i, player.name, levelStr, classStr, player.similarity * 100, sharedZonesStr))
+            end
+        end
+    else
+        Crosspaths:Message("No players found with similar quest line patterns.")
+        Crosspaths:Message("This could indicate a unique leveling path or insufficient data.")
+    end
+end
+
+-- Show zone insights
+function UI:ShowZoneInsights(zoneName, insights)
+    if not insights then
+        Crosspaths:Message("No insights available for " .. zoneName)
+        return
+    end
+    
+    Crosspaths:Message("Quest Line Insights: " .. zoneName)
+    Crosspaths:Message("====================================")
+    
+    -- Basic stats
+    Crosspaths:Message(string.format("Total Visitors: %d", insights.totalVisitors))
+    
+    if insights.averageTimeSpent > 0 then
+        local timeStr = ""
+        if insights.averageTimeSpent >= 3600 then
+            timeStr = string.format("%.1f hours", insights.averageTimeSpent / 3600)
+        elseif insights.averageTimeSpent >= 60 then
+            timeStr = string.format("%.1f minutes", insights.averageTimeSpent / 60)
+        else
+            timeStr = string.format("%.0f seconds", insights.averageTimeSpent)
+        end
+        Crosspaths:Message("Average Time Spent: " .. timeStr)
+    end
+    
+    if insights.levelRange.min > 0 and insights.levelRange.max > 0 then
+        Crosspaths:Message(string.format("Level Range: %d - %d", insights.levelRange.min, insights.levelRange.max))
+    end
+    
+    Crosspaths:Message("")
+    
+    -- Progression patterns
+    if insights.progressionFrom and #insights.progressionFrom > 0 then
+        Crosspaths:Message("Players typically come from:")
+        for i, from in ipairs(insights.progressionFrom) do
+            if i <= 3 then
+                Crosspaths:Message(string.format("  %d. %s (%d players)", i, from.zone, from.count))
+            end
+        end
+        Crosspaths:Message("")
+    end
+    
+    if insights.progressionTo and #insights.progressionTo > 0 then
+        Crosspaths:Message("Players typically go to:")
+        for i, to in ipairs(insights.progressionTo) do
+            if i <= 3 then
+                Crosspaths:Message(string.format("  %d. %s (%d players)", i, to.zone, to.count))
+            end
+        end
+        Crosspaths:Message("")
+    end
+    
+    -- Peak activity hours
+    if insights.peakHours and #insights.peakHours > 0 then
+        Crosspaths:Message("Peak Activity Hours:")
+        for i, hour in ipairs(insights.peakHours) do
+            if i <= 3 then
+                local timeStr = string.format("%02d:00-%02d:59", hour.hour, hour.hour)
+                Crosspaths:Message(string.format("  %s (%d encounters)", timeStr, hour.count))
+            end
+        end
+    end
+    
+    if insights.totalVisitors == 0 then
+        Crosspaths:Message("No recent activity in this zone. Try a different zone name or check spelling.")
     end
 end

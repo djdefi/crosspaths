@@ -276,14 +276,65 @@ end
 
 -- Get encounter context
 function Crosspaths:GetEncounterContext()
+    -- Check for cinematics first (highest priority to prevent inflation)
+    if InCinematic and InCinematic() then
+        return "cinematic"
+    end
+    
+    -- Check for loading screens
+    if IsPlayerMoving and not IsPlayerMoving() and GetTime and GetTime() < 5 then
+        -- Likely just loaded in, avoid tracking for first 5 seconds
+        return "loading"
+    end
+    
+    -- Check for phase transitions (if available in API)
+    if UnitInPhase and not UnitInPhase("player", "player") then
+        return "phase"
+    end
+    
+    -- Check for group contexts with enhanced instance detection
     if IsInGroup() then
         if IsInRaid() then
-            return "raid"
+            -- Differentiate raid types for better deduplication
+            if IsInInstance() then
+                local instanceName, instanceType = GetInstanceInfo()
+                if instanceType == "raid" then
+                    return "raid_instance"
+                elseif instanceType == "party" then
+                    return "raid_dungeon" -- Large group in dungeon (unusual)
+                else
+                    return "raid_other"
+                end
+            else
+                return "raid_world"
+            end
         else
-            return "party"
+            -- Party contexts
+            if IsInInstance() then
+                local instanceName, instanceType = GetInstanceInfo()
+                if instanceType == "party" then
+                    return "party_dungeon"
+                elseif instanceType == "scenario" then
+                    return "party_scenario"
+                else
+                    return "party_instance"
+                end
+            else
+                return "party_world"
+            end
         end
     elseif IsInInstance() then
-        return "instance"
+        -- Solo instance contexts
+        local instanceName, instanceType = GetInstanceInfo()
+        if instanceType == "scenario" then
+            return "solo_scenario"
+        elseif instanceType == "party" then
+            return "solo_dungeon" -- Solo in dungeon
+        elseif instanceType == "raid" then
+            return "solo_raid" -- Solo in raid
+        else
+            return "instance"
+        end
     else
         return "world"
     end
