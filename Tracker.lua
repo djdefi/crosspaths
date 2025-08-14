@@ -469,6 +469,17 @@ function Tracker:RecordEncounter(playerName, source, isGrouped)
         return
     end
 
+    -- Prevent self-tracking: Check if this is the player themselves
+    local currentPlayerName = UnitName("player")
+    local currentPlayerRealm = GetRealmName()
+    if currentPlayerName and currentPlayerRealm then
+        local playerFullName = currentPlayerName .. "-" .. currentPlayerRealm
+        if playerName == playerFullName or playerName == currentPlayerName then
+            Crosspaths:DebugLog("Rejecting self-encounter: " .. tostring(playerName), "DEBUG")
+            return
+        end
+    end
+
     -- Enhanced validation to prevent "unknown player" tracking
     local cleanName = string.gsub(playerName, "%s+", "") -- Remove whitespace
     if cleanName == "" then

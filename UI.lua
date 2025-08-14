@@ -338,7 +338,21 @@ function UI:CreateTabButton(parent, index, tabData)
     button:SetID(index)
     button:SetSize(UI_CONSTANTS.SPACING.TAB_WIDTH, UI_CONSTANTS.SPACING.TAB_HEIGHT)
     button:SetText(tabData.text)
-    button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * UI_CONSTANTS.SPACING.TAB_SPACING + UI_CONSTANTS.SPACING.WINDOW_MARGIN, 32)
+    
+    -- Calculate responsive tab spacing to prevent overflow
+    local windowWidth = parent:GetWidth() or UI_CONSTANTS.MAIN_WINDOW.DEFAULT_WIDTH
+    local availableWidth = windowWidth - (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    local totalTabs = 5 -- Summary, Players, Guilds, Advanced, Encounters
+    
+    -- Use default spacing if it fits, otherwise calculate needed spacing
+    if totalTabs * UI_CONSTANTS.SPACING.TAB_SPACING + (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN) <= windowWidth then
+        tabSpacing = UI_CONSTANTS.SPACING.TAB_SPACING
+    else
+        -- Calculate spacing to fit all tabs, with minimum spacing being tab width
+        tabSpacing = math.max(UI_CONSTANTS.SPACING.TAB_WIDTH * 0.8, availableWidth / totalTabs)
+    end
+    
+    button:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", (index-1) * tabSpacing + UI_CONSTANTS.SPACING.WINDOW_MARGIN, 32)
 
     -- Apply modern tab styling
     self:StyleTabButton(button)
