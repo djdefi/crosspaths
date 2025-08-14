@@ -5,7 +5,7 @@ local addonName, Crosspaths = ...
 
 -- Create the main addon object
 Crosspaths = Crosspaths or {}
-Crosspaths.version = "0.1.15"
+Crosspaths.version = "0.1.16"
 Crosspaths.debug = false
 
 -- Default settings
@@ -114,6 +114,86 @@ function Crosspaths:OnVersionUpgrade(oldVersion, newVersion)
     else
         self:Message("Crosspaths v" .. newVersion .. " - First time installation")
     end
+    
+    -- Clean up self-encounters for versions before 0.1.16
+    if not oldVersion or self:CompareVersions(oldVersion, "0.1.16") < 0 then
+        self:CleanupSelfEncounters()
+    end
+end
+
+-- Remove self-encounters from existing data
+function Crosspaths:CleanupSelfEncounters()
+    if not self.db or not self.db.players then
+        return
+    end
+    
+    local currentPlayerName = UnitName("player")
+    local currentPlayerRealm = GetRealmName()
+    
+    if not currentPlayerName or not currentPlayerRealm then
+        self:DebugLog("Cannot clean up self-encounters: player info not available", "WARN")
+        return
+    end
+    
+    local playerFullName = currentPlayerName .. "-" .. currentPlayerRealm
+    local removedCount = 0
+    local removedEncounters = 0
+    
+    -- Check for self-entry using full name format
+    if self.db.players[playerFullName] then
+        removedEncounters = self.db.players[playerFullName].count or 0
+        self.db.players[playerFullName] = nil
+        removedCount = removedCount + 1
+        self:DebugLog("Removed self-encounter data for: " .. playerFullName .. " (" .. removedEncounters .. " encounters)", "INFO")
+    end
+    
+    -- Check for self-entry using name-only format
+    if self.db.players[currentPlayerName] then
+        local nameOnlyEncounters = self.db.players[currentPlayerName].count or 0
+        removedEncounters = removedEncounters + nameOnlyEncounters
+        self.db.players[currentPlayerName] = nil
+        removedCount = removedCount + 1
+        self:DebugLog("Removed self-encounter data for: " .. currentPlayerName .. " (" .. nameOnlyEncounters .. " encounters)", "INFO")
+    end
+    
+    if removedCount > 0 then
+        self:Message("Cleaned up " .. removedCount .. " self-encounter entries (" .. removedEncounters .. " total encounters)")
+        self:DebugLog("Self-encounter cleanup completed: removed " .. removedCount .. " entries with " .. removedEncounters .. " total encounters", "INFO")
+    else
+        self:DebugLog("No self-encounter data found to clean up", "DEBUG")
+    end
+end
+
+-- Compare version strings (returns -1, 0, or 1)
+function Crosspaths:CompareVersions(version1, version2)
+    if not version1 then return -1 end
+    if not version2 then return 1 end
+    
+    local function parseVersion(v)
+        local parts = {}
+        for part in string.gmatch(v, "([^%.]+)") do
+            table.insert(parts, tonumber(part) or 0)
+        end
+        return parts
+    end
+    
+    local v1Parts = parseVersion(version1)
+    local v2Parts = parseVersion(version2)
+    
+    local maxParts = math.max(#v1Parts, #v2Parts)
+    
+    for i = 1, maxParts do
+        local v1Part = v1Parts[i] or 0
+        local v2Part = v2Parts[i] or 0
+        
+        if v1Part < v2Part then
+            return -1
+        elseif v1Part > v2Part then
+            return 1
+        end
+    end
+    
+    return 0
 end
 
 -- Count players for diagnostics

@@ -207,6 +207,12 @@ function UI:HandleSlashCommand(msg)
         else
             Crosspaths:Message("Use '/crosspaths clear confirm' to clear all data")
         end
+    elseif command == "cleanup" then
+        if args[2] == "confirm" then
+            Crosspaths:CleanupSelfEncounters()
+        else
+            Crosspaths:Message("Use '/crosspaths cleanup confirm' to remove self-encounter data")
+        end
     elseif command == "debug" then
         if args[2] == "on" then
             Crosspaths.debug = true
@@ -1174,6 +1180,7 @@ function UI:ShowHelp()
         "/crosspaths export [json|csv] - Export data",
         "/crosspaths remove <player-name> - Remove player from tracking",
         "/crosspaths clear confirm - Clear all data",
+        "/crosspaths cleanup confirm - Remove self-encounter data",
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
