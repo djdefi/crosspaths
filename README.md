@@ -46,12 +46,18 @@ Available on [CurseForge](https://www.curseforge.com/wow/addons/crosspaths-socia
 
 ## Usage
 
+### UI Access Methods
+- **Slash Commands**: `/crosspaths` or `/cp` - Primary command-line access
+- **Minimap Button**: Click the Crosspaths icon on your minimap (left-click to open, right-click for options)
+- **TitanPanel Integration**: Full TitanPanel support with statistics display and click access (if TitanPanel is installed)
+
 ### Slash Commands
 - `/crosspaths` or `/cp` - Open main interface
 - `/crosspaths top` - Show top players in chat
 - `/crosspaths stats` - Display summary statistics
 - `/crosspaths search <name>` - Search for specific players
 - `/crosspaths export [json|csv]` - Export your data
+- `/crosspaths minimap` - Toggle minimap button visibility
 - `/cpconfig` - Open configuration panel
 
 ### Interface

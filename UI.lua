@@ -68,7 +68,14 @@ local UI_CONSTANTS = {
         SCROLL_BAR_WIDTH = 30,
         SEARCH_BOX_WIDTH = 200,
         SEARCH_BOX_HEIGHT = 24,
-        INPUT_BOX_HEIGHT = 20
+        INPUT_BOX_HEIGHT = 20,
+        -- Content layout spacing
+        CONTENT_MARGIN = 10,
+        CONTENT_INDENT = 20,
+        SECTION_SPACING = 20,
+        LIST_ITEM_SPACING = 15,
+        HEADER_SPACING = 25,
+        SUBSECTION_SPACING = 10
     }
 }
 
@@ -238,6 +245,14 @@ function UI:HandleSlashCommand(msg)
         else
             Crosspaths:Message("Usage: /crosspaths digest [daily|weekly|monthly]")
         end
+    elseif command == "minimap" then
+        if Crosspaths.MinimapButton then
+            Crosspaths.MinimapButton:Toggle()
+        else
+            Crosspaths:Message("Minimap button not available")
+        end
+    elseif command == "titanpanel" or command == "titan" then
+        self:ShowTitanPanelStatus()
     elseif command == "help" then
         self:ShowHelp()
     else
@@ -970,25 +985,47 @@ function UI:ShowToast(title, message, notificationType)
 
     -- Create toast notification
     local toast = CreateFrame("Frame", nil, UIParent)
-    toast:SetSize(300, 60)
+    toast:SetSize(320, 70) -- Slightly larger for better text display
     toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
 
-    -- Background
+    -- Background with border
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
     toast.bg:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BG))
+    
+    -- Add subtle border for better visibility
+    toast.border = toast:CreateTexture(nil, "BORDER")
+    toast.border:SetAllPoints()
+    toast.border:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+    toast.border:SetPoint("TOPLEFT", toast, "TOPLEFT", -1, 1)
+    toast.border:SetPoint("BOTTOMRIGHT", toast, "BOTTOMRIGHT", 1, -1)
 
-    -- Title
+    -- Title with proper width constraints
     toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    toast.title:SetPoint("TOP", toast, "TOP", 0, -5)
-    toast.title:SetText(title)
+    toast.title:SetPoint("TOP", toast, "TOP", 0, -8)
+    toast.title:SetWidth(300) -- Constrain width to prevent overflow
+    toast.title:SetJustifyH("CENTER")
+    -- Truncate title if too long
+    local displayTitle = title
+    if string.len(title) > 35 then
+        displayTitle = string.sub(title, 1, 32) .. "..."
+    end
+    toast.title:SetText(displayTitle)
     toast.title:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TITLE))
 
-    -- Message
+    -- Message with proper width constraints and word wrapping
     toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     toast.message:SetPoint("TOP", toast.title, "BOTTOM", 0, -5)
-    toast.message:SetText(message)
+    toast.message:SetWidth(300) -- Constrain width to prevent overflow
+    toast.message:SetJustifyH("CENTER")
+    toast.message:SetWordWrap(true)
+    -- Truncate message if too long
+    local displayMessage = message
+    if string.len(message) > 60 then
+        displayMessage = string.sub(message, 1, 57) .. "..."
+    end
+    toast.message:SetText(displayMessage)
     toast.message:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TEXT))
 
     -- Play sound if enabled
@@ -1057,8 +1094,20 @@ function UI:SearchPlayers(query)
                 levelText = " |cFFFFFF00(L" .. player.level .. ")|r"
             end
 
+            -- Truncate player name if too long to prevent overflow
+            local playerName = player.name
+            if string.len(playerName) > 20 then
+                playerName = string.sub(playerName, 1, 17) .. "..."
+            end
+            
+            -- Truncate guild name if too long
+            if player.guild and string.len(player.guild) > 15 then
+                local truncatedGuild = string.sub(player.guild, 1, 12) .. "..."
+                guildText = " |cFFFFFFFF<" .. truncatedGuild .. ">|r"
+            end
+
             table.insert(lines, string.format("%d. %s%s%s%s%s - %d encounters",
-                i, player.name, groupedText, guildText, classText, levelText, player.count))
+                i, playerName, groupedText, guildText, classText, levelText, player.count))
         end
     end
 
@@ -1114,12 +1163,15 @@ function UI:ShowHelp()
         "/crosspaths debug [on|off] - Toggle debug mode",
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
+        "/crosspaths minimap - Toggle minimap button",
+        "/crosspaths titanpanel - Check TitanPanel integration status",
         "/cpconfig - Open configuration panel",
         "",
         "New Features:",
         "• Enhanced notification options with granular controls",
         "• Daily/Weekly/Monthly digest reports",
         "• Titan Panel integration (if available)",
+        "• Minimap button for easy UI access",
         "• Do Not Disturb mode during combat",
         "• Notification sound options",
     }
@@ -1200,6 +1252,64 @@ function UI:ShowStatus()
 
     table.insert(lines, "=== End Status ===")
 
+    for _, line in ipairs(lines) do
+        Crosspaths:Message(line)
+    end
+end
+
+-- Show TitanPanel integration status
+function UI:ShowTitanPanelStatus()
+    local lines = {}
+    
+    table.insert(lines, "=== TitanPanel Integration Status ===")
+    
+    -- Check if TitanPanel is available
+    if TitanPanelUtils then
+        table.insert(lines, "TitanPanel: DETECTED")
+        table.insert(lines, "TitanPanelUtils: AVAILABLE")
+        
+        -- Check if our plugin is registered
+        if TitanPanelUtils.IsRegistered and TitanPanelUtils:IsRegistered("Crosspaths") then
+            table.insert(lines, "Crosspaths plugin: REGISTERED")
+        else
+            table.insert(lines, "Crosspaths plugin: NOT REGISTERED")
+        end
+        
+        -- Check if our module is initialized
+        if Crosspaths.TitanPanel then
+            table.insert(lines, "TitanPanel module: LOADED")
+        else
+            table.insert(lines, "TitanPanel module: NOT LOADED")
+        end
+        
+        table.insert(lines, "")
+        table.insert(lines, "To use TitanPanel integration:")
+        table.insert(lines, "1. Right-click on your TitanPanel bar")
+        table.insert(lines, "2. Select 'Plugins'")
+        table.insert(lines, "3. Look for 'Crosspaths' in the Information category")
+        table.insert(lines, "4. Enable it to show Crosspaths stats on your bar")
+        
+    elseif TitanUtils_RegisterPlugin then
+        table.insert(lines, "TitanPanel: LEGACY VERSION DETECTED")
+        table.insert(lines, "Crosspaths: Attempting legacy integration")
+        
+        if Crosspaths.TitanPanel then
+            table.insert(lines, "TitanPanel module: LOADED")
+        else
+            table.insert(lines, "TitanPanel module: NOT LOADED")
+        end
+        
+    else
+        table.insert(lines, "TitanPanel: NOT INSTALLED")
+        table.insert(lines, "")
+        table.insert(lines, "To get TitanPanel integration:")
+        table.insert(lines, "1. Install the TitanPanel addon from CurseForge or WowInterface")
+        table.insert(lines, "2. Restart WoW or reload UI (/reload)")
+        table.insert(lines, "3. Crosspaths will automatically integrate with TitanPanel")
+    end
+    
+    table.insert(lines, "=== End TitanPanel Status ===")
+    
     for _, line in ipairs(lines) do
         Crosspaths:Message(line)
     end
@@ -1583,127 +1693,180 @@ end
 
 -- Populate digest content
 function UI:PopulateDigestContent(content, digest)
-    local yOffset = -10
+    local yOffset = -UI_CONSTANTS.SPACING.CONTENT_MARGIN
+    local contentWidth = content:GetWidth() - (UI_CONSTANTS.SPACING.CONTENT_MARGIN * 2)
 
     -- Period header
     local periodLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    periodLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+    periodLabel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
     periodLabel:SetText("|cFFFFD700" .. digest.period:upper() .. " DIGEST|r")
-    yOffset = yOffset - 25
+    periodLabel:SetWidth(contentWidth)
+    periodLabel:SetJustifyH("LEFT")
+    yOffset = yOffset - UI_CONSTANTS.SPACING.HEADER_SPACING
 
     local dateRange = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    dateRange:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+    dateRange:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
     dateRange:SetText(string.format("|cFFADD8E6Period:|r %s to %s",
         os.date("%m/%d/%Y", digest.startTime),
         os.date("%m/%d/%Y", digest.endTime)))
-    yOffset = yOffset - 30
+    dateRange:SetWidth(contentWidth)
+    dateRange:SetJustifyH("LEFT")
+    yOffset = yOffset - (UI_CONSTANTS.SPACING.HEADER_SPACING + UI_CONSTANTS.SPACING.SUBSECTION_SPACING)
 
     -- Overview stats
     local overviewLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    overviewLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+    overviewLabel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
     overviewLabel:SetText("|cFF00FF00Overview|r")
-    yOffset = yOffset - 20
+    overviewLabel:SetWidth(contentWidth)
+    overviewLabel:SetJustifyH("LEFT")
+    yOffset = yOffset - UI_CONSTANTS.SPACING.SECTION_SPACING
 
     local newPlayers = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    newPlayers:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+    newPlayers:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
     newPlayers:SetText(string.format("• New players discovered: |cFFFFFFFF%d|r", digest.newPlayers))
-    yOffset = yOffset - 15
+    newPlayers:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+    newPlayers:SetJustifyH("LEFT")
+    yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
 
     local totalEncounters = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    totalEncounters:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+    totalEncounters:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
     totalEncounters:SetText(string.format("• Total encounters: |cFFFFFFFF%d|r", digest.totalEncounters))
-    yOffset = yOffset - 15
+    totalEncounters:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+    totalEncounters:SetJustifyH("LEFT")
+    yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
 
     if digest.averageLevel and digest.averageLevel > 0 then
         local avgLevel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        avgLevel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+        avgLevel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
         avgLevel:SetText(string.format("• Average player level: |cFFFFFFFF%d|r", digest.averageLevel))
-        yOffset = yOffset - 15
+        avgLevel:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+        avgLevel:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
     end
 
     if digest.activeDays then
         local activeDays = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        activeDays:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+        activeDays:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
         activeDays:SetText(string.format("• Active days: |cFFFFFFFF%d|r", digest.activeDays))
-        yOffset = yOffset - 15
+        activeDays:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+        activeDays:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
     end
 
     if digest.peakDay and digest.peakDay ~= "" then
         local peakDay = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        peakDay:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+        peakDay:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
         peakDay:SetText(string.format("• Peak activity: |cFFFFFFFF%s (%d encounters)|r", digest.peakDay, digest.peakDayEncounters))
-        yOffset = yOffset - 15
+        peakDay:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+        peakDay:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
     end
 
-    yOffset = yOffset - 10
+    yOffset = yOffset - UI_CONSTANTS.SPACING.SUBSECTION_SPACING
 
     -- Top zones
     if digest.topZones and #digest.topZones > 0 then
         local zonesLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        zonesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        zonesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
         zonesLabel:SetText("|cFF00FF00Top Zones|r")
-        yOffset = yOffset - 20
+        zonesLabel:SetWidth(contentWidth)
+        zonesLabel:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SECTION_SPACING
 
         for i, zone in ipairs(digest.topZones) do
             if i <= 5 then
                 local zoneText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                zoneText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
-                zoneText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, zone.zone, zone.count))
-                yOffset = yOffset - 15
+                zoneText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
+                -- Truncate zone name if too long to prevent overflow
+                local zoneName = zone.zone
+                if string.len(zoneName) > 30 then
+                    zoneName = string.sub(zoneName, 1, 27) .. "..."
+                end
+                zoneText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, zoneName, zone.count))
+                zoneText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+                zoneText:SetJustifyH("LEFT")
+                yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
             end
         end
-        yOffset = yOffset - 10
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SUBSECTION_SPACING
     end
 
     -- Top classes
     if digest.topClasses and #digest.topClasses > 0 then
         local classesLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        classesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        classesLabel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
         classesLabel:SetText("|cFF00FF00Popular Classes|r")
-        yOffset = yOffset - 20
+        classesLabel:SetWidth(contentWidth)
+        classesLabel:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SECTION_SPACING
 
         for i, class in ipairs(digest.topClasses) do
             if i <= 5 then
                 local classText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                classText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
-                classText:SetText(string.format("%d. %s |cFFFFFFFF(%d players)|r", i, class.class, class.count))
-                yOffset = yOffset - 15
+                classText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
+                -- Truncate class name if too long to prevent overflow
+                local className = class.class
+                if string.len(className) > 25 then
+                    className = string.sub(className, 1, 22) .. "..."
+                end
+                classText:SetText(string.format("%d. %s |cFFFFFFFF(%d players)|r", i, className, class.count))
+                classText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+                classText:SetJustifyH("LEFT")
+                yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
             end
         end
-        yOffset = yOffset - 10
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SUBSECTION_SPACING
     end
 
     -- Top guilds (for weekly/monthly)
     if digest.topGuilds and #digest.topGuilds > 0 then
         local guildsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        guildsLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        guildsLabel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
         guildsLabel:SetText("|cFF00FF00Active Guilds|r")
-        yOffset = yOffset - 20
+        guildsLabel:SetWidth(contentWidth)
+        guildsLabel:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SECTION_SPACING
 
         for i, guild in ipairs(digest.topGuilds) do
             if i <= 5 then
                 local guildText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                guildText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
-                guildText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, guild.guild, guild.count))
-                yOffset = yOffset - 15
+                guildText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
+                -- Truncate guild name if too long to prevent overflow
+                local guildName = guild.guild
+                if string.len(guildName) > 25 then
+                    guildName = string.sub(guildName, 1, 22) .. "..."
+                end
+                guildText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, guildName, guild.count))
+                guildText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+                guildText:SetJustifyH("LEFT")
+                yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
             end
         end
-        yOffset = yOffset - 10
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SUBSECTION_SPACING
     end
 
     -- Top players (for monthly)
     if digest.topPlayers and #digest.topPlayers > 0 then
         local playersLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        playersLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, yOffset)
+        playersLabel:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
         playersLabel:SetText("|cFF00FF00Most Encountered Players|r")
-        yOffset = yOffset - 20
+        playersLabel:SetWidth(contentWidth)
+        playersLabel:SetJustifyH("LEFT")
+        yOffset = yOffset - UI_CONSTANTS.SPACING.SECTION_SPACING
 
         for i, player in ipairs(digest.topPlayers) do
             if i <= 10 then
                 local playerText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                playerText:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
-                playerText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, player.name, player.count))
-                yOffset = yOffset - 15
+                playerText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
+                -- Truncate player name if too long to prevent overflow
+                local playerName = player.name
+                if string.len(playerName) > 20 then
+                    playerName = string.sub(playerName, 1, 17) .. "..."
+                end
+                playerText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, playerName, player.count))
+                playerText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
+                playerText:SetJustifyH("LEFT")
+                yOffset = yOffset - UI_CONSTANTS.SPACING.LIST_ITEM_SPACING
             end
         end
     end

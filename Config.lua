@@ -6,6 +6,15 @@ local addonName, Crosspaths = ...
 Crosspaths.Config = {}
 local Config = Crosspaths.Config
 
+-- Config UI Constants for consistent spacing
+local CONFIG_SPACING = {
+    CONTENT_MARGIN = 10,
+    SECTION_SPACING = 30,
+    ITEM_SPACING = 25,
+    SUBSECTION_SPACING = 50,
+    CHECKBOX_INDENT = 20
+}
+
 -- Initialize config
 function Config:Initialize()
     self.configFrame = nil
@@ -97,36 +106,54 @@ end
 
 -- Create general settings
 function Config:CreateGeneralSettings(parent)
-    local yOffset = -10
+    local yOffset = -CONFIG_SPACING.CONTENT_MARGIN
 
     -- Section header
     local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    header:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     header:SetText("|cFFFFD700General Settings|r")
-    yOffset = yOffset - 30
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     -- Enable addon checkbox
     local enabledCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    enabledCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    enabledCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     enabledCheck.Text:SetText("Enable Crosspaths")
     enabledCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.enabled = self:GetChecked()
         Crosspaths:Message("Crosspaths " .. (self:GetChecked() and "enabled" or "disabled"))
     end)
+    -- Add tooltip for accessibility
+    enabledCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Enable or disable the Crosspaths addon functionality", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    enabledCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.enabledCheck = enabledCheck
-    yOffset = yOffset - 30
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Debug mode checkbox
     local debugCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    debugCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    debugCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     debugCheck.Text:SetText("Debug Mode")
     debugCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.debug = self:GetChecked()
         Crosspaths.debug = self:GetChecked()
         Crosspaths:Message("Debug mode " .. (self:GetChecked() and "enabled" or "disabled"))
     end)
+    -- Add tooltip for accessibility
+    debugCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Enable debug logging for troubleshooting issues", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    debugCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.debugCheck = debugCheck
-    yOffset = yOffset - 50
+    yOffset = yOffset - CONFIG_SPACING.SUBSECTION_SPACING
 
     parent.generalYOffset = yOffset
 end
@@ -137,89 +164,152 @@ function Config:CreateTrackingSettings(parent)
 
     -- Section header
     local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    header:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     header:SetText("|cFFFFD700Tracking Settings|r")
-    yOffset = yOffset - 30
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     -- Group tracking
     local groupCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    groupCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    groupCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     groupCheck.Text:SetText("Track Group Members")
     groupCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.enableGroupTracking = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    groupCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Track party and raid members you encounter", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    groupCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.groupCheck = groupCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Nameplate tracking
     local nameplateCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    nameplateCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    nameplateCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     nameplateCheck.Text:SetText("Track Nearby Players (Nameplates)")
     nameplateCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.enableNameplateTracking = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    nameplateCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Track players whose nameplates you see nearby", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    nameplateCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.nameplateCheck = nameplateCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- City tracking
     local cityCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    cityCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    cityCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     cityCheck.Text:SetText("Track Players in Cities")
     cityCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.enableCityTracking = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    cityCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Track players you encounter in major cities", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    cityCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.cityCheck = cityCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Mouseover tracking
     local mouseoverCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    mouseoverCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    mouseoverCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     mouseoverCheck.Text:SetText("Track Mouseover Players")
     mouseoverCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.enableMouseoverTracking = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    mouseoverCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Track players when you hover your mouse over them", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    mouseoverCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.mouseoverCheck = mouseoverCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Target tracking
     local targetCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    targetCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    targetCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     targetCheck.Text:SetText("Track Target/Focus Changes")
     targetCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.enableTargetTracking = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    targetCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Track players when you target or focus them", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    targetCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.targetCheck = targetCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Combat log tracking
     local combatCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    combatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    combatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     combatCheck.Text:SetText("Track Combat Interactions")
     combatCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.enableCombatLogTracking = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    combatCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Track players you encounter through combat interactions", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    combatCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.combatCheck = combatCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Location-based throttling
     local locationCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    locationCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    locationCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     locationCheck.Text:SetText("Enable Location-Based Duplicate Detection")
     locationCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.tracking.locationBasedThrottling = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    locationCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Prevent duplicate tracking when players haven't moved enough", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    locationCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.locationCheck = locationCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Minimum move distance
     local distanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    distanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    distanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT + CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     distanceLabel:SetText("Minimum move distance (0.001-0.1):")
-    yOffset = yOffset - 20
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     local distanceEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     distanceEditBox:SetSize(80, 20)
-    distanceEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    distanceEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT + CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     distanceEditBox:SetAutoFocus(false)
     distanceEditBox:SetScript("OnEnterPressed", function(self)
         local value = tonumber(self:GetText()) or 0.01
@@ -230,17 +320,17 @@ function Config:CreateTrackingSettings(parent)
         self:ClearFocus()
     end)
     parent.distanceEditBox = distanceEditBox
-    yOffset = yOffset - 35
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Pruning settings
     local pruneLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    pruneLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    pruneLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     pruneLabel:SetText("Auto-prune data older than (days):")
-    yOffset = yOffset - 20
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     local pruneEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     pruneEditBox:SetSize(60, 20)
-    pruneEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    pruneEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     pruneEditBox:SetAutoFocus(false)
     pruneEditBox:SetNumeric(true)
     pruneEditBox:SetScript("OnEnterPressed", function(self)
@@ -252,7 +342,7 @@ function Config:CreateTrackingSettings(parent)
         self:ClearFocus()
     end)
     parent.pruneEditBox = pruneEditBox
-    yOffset = yOffset - 50
+    yOffset = yOffset - CONFIG_SPACING.SUBSECTION_SPACING
 
     parent.trackingYOffset = yOffset
 end
@@ -263,13 +353,13 @@ function Config:CreateNotificationSettings(parent)
 
     -- Section header
     local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    header:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     header:SetText("|cFFFFD700Notification Settings|r")
-    yOffset = yOffset - 30
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     -- Master notification toggle
     local masterCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    masterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    masterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     masterCheck.Text:SetText("Enable All Notifications")
     masterCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.enableNotifications = self:GetChecked()
@@ -280,33 +370,33 @@ function Config:CreateNotificationSettings(parent)
         end
     end)
     parent.masterCheck = masterCheck
-    yOffset = yOffset - 35
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Notification types subsection
     local typesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    typesLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    typesLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
     typesLabel:SetText("|cFFADD8E6Notification Types:|r")
-    yOffset = yOffset - 20
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
     -- Repeat encounters
     local repeatCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    repeatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    repeatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
     repeatCheck.Text:SetText("Repeat Encounters")
     repeatCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyRepeatEncounters = self:GetChecked()
     end)
     parent.repeatCheck = repeatCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Frequent players
     local frequentCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    frequentCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    frequentCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
     frequentCheck.Text:SetText("Frequent Players")
     frequentCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.notifications.notifyFrequentPlayers = self:GetChecked()
     end)
     parent.frequentCheck = frequentCheck
-    yOffset = yOffset - 25
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
     -- Previous group members
     local groupMemberCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
@@ -558,7 +648,38 @@ function Config:CreateUISettings(parent)
     notifCheck:SetScript("OnClick", function(self)
         Crosspaths.db.settings.ui.showNotifications = self:GetChecked()
     end)
+    -- Add tooltip for accessibility
+    notifCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Enable or disable toast notifications for encounters", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    notifCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
     parent.notifCheck = notifCheck
+    yOffset = yOffset - 25
+
+    -- Show minimap button
+    local minimapCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    minimapCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    minimapCheck.Text:SetText("Show Minimap Button")
+    minimapCheck:SetScript("OnClick", function(self)
+        -- Toggle minimap button visibility
+        if Crosspaths.MinimapButton then
+            Crosspaths.MinimapButton:Toggle()
+        end
+    end)
+    -- Add tooltip for accessibility
+    minimapCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Show or hide the Crosspaths minimap button for easy UI access", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    minimapCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    parent.minimapCheck = minimapCheck
     yOffset = yOffset - 25
 
     -- Notification duration
@@ -723,6 +844,9 @@ function Config:RefreshSettings()
     -- UI settings
     if content.notifCheck then
         content.notifCheck:SetChecked(Crosspaths.db.settings.ui.showNotifications)
+    end
+    if content.minimapCheck then
+        content.minimapCheck:SetChecked(not Crosspaths.db.settings.ui.hideMinimapButton)
     end
     if content.durationEditBox then
         content.durationEditBox:SetText(tostring(Crosspaths.db.settings.ui.notificationDuration or 3))
