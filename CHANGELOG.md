@@ -19,6 +19,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve TitanPanel integration with better detection and status reporting
 - Fix CI failures: syntax error in UI.lua and linting issues
 - Merge pull request #42 from djdefi/copilot/fix-41
+- Bump version from 0.1.14 to 0.1.15
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.15] - 2025-08-14
+
+### Added
+- Initial plan
+- Initial plan
+- Standardize spacing and improve text layout accessibility
+- Complete text alignment and accessibility improvements
+- Create comprehensive .github/copilot-instructions.md with fully validated commands and timing
+- Merge pull request #44 from djdefi/copilot/fix-43
+- Add minimap button for improved UI accessibility
+- Improve TitanPanel integration with better detection and status reporting
+- Fix CI failures: syntax error in UI.lua and linting issues
+- Merge pull request #42 from djdefi/copilot/fix-41
 
 ### Changed
 - 
