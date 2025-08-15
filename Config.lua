@@ -50,14 +50,14 @@ function Config:CreateConfigFrame()
     -- Create responsive config window
     local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
     local screenHeight = GetScreenHeight() * UIParent:GetEffectiveScale()
-    
+
     -- Calculate responsive size for config window (60% of screen, with limits)
     local width = math.max(400, math.min(800, screenWidth * 0.6))
     local height = math.max(500, math.min(900, screenHeight * 0.75))
-    
+
     local frame = CreateFrame("Frame", "CrosspathsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
     frame:SetSize(width, height)
-    
+
     -- Set minimum and maximum size constraints (if supported by frame type)
     if frame.SetMinResize and type(frame.SetMinResize) == "function" then
         pcall(frame.SetMinResize, frame, 400, 500)
@@ -65,7 +65,7 @@ function Config:CreateConfigFrame()
     if frame.SetMaxResize and type(frame.SetMaxResize) == "function" then
         pcall(frame.SetMaxResize, frame, 800, 900)
     end
-    
+
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:SetResizable(true)
@@ -717,15 +717,138 @@ function Config:CreateDataManagement(parent)
     header:SetText("|cFFFFD700Data Management|r")
     yOffset = yOffset - 30
 
-    -- Export button
-    local exportBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
-    exportBtn:SetSize(120, 25)
-    exportBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
-    exportBtn:SetText("Export Data")
-    exportBtn:SetScript("OnClick", function()
+    -- Data Export section
+    local exportLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    exportLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    exportLabel:SetText("|cFFADD8E6Data Export & Analysis:|r")
+    yOffset = yOffset - 25
+
+    -- Export JSON button
+    local exportJsonBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    exportJsonBtn:SetSize(100, 25)
+    exportJsonBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    exportJsonBtn:SetText("Export JSON")
+    exportJsonBtn:SetScript("OnClick", function()
         Crosspaths.UI:ExportData("json")
     end)
+
+    -- Export CSV button
+    local exportCsvBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    exportCsvBtn:SetSize(100, 25)
+    exportCsvBtn:SetPoint("LEFT", exportJsonBtn, "RIGHT", 10, 0)
+    exportCsvBtn:SetText("Export CSV")
+    exportCsvBtn:SetScript("OnClick", function()
+        Crosspaths.UI:ExportData("csv")
+    end)
+
+    -- Copy Stats button
+    local copyStatsBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    copyStatsBtn:SetSize(100, 25)
+    copyStatsBtn:SetPoint("LEFT", exportCsvBtn, "RIGHT", 10, 0)
+    copyStatsBtn:SetText("Copy Stats")
+    copyStatsBtn:SetScript("OnClick", function()
+        if Crosspaths.UI and Crosspaths.UI.CopyStatsToClipboard then
+            Crosspaths.UI:CopyStatsToClipboard()
+        else
+            Crosspaths:Message("Stats copy feature not available")
+        end
+    end)
     yOffset = yOffset - 35
+
+    -- Analytics section
+    local analyticsLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    analyticsLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    analyticsLabel:SetText("|cFFADD8E6Advanced Analytics:|r")
+    yOffset = yOffset - 25
+
+    -- Activity Analysis button
+    local activityBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    activityBtn:SetSize(110, 25)
+    activityBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    activityBtn:SetText("Activity Patterns")
+    activityBtn:SetScript("OnClick", function()
+        if Crosspaths.Engine then
+            local patterns = Crosspaths.Engine:AnalyzeActivityPatterns()
+            Crosspaths.UI:ShowActivityAnalysis(patterns)
+        else
+            Crosspaths:Message("Analytics engine not available")
+        end
+    end)
+
+    -- Social Networks button
+    local socialBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    socialBtn:SetSize(110, 25)
+    socialBtn:SetPoint("LEFT", activityBtn, "RIGHT", 10, 0)
+    socialBtn:SetText("Social Networks")
+    socialBtn:SetScript("OnClick", function()
+        if Crosspaths.Engine then
+            local networks = Crosspaths.Engine:AnalyzeSocialNetworks()
+            Crosspaths.UI:ShowSocialAnalysis(networks)
+        else
+            Crosspaths:Message("Analytics engine not available")
+        end
+    end)
+
+    -- Progression Analysis button
+    local progressionBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    progressionBtn:SetSize(110, 25)
+    progressionBtn:SetPoint("LEFT", socialBtn, "RIGHT", 10, 0)
+    progressionBtn:SetText("Progression")
+    progressionBtn:SetScript("OnClick", function()
+        if Crosspaths.Engine then
+            local progression = Crosspaths.Engine:AnalyzeProgressionTrends()
+            Crosspaths.UI:ShowProgressionAnalysis(progression)
+        else
+            Crosspaths:Message("Analytics engine not available")
+        end
+    end)
+    yOffset = yOffset - 35
+
+    -- Data Maintenance section
+    local maintenanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    maintenanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    maintenanceLabel:SetText("|cFFADD8E6Data Maintenance:|r")
+    yOffset = yOffset - 25
+
+    -- Auto Cleanup checkbox
+    local autoCleanupCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    autoCleanupCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    autoCleanupCheck.Text:SetText("Automatic data cleanup")
+    autoCleanupCheck:SetScript("OnClick", function(self)
+        if Crosspaths.db and Crosspaths.db.settings then
+            Crosspaths.db.settings.autoCleanup = self:GetChecked()
+            if self:GetChecked() then
+                Crosspaths:Message("Automatic data cleanup enabled")
+            else
+                Crosspaths:Message("Automatic data cleanup disabled")
+            end
+        end
+    end)
+    parent.autoCleanupCheck = autoCleanupCheck
+    yOffset = yOffset - 30
+
+    -- Manual Cleanup button
+    local cleanupBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    cleanupBtn:SetSize(120, 25)
+    cleanupBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    cleanupBtn:SetText("Clean Data Now")
+    cleanupBtn:SetScript("OnClick", function()
+        if Crosspaths.Engine then
+            local stats = Crosspaths.Engine:ValidateAndCleanData()
+            local message = string.format("Cleanup complete: %d duplicates removed, %d invalid entries fixed",
+                stats.duplicatesRemoved or 0, stats.totalCleaned or 0)
+            Crosspaths:Message(message)
+        else
+            Crosspaths:Message("Data cleanup engine not available")
+        end
+    end)
+    yOffset = yOffset - 35
+
+    -- System Management section
+    local systemLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    systemLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    systemLabel:SetText("|cFFFFCC00System Management:|r")
+    yOffset = yOffset - 25
 
     -- Clear data button
     local clearBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
@@ -735,12 +858,11 @@ function Config:CreateDataManagement(parent)
     clearBtn:SetScript("OnClick", function()
         StaticPopup_Show("CROSSPATHS_CLEAR_DATA")
     end)
-    yOffset = yOffset - 35
 
     -- Reset settings button
     local resetBtn = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
     resetBtn:SetSize(120, 25)
-    resetBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    resetBtn:SetPoint("LEFT", clearBtn, "RIGHT", 10, 0)
     resetBtn:SetText("Reset Settings")
     resetBtn:SetScript("OnClick", function()
         StaticPopup_Show("CROSSPATHS_RESET_SETTINGS")
@@ -850,6 +972,11 @@ function Config:RefreshSettings()
     end
     if content.durationEditBox then
         content.durationEditBox:SetText(tostring(Crosspaths.db.settings.ui.notificationDuration or 3))
+    end
+
+    -- Data management settings
+    if content.autoCleanupCheck then
+        content.autoCleanupCheck:SetChecked(Crosspaths.db.settings.autoCleanup ~= false)
     end
 end
 

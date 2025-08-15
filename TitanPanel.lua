@@ -63,33 +63,37 @@ function TitanPanel:Initialize()
     -- Check for TitanPanel availability with multiple detection methods
     if not (TitanPanelUtils or TitanUtils_RegisterPlugin or _G["Titan"]) then
         Crosspaths:DebugLog("TitanPanel not detected - no TitanPanel globals found", "INFO")
-        Crosspaths:Message("TitanPanel addon not detected - install TitanPanel for toolbar integration")
         return false
     end
 
+    -- Update plugin info with current version
+    titanPluginInfo.version = Crosspaths.version or "0.1.17"
+
     -- Check for the correct registration function with broader compatibility
     local registerFunc = nil
+    local registrationMethod = "unknown"
+    
     if TitanPanelUtils and TitanPanelUtils.RegisterPlugin then
         registerFunc = function(info) TitanPanelUtils:RegisterPlugin(info) end
-        Crosspaths:DebugLog("Using TitanPanelUtils:RegisterPlugin method", "INFO")
+        registrationMethod = "TitanPanelUtils:RegisterPlugin"
     elseif TitanUtils_RegisterPlugin then
         registerFunc = TitanUtils_RegisterPlugin
-        Crosspaths:DebugLog("Using TitanUtils_RegisterPlugin method", "INFO")
+        registrationMethod = "TitanUtils_RegisterPlugin"
     elseif TitanPanelUtils and TitanPanelUtils.AddButton then
         registerFunc = function(info) TitanPanelUtils:AddButton(info) end
-        Crosspaths:DebugLog("Using TitanPanelUtils:AddButton method", "INFO")
+        registrationMethod = "TitanPanelUtils:AddButton"
     end
     
     if not registerFunc then
-        Crosspaths:DebugLog("TitanPanel registration function not found - checking available functions", "ERROR")
+        Crosspaths:DebugLog("TitanPanel registration function not found", "ERROR")
         if TitanPanelUtils then
+            Crosspaths:DebugLog("Available TitanPanelUtils functions:", "DEBUG")
             for key, value in pairs(TitanPanelUtils) do
                 if type(value) == "function" and (string.find(key, "Register") or string.find(key, "Add")) then
-                    Crosspaths:DebugLog("Available TitanPanelUtils function: " .. key, "DEBUG")
+                    Crosspaths:DebugLog("  - " .. key, "DEBUG")
                 end
             end
         end
-        Crosspaths:Message("TitanPanel integration failed - unsupported TitanPanel version")
         return false
     end
 
@@ -97,12 +101,10 @@ function TitanPanel:Initialize()
     local success, error = pcall(registerFunc, titanPluginInfo)
     if not success then
         Crosspaths:DebugLog("TitanPanel registration failed: " .. tostring(error), "ERROR")
-        Crosspaths:Message("TitanPanel integration failed: " .. tostring(error))
         return false
     end
 
-    Crosspaths:DebugLog("TitanPanel plugin registered successfully", "INFO")
-    Crosspaths:Message("TitanPanel integration active - check your TitanPanel bar")
+    Crosspaths:DebugLog("TitanPanel plugin registered successfully using " .. registrationMethod, "INFO")
     return true
 end
 
