@@ -49,7 +49,7 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
 4. Enable the addon in your AddOns list
 
 ### CurseForge
-*Coming soon*: Will be available on [CurseForge](https://www.curseforge.com/wow/addons/crosspaths-social-memory-tracker) with automatic installation via the CurseForge app. Currently in setup phase - install manually for now.
+Available on [CurseForge](https://www.curseforge.com/wow/addons/crosspaths-social-memory-tracker) - installs automatically with the CurseForge app
 
 ## Usage
 
