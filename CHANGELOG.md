@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.16] - 2025-08-15
+
+### Added
+- Initial plan
+- Fix self-counting, tab overflow, and TitanPanel compatibility issues
+- Add automatic and manual cleanup for self-encounter data
+- Add comprehensive data cleanup, deduplication, and enhanced analytics features
+- Enhance deduplication for dungeons/raids/cinematics and add quest line analytics
+- Merge pull request #46 from djdefi/copilot/fix-45
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.15] - 2025-08-14
 
 ### Added
