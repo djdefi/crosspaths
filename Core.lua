@@ -51,7 +51,8 @@ local defaults = {
         enableDaily = true,
         enableWeekly = true,
         enableMonthly = true,
-    }
+    },
+    autoCleanup = true, -- Enable automatic data cleanup by default
 }
 
 -- Initialize saved variables

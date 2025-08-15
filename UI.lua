@@ -352,11 +352,32 @@ end
 function UI:CreateMainFrame()
     local frame = CreateStandardFrame("CrosspathsMainFrame", UIParent, "MAIN_WINDOW")
 
-    -- Title
+    -- Title with version
     frame.title = frame:CreateFontString(nil, "OVERLAY")
     frame.title:SetFontObject("GameFontHighlight")
     frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 5, 0)
-    frame.title:SetText("Crosspaths - Social Memory Tracker")
+    frame.title:SetText("Crosspaths - Social Memory Tracker v" .. (Crosspaths.version or "Unknown"))
+
+    -- Settings button in title bar
+    frame.settingsBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+    frame.settingsBtn:SetSize(70, 20)
+    frame.settingsBtn:SetPoint("RIGHT", frame.TitleBg, "RIGHT", -5, 0)
+    frame.settingsBtn:SetText("Settings")
+    frame.settingsBtn:SetScript("OnClick", function()
+        if Crosspaths.Config then
+            Crosspaths.Config:Show()
+        else
+            Crosspaths:Message("Configuration system not available")
+        end
+    end)
+    frame.settingsBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Open Crosspaths configuration panel", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    frame.settingsBtn:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
 
     -- Tab buttons
     self:CreateTabButtons(frame)
@@ -593,12 +614,24 @@ function UI:CreateSummaryTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
 
+    -- Create scroll frame for stats to prevent overflow
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+
+    -- Create content frame to hold the text
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(scroll:GetWidth() - 20, 2000) -- Set a large height for scrolling
+
     -- Stats display with consistent spacing
-    frame.statsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.statsText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    frame.statsText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    frame.statsText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    frame.statsText:SetWidth(content:GetWidth())
     frame.statsText:SetJustifyH("LEFT")
     frame.statsText:SetJustifyV("TOP")
     frame.statsText:SetText("Loading statistics...")
+
+    scroll:SetScrollChild(content)
 
     return frame
 end
@@ -622,12 +655,24 @@ function UI:CreatePlayersTab()
     searchLabel:SetPoint("LEFT", searchBox, "RIGHT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, 0)
     searchLabel:SetText("Search players...")
 
+    -- Create scroll frame for results to prevent overflow
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -50)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+
+    -- Create content frame to hold the text
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(scroll:GetWidth() - 20, 2000) -- Set a large height for scrolling
+
     -- Results area with proper spacing
-    frame.resultsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.resultsText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -40)
+    frame.resultsText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    frame.resultsText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    frame.resultsText:SetWidth(content:GetWidth())
     frame.resultsText:SetJustifyH("LEFT")
     frame.resultsText:SetJustifyV("TOP")
     frame.resultsText:SetText("Top players will appear here...")
+
+    scroll:SetScrollChild(content)
 
     frame.searchBox = searchBox
 
@@ -639,11 +684,23 @@ function UI:CreateGuildsTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
 
-    frame.guildsText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.guildsText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    -- Create scroll frame for guild stats to prevent overflow
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+
+    -- Create content frame to hold the text
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(scroll:GetWidth() - 20, 2000) -- Set a large height for scrolling
+
+    frame.guildsText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    frame.guildsText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    frame.guildsText:SetWidth(content:GetWidth())
     frame.guildsText:SetJustifyH("LEFT")
     frame.guildsText:SetJustifyV("TOP")
     frame.guildsText:SetText("Guild statistics will appear here...")
+
+    scroll:SetScrollChild(content)
 
     return frame
 end
@@ -653,11 +710,23 @@ function UI:CreateEncountersTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
     frame:SetAllPoints()
 
-    frame.encountersText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.encountersText:SetPoint("TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    -- Create scroll frame for encounter data to prevent overflow
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.SCROLL_BAR_WIDTH, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+
+    -- Create content frame to hold the text
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(scroll:GetWidth() - 20, 2000) -- Set a large height for scrolling
+
+    frame.encountersText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    frame.encountersText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    frame.encountersText:SetWidth(content:GetWidth())
     frame.encountersText:SetJustifyH("LEFT")
     frame.encountersText:SetJustifyV("TOP")
     frame.encountersText:SetText("Recent encounters will appear here...")
+
+    scroll:SetScrollChild(content)
 
     return frame
 end
@@ -2007,6 +2076,77 @@ function UI:ShowExportFrame(data, filename)
     editBox:SetFocus()
 end
 
+-- Copy comprehensive stats to clipboard-ready format
+function UI:CopyStatsToClipboard()
+    if not Crosspaths.Engine then
+        Crosspaths:Message("Engine not available for stats generation")
+        return
+    end
+
+    local stats = Crosspaths.Engine:GetStatsSummary()
+    if not stats then
+        Crosspaths:Message("Unable to generate stats summary")
+        return
+    end
+
+    local lines = {}
+    table.insert(lines, "=== CROSSPATHS STATS SUMMARY ===")
+    table.insert(lines, "Generated: " .. os.date("%Y-%m-%d %H:%M:%S"))
+    table.insert(lines, "Version: " .. (Crosspaths.version or "Unknown"))
+    table.insert(lines, "")
+
+    -- Basic stats
+    table.insert(lines, "OVERVIEW:")
+    table.insert(lines, string.format("  Total Players: %d", stats.totalPlayers or 0))
+    table.insert(lines, string.format("  Total Encounters: %d", stats.totalEncounters or 0))
+    table.insert(lines, string.format("  Total Guilds: %d", stats.totalGuilds or 0))
+    table.insert(lines, string.format("  Grouped Players: %d", stats.groupedPlayers or 0))
+    table.insert(lines, string.format("  Average Encounters: %.1f", stats.averageEncounters or 0))
+    table.insert(lines, "")
+
+    -- Recent activity
+    local activity = Crosspaths.Engine:GetRecentActivity()
+    if activity then
+        table.insert(lines, "RECENT ACTIVITY:")
+        table.insert(lines, string.format("  Last 24h: %d players, %d encounters",
+            activity.last24h.players or 0, activity.last24h.encounters or 0))
+        table.insert(lines, string.format("  Last 7d: %d players, %d encounters",
+            activity.last7d.players or 0, activity.last7d.encounters or 0))
+        table.insert(lines, string.format("  Last 30d: %d players, %d encounters",
+            activity.last30d.players or 0, activity.last30d.encounters or 0))
+        table.insert(lines, "")
+    end
+
+    -- Session stats
+    local sessionStats = Crosspaths.Engine:GetSessionStats()
+    if sessionStats then
+        table.insert(lines, "CURRENT SESSION:")
+        table.insert(lines, string.format("  Players Encountered: %d", sessionStats.playersEncountered or 0))
+        table.insert(lines, string.format("  New Players: %d", sessionStats.newPlayers or 0))
+        table.insert(lines, string.format("  Total Encounters: %d", sessionStats.totalEncounters or 0))
+        table.insert(lines, string.format("  Session Duration: %.1f minutes",
+            (sessionStats.sessionDuration or 0) / 60))
+        table.insert(lines, "")
+    end
+
+    -- Top players
+    local topPlayers = Crosspaths.Engine:GetTopPlayersByType("encounters", 5)
+    if topPlayers and #topPlayers > 0 then
+        table.insert(lines, "TOP PLAYERS BY ENCOUNTERS:")
+        for i, player in ipairs(topPlayers) do
+            table.insert(lines, string.format("  %d. %s (%d encounters)",
+                i, player.name, player.count))
+        end
+        table.insert(lines, "")
+    end
+
+    local formattedStats = table.concat(lines, "\n")
+
+    -- Show the stats in an export window for easy copying
+    self:ShowExportWindow("Crosspaths Stats Summary", formattedStats)
+    Crosspaths:Message("Stats summary opened in copyable format")
+end
+
 -- Show advanced statistics by type
 function UI:ShowAdvancedStats(statType)
     if not Crosspaths.Engine then
@@ -2205,10 +2345,10 @@ function UI:ShowQuestLineAnalysis(patterns)
         Crosspaths:Message("No quest line patterns found.")
         return
     end
-    
+
     Crosspaths:Message("Quest Line & Path Analysis")
     Crosspaths:Message("==========================")
-    
+
     -- Show common quest paths
     if patterns.commonPaths and #patterns.commonPaths > 0 then
         Crosspaths:Message("Most Common Quest Paths:")
@@ -2220,7 +2360,7 @@ function UI:ShowQuestLineAnalysis(patterns)
         end
         Crosspaths:Message("")
     end
-    
+
     -- Show zone correlations
     if patterns.questLineCorrelations and #patterns.questLineCorrelations > 0 then
         Crosspaths:Message("Strong Zone Progression Correlations:")
@@ -2231,7 +2371,7 @@ function UI:ShowQuestLineAnalysis(patterns)
             end
         end
     end
-    
+
     if (#patterns.commonPaths == 0) and (#patterns.questLineCorrelations == 0) then
         Crosspaths:Message("No significant quest line patterns detected. Need more data or longer observation period.")
     end
@@ -2243,10 +2383,10 @@ function UI:ShowSimilarQuestLines(playerName, similar)
         Crosspaths:Message("Unable to analyze quest lines for " .. playerName)
         return
     end
-    
+
     Crosspaths:Message("Similar Quest Lines for " .. playerName)
     Crosspaths:Message("=====================================")
-    
+
     -- Show player's path
     if similar.targetPlayerPath and #similar.targetPlayerPath > 0 then
         local pathStr = ""
@@ -2258,12 +2398,12 @@ function UI:ShowSimilarQuestLines(playerName, similar)
         Crosspaths:Message("Player's Path: " .. pathStr)
         Crosspaths:Message("")
     end
-    
+
     -- Show similar players
     if similar.similarPlayers and #similar.similarPlayers > 0 then
         Crosspaths:Message(string.format("Found %d players with similar quest paths (%.1f%% confidence):",
             #similar.similarPlayers, similar.confidence * 100))
-        
+
         for i, player in ipairs(similar.similarPlayers) do
             if i <= 8 then
                 local sharedZonesStr = ""
@@ -2274,10 +2414,10 @@ function UI:ShowSimilarQuestLines(playerName, similar)
                     end
                     sharedZonesStr = sharedZonesStr .. ")"
                 end
-                
+
                 local levelStr = player.level and ("L" .. player.level) or "L?"
                 local classStr = player.class or "Unknown"
-                
+
                 Crosspaths:Message(string.format("  %d. %s (%s %s) - %.1f%% similar%s",
                     i, player.name, levelStr, classStr, player.similarity * 100, sharedZonesStr))
             end
@@ -2294,13 +2434,13 @@ function UI:ShowZoneInsights(zoneName, insights)
         Crosspaths:Message("No insights available for " .. zoneName)
         return
     end
-    
+
     Crosspaths:Message("Quest Line Insights: " .. zoneName)
     Crosspaths:Message("====================================")
-    
+
     -- Basic stats
     Crosspaths:Message(string.format("Total Visitors: %d", insights.totalVisitors))
-    
+
     if insights.averageTimeSpent > 0 then
         local timeStr = ""
         if insights.averageTimeSpent >= 3600 then
@@ -2312,13 +2452,13 @@ function UI:ShowZoneInsights(zoneName, insights)
         end
         Crosspaths:Message("Average Time Spent: " .. timeStr)
     end
-    
+
     if insights.levelRange.min > 0 and insights.levelRange.max > 0 then
         Crosspaths:Message(string.format("Level Range: %d - %d", insights.levelRange.min, insights.levelRange.max))
     end
-    
+
     Crosspaths:Message("")
-    
+
     -- Progression patterns
     if insights.progressionFrom and #insights.progressionFrom > 0 then
         Crosspaths:Message("Players typically come from:")
@@ -2329,7 +2469,7 @@ function UI:ShowZoneInsights(zoneName, insights)
         end
         Crosspaths:Message("")
     end
-    
+
     if insights.progressionTo and #insights.progressionTo > 0 then
         Crosspaths:Message("Players typically go to:")
         for i, to in ipairs(insights.progressionTo) do
@@ -2339,7 +2479,7 @@ function UI:ShowZoneInsights(zoneName, insights)
         end
         Crosspaths:Message("")
     end
-    
+
     -- Peak activity hours
     if insights.peakHours and #insights.peakHours > 0 then
         Crosspaths:Message("Peak Activity Hours:")
@@ -2350,7 +2490,7 @@ function UI:ShowZoneInsights(zoneName, insights)
             end
         end
     end
-    
+
     if insights.totalVisitors == 0 then
         Crosspaths:Message("No recent activity in this zone. Try a different zone name or check spelling.")
     end

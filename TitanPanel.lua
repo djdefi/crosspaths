@@ -34,7 +34,7 @@ local TITAN_CROSSPATHS_FREQUENCY = 30 -- Update every 30 seconds
 local titanPluginInfo = {
     id = TITAN_CROSSPATHS_ID,
     category = "Information",
-    version = Crosspaths.version or "0.1.9",
+    version = Crosspaths.version or "0.1.17",
     menuText = "Crosspaths",
     buttonTextFunction = "TitanPanelCrosspathsButton_GetButtonText",
     tooltipTitle = "Crosspaths - Social Memory Tracker",
@@ -55,41 +55,83 @@ local titanPluginInfo = {
         ShowEncounters = 1,
         ShowGuilds = 0,
         ShowSession = 0,
-    }
+    },
+    -- Add standard TitanPanel plugin properties
+    frequency = TITAN_CROSSPATHS_FREQUENCY,
+    clickFunction = "TitanPanelCrosspathsButton_OnClick",
+    rightClickFunction = "TitanPanelRightClickMenu_PrepareCrosspathsMenu",
+    -- Plugin info for modern versions
+    author = "Crosspaths Team",
+    email = "support@crosspaths.com",
+    website = "https://github.com/djdefi/crosspaths",
 }
 
 -- Initialize Titan Panel plugin
 function TitanPanel:Initialize()
-    -- Check for TitanPanel availability with multiple detection methods
-    if not (TitanPanelUtils or TitanUtils_RegisterPlugin or _G["Titan"]) then
-        Crosspaths:DebugLog("TitanPanel not detected - no TitanPanel globals found", "INFO")
-        Crosspaths:Message("TitanPanel addon not detected - install TitanPanel for toolbar integration")
+    -- Check for TitanPanel availability with comprehensive detection methods
+    local titanDetected = false
+    local detectionMethod = "none"
+    
+    -- Check for modern TitanPanel
+    if TitanPanelUtils then
+        titanDetected = true
+        detectionMethod = "TitanPanelUtils"
+    -- Check for classic TitanPanel
+    elseif TitanUtils_RegisterPlugin then
+        titanDetected = true
+        detectionMethod = "TitanUtils_RegisterPlugin"
+    -- Check for legacy TitanPanel
+    elseif _G["Titan"] then
+        titanDetected = true
+        detectionMethod = "Titan global"
+    -- Check for other TitanPanel variants
+    elseif _G["TitanPanel"] then
+        titanDetected = true
+        detectionMethod = "TitanPanel global"
+    end
+    
+    if not titanDetected then
+        Crosspaths:DebugLog("TitanPanel not detected - no compatible TitanPanel API found", "INFO")
         return false
     end
+    
+    Crosspaths:DebugLog("TitanPanel detected via: " .. detectionMethod, "DEBUG")
 
-    -- Check for the correct registration function with broader compatibility
+    -- Update plugin info with current version
+    titanPluginInfo.version = Crosspaths.version or "0.1.17"
+
+    -- Check for the correct registration function with comprehensive compatibility
     local registerFunc = nil
+    local registrationMethod = "unknown"
+    
+    -- Modern TitanPanel (most common)
     if TitanPanelUtils and TitanPanelUtils.RegisterPlugin then
         registerFunc = function(info) TitanPanelUtils:RegisterPlugin(info) end
-        Crosspaths:DebugLog("Using TitanPanelUtils:RegisterPlugin method", "INFO")
-    elseif TitanUtils_RegisterPlugin then
-        registerFunc = TitanUtils_RegisterPlugin
-        Crosspaths:DebugLog("Using TitanUtils_RegisterPlugin method", "INFO")
+        registrationMethod = "TitanPanelUtils:RegisterPlugin"
+    -- Alternative modern method
     elseif TitanPanelUtils and TitanPanelUtils.AddButton then
         registerFunc = function(info) TitanPanelUtils:AddButton(info) end
-        Crosspaths:DebugLog("Using TitanPanelUtils:AddButton method", "INFO")
+        registrationMethod = "TitanPanelUtils:AddButton"
+    -- Classic TitanPanel method
+    elseif TitanUtils_RegisterPlugin then
+        registerFunc = TitanUtils_RegisterPlugin
+        registrationMethod = "TitanUtils_RegisterPlugin"
+    -- Legacy TitanPanel method
+    elseif _G["Titan"] and _G["Titan"].RegisterPlugin then
+        registerFunc = function(info) _G["Titan"]:RegisterPlugin(info) end
+        registrationMethod = "Titan:RegisterPlugin"
     end
     
     if not registerFunc then
-        Crosspaths:DebugLog("TitanPanel registration function not found - checking available functions", "ERROR")
+        Crosspaths:DebugLog("TitanPanel registration function not found", "ERROR")
         if TitanPanelUtils then
+            Crosspaths:DebugLog("Available TitanPanelUtils functions:", "DEBUG")
             for key, value in pairs(TitanPanelUtils) do
-                if type(value) == "function" and (string.find(key, "Register") or string.find(key, "Add")) then
-                    Crosspaths:DebugLog("Available TitanPanelUtils function: " .. key, "DEBUG")
+                if type(value) == "function" and (string.find(key:lower(), "register") or string.find(key:lower(), "add")) then
+                    Crosspaths:DebugLog("  - " .. key, "DEBUG")
                 end
             end
         end
-        Crosspaths:Message("TitanPanel integration failed - unsupported TitanPanel version")
         return false
     end
 
@@ -97,12 +139,14 @@ function TitanPanel:Initialize()
     local success, error = pcall(registerFunc, titanPluginInfo)
     if not success then
         Crosspaths:DebugLog("TitanPanel registration failed: " .. tostring(error), "ERROR")
-        Crosspaths:Message("TitanPanel integration failed: " .. tostring(error))
         return false
     end
 
-    Crosspaths:DebugLog("TitanPanel plugin registered successfully", "INFO")
-    Crosspaths:Message("TitanPanel integration active - check your TitanPanel bar")
+    Crosspaths:DebugLog("TitanPanel plugin registered successfully using " .. registrationMethod, "INFO")
+    
+    -- Start the update timer if registration was successful
+    self:StartUpdateTimer()
+    
     return true
 end
 
@@ -170,9 +214,29 @@ end
 -- Get tooltip text for Titan Panel
 function TitanPanelCrosspathsButton_GetTooltipText()
     local tooltip = {}
+    
+    -- Helper function to get colored text with fallback
+    local function getColoredText(text, colorType)
+        if TitanUtils_GetColoredText then
+            local color = nil
+            if colorType == "highlight" then
+                color = TITAN_PANEL_HIGHLIGHT_COLOR or {r=1, g=1, b=0.2}
+            else
+                color = TITAN_PANEL_TEXT_COLOR or {r=1, g=1, b=1}
+            end
+            return TitanUtils_GetColoredText(text, color)
+        elseif TitanPanelUtils and TitanPanelUtils.GetColoredText then
+            local color = colorType == "highlight" and {r=1, g=1, b=0.2} or {r=1, g=1, b=1}
+            return TitanPanelUtils:GetColoredText(text, color)
+        else
+            -- Fallback to manual color codes
+            local colorCode = colorType == "highlight" and "|cFFFFFF33" or "|cFFFFFFFF"
+            return colorCode .. text .. "|r"
+        end
+    end
 
     -- Header
-    table.insert(tooltip, TitanUtils_GetColoredText("Crosspaths Statistics", TITAN_PANEL_HIGHLIGHT_COLOR))
+    table.insert(tooltip, getColoredText("Crosspaths Statistics", "highlight"))
     table.insert(tooltip, " ")
 
     -- Basic stats
@@ -180,28 +244,28 @@ function TitanPanelCrosspathsButton_GetTooltipText()
     local encounterCount = Crosspaths:CountEncounters() or 0
     local guildCount = Crosspaths:CountGuilds() or 0
 
-    table.insert(tooltip, TitanUtils_GetColoredText("Total Players:", TITAN_PANEL_TEXT_COLOR) ..
-                 TitanUtils_GetColoredText(" " .. playerCount, TITAN_PANEL_HIGHLIGHT_COLOR))
-    table.insert(tooltip, TitanUtils_GetColoredText("Total Encounters:", TITAN_PANEL_TEXT_COLOR) ..
-                 TitanUtils_GetColoredText(" " .. encounterCount, TITAN_PANEL_HIGHLIGHT_COLOR))
-    table.insert(tooltip, TitanUtils_GetColoredText("Guilds Tracked:", TITAN_PANEL_TEXT_COLOR) ..
-                 TitanUtils_GetColoredText(" " .. guildCount, TITAN_PANEL_HIGHLIGHT_COLOR))
+    table.insert(tooltip, getColoredText("Total Players:", "normal") ..
+                 getColoredText(" " .. playerCount, "highlight"))
+    table.insert(tooltip, getColoredText("Total Encounters:", "normal") ..
+                 getColoredText(" " .. encounterCount, "highlight"))
+    table.insert(tooltip, getColoredText("Guilds Tracked:", "normal") ..
+                 getColoredText(" " .. guildCount, "highlight"))
 
     -- Session stats
     if Crosspaths.Engine then
         local sessionStats = Crosspaths.Engine:GetSessionStats()
         if sessionStats then
             table.insert(tooltip, " ")
-            table.insert(tooltip, TitanUtils_GetColoredText("Session Statistics:", TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("New Players:", TITAN_PANEL_TEXT_COLOR) ..
-                         TitanUtils_GetColoredText(" " .. (sessionStats.newPlayersThisSession or 0), TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("Encounters:", TITAN_PANEL_TEXT_COLOR) ..
-                         TitanUtils_GetColoredText(" " .. (sessionStats.encountersThisSession or 0), TITAN_PANEL_HIGHLIGHT_COLOR))
+            table.insert(tooltip, getColoredText("Session Statistics:", "highlight"))
+            table.insert(tooltip, getColoredText("New Players:", "normal") ..
+                         getColoredText(" " .. (sessionStats.newPlayersThisSession or 0), "highlight"))
+            table.insert(tooltip, getColoredText("Encounters:", "normal") ..
+                         getColoredText(" " .. (sessionStats.encountersThisSession or 0), "highlight"))
 
             if sessionStats.sessionDuration and sessionStats.sessionDuration > 0 then
                 local duration = math.floor(sessionStats.sessionDuration / 60)
-                table.insert(tooltip, TitanUtils_GetColoredText("Session Time:", TITAN_PANEL_TEXT_COLOR) ..
-                             TitanUtils_GetColoredText(" " .. duration .. " minutes", TITAN_PANEL_HIGHLIGHT_COLOR))
+                table.insert(tooltip, getColoredText("Session Time:", "normal") ..
+                             getColoredText(" " .. duration .. " minutes", "highlight"))
             end
         end
     end
@@ -211,72 +275,134 @@ function TitanPanelCrosspathsButton_GetTooltipText()
         local recentActivity = Crosspaths.Engine:GetRecentActivity()
         if recentActivity and recentActivity.last24Hours then
             table.insert(tooltip, " ")
-            table.insert(tooltip, TitanUtils_GetColoredText("Recent Activity (24h):", TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("Players:", TITAN_PANEL_TEXT_COLOR) ..
-                         TitanUtils_GetColoredText(" " .. recentActivity.last24Hours.players, TITAN_PANEL_HIGHLIGHT_COLOR))
-            table.insert(tooltip, TitanUtils_GetColoredText("Encounters:", TITAN_PANEL_TEXT_COLOR) ..
-                         TitanUtils_GetColoredText(" " .. recentActivity.last24Hours.encounters, TITAN_PANEL_HIGHLIGHT_COLOR))
+            table.insert(tooltip, getColoredText("Recent Activity (24h):", "highlight"))
+            table.insert(tooltip, getColoredText("Players:", "normal") ..
+                         getColoredText(" " .. recentActivity.last24Hours.players, "highlight"))
+            table.insert(tooltip, getColoredText("Encounters:", "normal") ..
+                         getColoredText(" " .. recentActivity.last24Hours.encounters, "highlight"))
         end
     end
 
     -- Instructions
     table.insert(tooltip, " ")
-    table.insert(tooltip, TitanUtils_GetColoredText("Left Click:", TITAN_PANEL_HIGHLIGHT_COLOR) ..
-                 TitanUtils_GetColoredText(" Open Crosspaths", TITAN_PANEL_TEXT_COLOR))
-    table.insert(tooltip, TitanUtils_GetColoredText("Right Click:", TITAN_PANEL_HIGHLIGHT_COLOR) ..
-                 TitanUtils_GetColoredText(" Plugin Options", TITAN_PANEL_TEXT_COLOR))
+    table.insert(tooltip, getColoredText("Left Click:", "highlight") ..
+                 getColoredText(" Open Crosspaths", "normal"))
+    table.insert(tooltip, getColoredText("Right Click:", "highlight") ..
+                 getColoredText(" Plugin Options", "normal"))
 
     return table.concat(tooltip, "\n")
 end
 
 -- Handle left click on Titan Panel button
 function TitanPanelCrosspathsButton_OnClick(self, button)
+    if not button then
+        button = "LeftButton" -- Default for compatibility
+    end
+    
     if button == "LeftButton" then
-        if Crosspaths.UI then
-            Crosspaths.UI:Toggle()
+        if Crosspaths and Crosspaths.UI then
+            local success, error = pcall(function()
+                Crosspaths.UI:Toggle()
+            end)
+            if not success then
+                Crosspaths:DebugLog("Failed to toggle Crosspaths UI from TitanPanel: " .. tostring(error), "ERROR")
+            end
+        else
+            Crosspaths:DebugLog("Crosspaths UI not available for TitanPanel click", "WARN")
         end
     else
-        TitanPanelButton_OnClick(self, button)
+        -- Handle right-click and other buttons
+        if TitanPanelButton_OnClick then
+            local success, error = pcall(TitanPanelButton_OnClick, self, button)
+            if not success then
+                Crosspaths:DebugLog("TitanPanel right-click handler failed: " .. tostring(error), "WARN")
+            end
+        elseif TitanPanel_OnClick then
+            local success, error = pcall(TitanPanel_OnClick, self, button)
+            if not success then
+                Crosspaths:DebugLog("TitanPanel legacy click handler failed: " .. tostring(error), "WARN")
+            end
+        end
     end
 end
 
 -- Right-click menu for Titan Panel
 function TitanPanelRightClickMenu_PrepareCrosspathsMenu()
     local info = {}
+    
+    -- Helper function to safely get Titan variables with fallback
+    local function getTitanVar(id, setting)
+        if TitanGetVar then
+            return TitanGetVar(id, setting)
+        elseif TitanPanelGetVar then
+            return TitanPanelGetVar(id, setting)
+        else
+            -- Fallback to savedVariables defaults
+            if setting == "ShowPlayers" then return 1 end
+            if setting == "ShowEncounters" then return 1 end
+            return 0
+        end
+    end
+    
+    -- Helper function to safely toggle Titan variables
+    local function toggleTitanVar(id, setting)
+        if TitanToggleVar then
+            TitanToggleVar(id, setting)
+        elseif TitanPanelToggleVar then
+            TitanPanelToggleVar(id, setting)
+        else
+            -- Fallback: manual toggle (this is basic, real implementation would persist to savedvars)
+            Crosspaths:DebugLog("TitanPanel toggle function not available, using fallback", "WARN")
+        end
+    end
+    
+    -- Helper function to safely update button
+    local function updateButton(id)
+        if TitanPanelButton_UpdateButton then
+            TitanPanelButton_UpdateButton(id)
+        elseif TitanPanel_UpdateButton then
+            TitanPanel_UpdateButton(id)
+        else
+            Crosspaths:DebugLog("TitanPanel update function not available", "WARN")
+        end
+    end
 
     -- Show players option
     info.text = "Show Player Count"
-    info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowPlayers") == 1
+    info.checked = getTitanVar(TITAN_CROSSPATHS_ID, "ShowPlayers") == 1
     info.func = function()
-        TitanToggleVar(TITAN_CROSSPATHS_ID, "ShowPlayers")
-        TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
+        toggleTitanVar(TITAN_CROSSPATHS_ID, "ShowPlayers")
+        updateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
 
     -- Show encounters option
+    info = {} -- Reset info table
     info.text = "Show Encounter Count"
-    info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowEncounters") == 1
+    info.checked = getTitanVar(TITAN_CROSSPATHS_ID, "ShowEncounters") == 1
     info.func = function()
-        TitanToggleVar(TITAN_CROSSPATHS_ID, "ShowEncounters")
-        TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
+        toggleTitanVar(TITAN_CROSSPATHS_ID, "ShowEncounters")
+        updateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
 
     -- Show guilds option
+    info = {} -- Reset info table
     info.text = "Show Guild Count"
-    info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowGuilds") == 1
+    info.checked = getTitanVar(TITAN_CROSSPATHS_ID, "ShowGuilds") == 1
     info.func = function()
-        TitanToggleVar(TITAN_CROSSPATHS_ID, "ShowGuilds")
-        TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
+        toggleTitanVar(TITAN_CROSSPATHS_ID, "ShowGuilds")
+        updateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
 
     -- Show session option
+    info = {} -- Reset info table
     info.text = "Show Session Stats"
-    info.checked = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowSession") == 1
+    info.checked = getTitanVar(TITAN_CROSSPATHS_ID, "ShowSession") == 1
     info.func = function()
-        TitanToggleVar(TITAN_CROSSPATHS_ID, "ShowSession")
-        TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
+        toggleTitanVar(TITAN_CROSSPATHS_ID, "ShowSession")
+        updateButton(TITAN_CROSSPATHS_ID)
     end
     UIDropDownMenu_AddButton(info)
 
@@ -345,7 +471,10 @@ end
 
 -- Update button periodically
 function TitanPanel:StartUpdateTimer()
-    if not TitanPanelUtils then
+    -- Only start timer if TitanPanel is available and we have an update function
+    local updateFunc = TitanPanelButton_UpdateButton or TitanPanel_UpdateButton
+    if not updateFunc then
+        Crosspaths:DebugLog("No TitanPanel update function available, skipping timer", "DEBUG")
         return
     end
 
@@ -353,16 +482,47 @@ function TitanPanel:StartUpdateTimer()
         self.updateTimer:Cancel()
     end
 
-    self.updateTimer = C_Timer.NewTicker(TITAN_CROSSPATHS_FREQUENCY, function()
-        TitanPanelButton_UpdateButton(TITAN_CROSSPATHS_ID)
-    end)
+    -- Use C_Timer if available (modern WoW), otherwise fallback to manual scheduling
+    if C_Timer and C_Timer.NewTicker then
+        self.updateTimer = C_Timer.NewTicker(TITAN_CROSSPATHS_FREQUENCY, function()
+            local success, error = pcall(updateFunc, TITAN_CROSSPATHS_ID)
+            if not success then
+                Crosspaths:DebugLog("TitanPanel update failed: " .. tostring(error), "WARN")
+            end
+        end)
+        Crosspaths:DebugLog("TitanPanel update timer started with C_Timer", "DEBUG")
+    else
+        -- Legacy timer fallback for older WoW versions
+        local frame = CreateFrame("Frame")
+        frame.elapsed = 0
+        frame.frequency = TITAN_CROSSPATHS_FREQUENCY
+        frame:SetScript("OnUpdate", function(self, elapsed)
+            self.elapsed = self.elapsed + elapsed
+            if self.elapsed >= self.frequency then
+                self.elapsed = 0
+                local success, error = pcall(updateFunc, TITAN_CROSSPATHS_ID)
+                if not success then
+                    Crosspaths:DebugLog("TitanPanel update failed: " .. tostring(error), "WARN")
+                end
+            end
+        end)
+        self.updateTimer = frame
+        Crosspaths:DebugLog("TitanPanel update timer started with legacy method", "DEBUG")
+    end
 end
 
 -- Stop update timer
 function TitanPanel:StopUpdateTimer()
     if self.updateTimer then
-        self.updateTimer:Cancel()
+        if type(self.updateTimer.Cancel) == "function" then
+            -- Modern C_Timer
+            self.updateTimer:Cancel()
+        elseif type(self.updateTimer.SetScript) == "function" then
+            -- Legacy frame-based timer
+            self.updateTimer:SetScript("OnUpdate", nil)
+        end
         self.updateTimer = nil
+        Crosspaths:DebugLog("TitanPanel update timer stopped", "DEBUG")
     end
 end
 

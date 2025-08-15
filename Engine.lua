@@ -16,10 +16,16 @@ function Engine:Initialize()
         cacheTimeout = 30, -- 30 seconds
     }
 
-    -- Start update loop for cache refresh
+    -- Auto cleanup tracking
+    self.autoCleanup = {
+        lastCleanup = 0,
+        interval = 3600, -- 1 hour between cleanups
+    }
+
+    -- Start update loop for cache refresh and auto cleanup
     self:StartUpdateLoop()
 
-    Crosspaths:DebugLog("Engine initialized", "INFO")
+    Crosspaths:DebugLog("Engine initialized with auto cleanup", "INFO")
 end
 
 -- Start update loop
@@ -30,6 +36,7 @@ function Engine:StartUpdateLoop()
 
     self.updateTimer = C_Timer.NewTicker(30, function()
         self:RefreshCache()
+        self:PerformAutoCleanup()
     end)
 end
 
@@ -58,6 +65,30 @@ function Engine:RefreshCache()
         self:CheckDigestSchedule()
 
         Crosspaths:DebugLog("Engine cache refreshed", "DEBUG")
+    end)
+end
+
+-- Perform automatic data cleanup if enabled and due
+function Engine:PerformAutoCleanup()
+    -- Check if auto cleanup is enabled
+    if not Crosspaths.db or not Crosspaths.db.settings or not Crosspaths.db.settings.autoCleanup then
+        return
+    end
+
+    local now = time()
+    if now - self.autoCleanup.lastCleanup < self.autoCleanup.interval then
+        return
+    end
+
+    Crosspaths:DebugLog("Starting automatic data cleanup", "INFO")
+    
+    Crosspaths:SafeCall(function()
+        local stats = self:ValidateAndCleanData()
+        self.autoCleanup.lastCleanup = now
+        
+        if stats.totalCleaned > 0 then
+            Crosspaths:DebugLog(string.format("Auto cleanup completed: %d items cleaned", stats.totalCleaned), "INFO")
+        end
     end)
 end
 
