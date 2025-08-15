@@ -21,17 +21,24 @@ Crosspaths is a lightweight, extensible World of Warcraft addon that passively t
 - See most encountered guilds and their members
 - Analyze zone-based activity patterns
 - Track repeat encounters and group partnerships
+- **Advanced analytics**: activity patterns, social networks, progression trends
+- **Quest line analysis**: detect players following similar routes and zone progression
+- **Role-based statistics**: top tanks, healers, DPS by performance metrics
 
-### 🔔 Smart Notifications
+### 🔔 Smart Notifications & Reports
 - Get notified when encountering frequent players
 - Alerts for previous group members
 - Customizable notification thresholds
+- **Automated digest reports** - daily, weekly, and monthly summaries of your social activity
+- **Do Not Disturb mode** - disable notifications during combat
 
 ### 💾 Data Management
 - Local data storage (respects Blizzard's social contract)
 - Export capabilities (JSON/CSV)
 - Automatic data pruning options
 - Cross-character compatibility
+- **Data cleanup tools**: remove duplicates, validate encounters, detect invalid data
+- **Smart deduplication**: handles dungeons, raids, cinematics, and phased content
 
 ## Installation
 
@@ -57,6 +64,8 @@ Available on [CurseForge](https://www.curseforge.com/wow/addons/crosspaths-socia
 - `/crosspaths stats` - Display summary statistics
 - `/crosspaths search <name>` - Search for specific players
 - `/crosspaths export [json|csv]` - Export your data
+- `/crosspaths analytics [activity|social|progression|questlines|similar <player>|zone <zone>]` - Advanced analytics
+- `/crosspaths digest [daily|weekly|monthly]` - Generate digest reports  
 - `/crosspaths minimap` - Toggle minimap button visibility
 - `/cpconfig` - Open configuration panel
 
@@ -65,15 +74,17 @@ The main interface features multiple tabs:
 - **Summary** - Overview statistics and top players
 - **Players** - Detailed player list with search
 - **Guilds** - Guild encounter statistics  
+- **Advanced** - Role-based analytics, item levels, and achievement leaders
 - **Encounters** - Zone and context analysis
 
 ## Configuration
 
 Access configuration via `/cpconfig` or the main interface. Customize:
 
-- **Tracking Settings** - What types of encounters to track
-- **Notifications** - When and how to be notified
-- **Data Management** - Pruning and storage options
+- **Tracking Settings** - What types of encounters to track (groups, nameplates, mouseover, targeting, combat)
+- **Notifications** - When and how to be notified (repeat encounters, frequent players, group members)
+- **Digest Reports** - Configure automated daily, weekly, and monthly activity summaries  
+- **Data Management** - Pruning and storage options, cleanup settings
 - **UI Settings** - Interface appearance and behavior
 
 ## Privacy & Data
@@ -135,6 +146,17 @@ Crosspaths only tracks what it can detect through the WoW API. Some limitations:
 - Players must be within detection range (nameplates, interaction range)
 - Some player information (class, level) may only be available when grouped
 - Cross-realm players are tracked with their full "Name-Realm" identifier
+
+Advanced analytics like quest line detection and social network analysis become more accurate with larger datasets over time.
+
+### What analytics and reports are available?
+Crosspaths offers comprehensive analytics through the Advanced tab and `/crosspaths analytics` commands:
+- **Activity patterns**: when and where you encounter the most players
+- **Social networks**: identify frequent group partners and social connections  
+- **Role-based stats**: top tanks, healers, DPS by item level and achievements
+- **Quest line analysis**: find players following similar leveling or content routes
+- **Zone progression**: understand player movement patterns between areas
+- **Digest reports**: automated daily, weekly, monthly summaries of your social activity
 
 ## License
 
