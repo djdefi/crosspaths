@@ -60,34 +60,41 @@ local titanPluginInfo = {
 
 -- Initialize Titan Panel plugin
 function TitanPanel:Initialize()
-    if not TitanPanelUtils then
-        Crosspaths:DebugLog("TitanPanelUtils not available, skipping integration", "INFO")
+    -- Check for TitanPanel availability with multiple detection methods
+    if not (TitanPanelUtils or TitanUtils_RegisterPlugin or _G["Titan"]) then
+        Crosspaths:DebugLog("TitanPanel not detected - no TitanPanel globals found", "INFO")
         Crosspaths:Message("TitanPanel addon not detected - install TitanPanel for toolbar integration")
         return false
     end
 
-    -- Check for the correct registration function
+    -- Check for the correct registration function with broader compatibility
     local registerFunc = nil
     if TitanPanelUtils and TitanPanelUtils.RegisterPlugin then
-        registerFunc = TitanPanelUtils.RegisterPlugin
+        registerFunc = function(info) TitanPanelUtils:RegisterPlugin(info) end
+        Crosspaths:DebugLog("Using TitanPanelUtils:RegisterPlugin method", "INFO")
     elseif TitanUtils_RegisterPlugin then
         registerFunc = TitanUtils_RegisterPlugin
+        Crosspaths:DebugLog("Using TitanUtils_RegisterPlugin method", "INFO")
+    elseif TitanPanelUtils and TitanPanelUtils.AddButton then
+        registerFunc = function(info) TitanPanelUtils:AddButton(info) end
+        Crosspaths:DebugLog("Using TitanPanelUtils:AddButton method", "INFO")
     end
     
     if not registerFunc then
-        Crosspaths:DebugLog("TitanPanel registration function not found", "ERROR")
+        Crosspaths:DebugLog("TitanPanel registration function not found - checking available functions", "ERROR")
+        if TitanPanelUtils then
+            for key, value in pairs(TitanPanelUtils) do
+                if type(value) == "function" and (string.find(key, "Register") or string.find(key, "Add")) then
+                    Crosspaths:DebugLog("Available TitanPanelUtils function: " .. key, "DEBUG")
+                end
+            end
+        end
         Crosspaths:Message("TitanPanel integration failed - unsupported TitanPanel version")
         return false
     end
 
     -- Try to register the plugin
-    local success, error = pcall(function()
-        if TitanPanelUtils and TitanPanelUtils.RegisterPlugin then
-            TitanPanelUtils:RegisterPlugin(titanPluginInfo)
-        else
-            TitanUtils_RegisterPlugin(titanPluginInfo)
-        end
-    end)
+    local success, error = pcall(registerFunc, titanPluginInfo)
     if not success then
         Crosspaths:DebugLog("TitanPanel registration failed: " .. tostring(error), "ERROR")
         Crosspaths:Message("TitanPanel integration failed: " .. tostring(error))
@@ -102,32 +109,59 @@ end
 -- Get button text for Titan Panel
 function TitanPanelCrosspathsButton_GetButtonText(id)
     local text = ""
-    local settings = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowPlayers")
-    local showEncounters = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowEncounters")
-    local showGuilds = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowGuilds")
-    local showSession = TitanGetVar(TITAN_CROSSPATHS_ID, "ShowSession")
+    
+    -- Try to get settings with fallback for API compatibility
+    local function getTitanVar(id, setting)
+        if TitanGetVar then
+            return TitanGetVar(id, setting)
+        elseif TitanPanelGetVar then
+            return TitanPanelGetVar(id, setting)
+        else
+            -- Fallback defaults
+            if setting == "ShowPlayers" then return 1 end
+            if setting == "ShowEncounters" then return 1 end
+            return 0
+        end
+    end
+    
+    -- Try to get colored text with fallback for API compatibility
+    local function getColoredText(textValue, color)
+        if TitanUtils_GetColoredText and TITAN_PANEL_TEXT_COLOR then
+            return TitanUtils_GetColoredText(textValue, TITAN_PANEL_TEXT_COLOR)
+        elseif TitanPanelUtils and TitanPanelUtils.GetColoredText then
+            return TitanPanelUtils:GetColoredText(textValue, {r=1, g=1, b=1})
+        else
+            -- Fallback to simple white text
+            return "|cFFFFFFFF" .. textValue .. "|r"
+        end
+    end
+    
+    local settings = getTitanVar(TITAN_CROSSPATHS_ID, "ShowPlayers")
+    local showEncounters = getTitanVar(TITAN_CROSSPATHS_ID, "ShowEncounters")
+    local showGuilds = getTitanVar(TITAN_CROSSPATHS_ID, "ShowGuilds")
+    local showSession = getTitanVar(TITAN_CROSSPATHS_ID, "ShowSession")
 
     local stats = {}
 
     if settings and settings == 1 then
         local playerCount = Crosspaths:CountPlayers() or 0
-        table.insert(stats, TitanUtils_GetColoredText("Players: " .. playerCount, TITAN_PANEL_TEXT_COLOR))
+        table.insert(stats, getColoredText("Players: " .. playerCount))
     end
 
     if showEncounters and showEncounters == 1 then
         local encounterCount = Crosspaths:CountEncounters() or 0
-        table.insert(stats, TitanUtils_GetColoredText("Encounters: " .. encounterCount, TITAN_PANEL_TEXT_COLOR))
+        table.insert(stats, getColoredText("Encounters: " .. encounterCount))
     end
 
     if showGuilds and showGuilds == 1 then
         local guildCount = Crosspaths:CountGuilds() or 0
-        table.insert(stats, TitanUtils_GetColoredText("Guilds: " .. guildCount, TITAN_PANEL_TEXT_COLOR))
+        table.insert(stats, getColoredText("Guilds: " .. guildCount))
     end
 
     if showSession and showSession == 1 then
         local sessionStats = Crosspaths.Engine and Crosspaths.Engine:GetSessionStats() or {}
         local sessionEncounters = sessionStats.encountersThisSession or 0
-        table.insert(stats, TitanUtils_GetColoredText("Session: " .. sessionEncounters, TITAN_PANEL_TEXT_COLOR))
+        table.insert(stats, getColoredText("Session: " .. sessionEncounters))
     end
 
     return table.concat(stats, " | ")

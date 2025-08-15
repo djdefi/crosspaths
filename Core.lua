@@ -5,7 +5,7 @@ local addonName, Crosspaths = ...
 
 -- Create the main addon object
 Crosspaths = Crosspaths or {}
-Crosspaths.version = "0.1.15"
+Crosspaths.version = "0.1.16"
 Crosspaths.debug = false
 
 -- Default settings
@@ -114,6 +114,94 @@ function Crosspaths:OnVersionUpgrade(oldVersion, newVersion)
     else
         self:Message("Crosspaths v" .. newVersion .. " - First time installation")
     end
+    
+    -- Clean up self-encounters for versions before 0.1.16
+    if not oldVersion or self:CompareVersions(oldVersion, "0.1.16") < 0 then
+        self:CleanupSelfEncounters()
+        
+        -- Also run comprehensive data cleanup for major version upgrades
+        if self.Engine and self.Engine.ValidateAndCleanData then
+            local stats = self.Engine:ValidateAndCleanData()
+            if stats.totalCleaned > 0 then
+                self:DebugLog(string.format("Version upgrade data cleanup: %d items cleaned", stats.totalCleaned), "INFO")
+            end
+        end
+    end
+end
+
+-- Remove self-encounters from existing data
+function Crosspaths:CleanupSelfEncounters()
+    if not self.db or not self.db.players then
+        return
+    end
+    
+    local currentPlayerName = UnitName("player")
+    local currentPlayerRealm = GetRealmName()
+    
+    if not currentPlayerName or not currentPlayerRealm then
+        self:DebugLog("Cannot clean up self-encounters: player info not available", "WARN")
+        return
+    end
+    
+    local playerFullName = currentPlayerName .. "-" .. currentPlayerRealm
+    local removedCount = 0
+    local removedEncounters = 0
+    
+    -- Check for self-entry using full name format
+    if self.db.players[playerFullName] then
+        removedEncounters = self.db.players[playerFullName].count or 0
+        self.db.players[playerFullName] = nil
+        removedCount = removedCount + 1
+        self:DebugLog("Removed self-encounter data for: " .. playerFullName .. " (" .. removedEncounters .. " encounters)", "INFO")
+    end
+    
+    -- Check for self-entry using name-only format
+    if self.db.players[currentPlayerName] then
+        local nameOnlyEncounters = self.db.players[currentPlayerName].count or 0
+        removedEncounters = removedEncounters + nameOnlyEncounters
+        self.db.players[currentPlayerName] = nil
+        removedCount = removedCount + 1
+        self:DebugLog("Removed self-encounter data for: " .. currentPlayerName .. " (" .. nameOnlyEncounters .. " encounters)", "INFO")
+    end
+    
+    if removedCount > 0 then
+        self:Message("Cleaned up " .. removedCount .. " self-encounter entries (" .. removedEncounters .. " total encounters)")
+        self:DebugLog("Self-encounter cleanup completed: removed " .. removedCount .. " entries with " .. removedEncounters .. " total encounters", "INFO")
+    else
+        self:DebugLog("No self-encounter data found to clean up", "DEBUG")
+    end
+end
+
+-- Compare version strings (returns -1, 0, or 1)
+function Crosspaths:CompareVersions(version1, version2)
+    if not version1 then return -1 end
+    if not version2 then return 1 end
+    
+    local function parseVersion(v)
+        local parts = {}
+        for part in string.gmatch(v, "([^%.]+)") do
+            table.insert(parts, tonumber(part) or 0)
+        end
+        return parts
+    end
+    
+    local v1Parts = parseVersion(version1)
+    local v2Parts = parseVersion(version2)
+    
+    local maxParts = math.max(#v1Parts, #v2Parts)
+    
+    for i = 1, maxParts do
+        local v1Part = v1Parts[i] or 0
+        local v2Part = v2Parts[i] or 0
+        
+        if v1Part < v2Part then
+            return -1
+        elseif v1Part > v2Part then
+            return 1
+        end
+    end
+    
+    return 0
 end
 
 -- Count players for diagnostics
@@ -188,14 +276,65 @@ end
 
 -- Get encounter context
 function Crosspaths:GetEncounterContext()
+    -- Check for cinematics first (highest priority to prevent inflation)
+    if InCinematic and InCinematic() then
+        return "cinematic"
+    end
+    
+    -- Check for loading screens
+    if IsPlayerMoving and not IsPlayerMoving() and GetTime and GetTime() < 5 then
+        -- Likely just loaded in, avoid tracking for first 5 seconds
+        return "loading"
+    end
+    
+    -- Check for phase transitions (if available in API)
+    if UnitInPhase and not UnitInPhase("player", "player") then
+        return "phase"
+    end
+    
+    -- Check for group contexts with enhanced instance detection
     if IsInGroup() then
         if IsInRaid() then
-            return "raid"
+            -- Differentiate raid types for better deduplication
+            if IsInInstance() then
+                local instanceName, instanceType = GetInstanceInfo()
+                if instanceType == "raid" then
+                    return "raid_instance"
+                elseif instanceType == "party" then
+                    return "raid_dungeon" -- Large group in dungeon (unusual)
+                else
+                    return "raid_other"
+                end
+            else
+                return "raid_world"
+            end
         else
-            return "party"
+            -- Party contexts
+            if IsInInstance() then
+                local instanceName, instanceType = GetInstanceInfo()
+                if instanceType == "party" then
+                    return "party_dungeon"
+                elseif instanceType == "scenario" then
+                    return "party_scenario"
+                else
+                    return "party_instance"
+                end
+            else
+                return "party_world"
+            end
         end
     elseif IsInInstance() then
-        return "instance"
+        -- Solo instance contexts
+        local instanceName, instanceType = GetInstanceInfo()
+        if instanceType == "scenario" then
+            return "solo_scenario"
+        elseif instanceType == "party" then
+            return "solo_dungeon" -- Solo in dungeon
+        elseif instanceType == "raid" then
+            return "solo_raid" -- Solo in raid
+        else
+            return "instance"
+        end
     else
         return "world"
     end
