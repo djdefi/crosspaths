@@ -6,6 +6,55 @@ local addonName, Crosspaths = ...
 Crosspaths.Tracker = {}
 local Tracker = Crosspaths.Tracker
 
+-- Check if a unit is an NPC/AI character (such as from follower dungeons)
+function Tracker:IsNPCorAICharacter(unitToken)
+    -- Check if NPC filtering is disabled in settings
+    if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.tracking then
+        if Crosspaths.db.settings.tracking.filterNPCs == false then
+            return false -- Skip filtering if user disabled it
+        end
+    end
+    
+    if not unitToken or not UnitExists(unitToken) then
+        return true -- Treat invalid units as NPCs for safety
+    end
+
+    -- Check GUID prefix - most reliable method
+    local guid = UnitGUID(unitToken)
+    if guid then
+        -- Player GUIDs start with "Player-", NPCs start with "Creature-", "Pet-", "Vehicle-", etc.
+        local guidType = string.match(guid, "^([^-]+)-")
+        if guidType and guidType ~= "Player" then
+            Crosspaths:DebugLog("Detected non-player GUID type: " .. guidType .. " for unit: " .. tostring(unitToken), "DEBUG")
+            return true
+        end
+    end
+
+    -- Check if unit is connected (NPCs are typically not "connected")
+    -- This helps catch AI companions and follower dungeon NPCs
+    if not UnitIsConnected(unitToken) then
+        Crosspaths:DebugLog("Unit is not connected (likely NPC/AI): " .. tostring(unitToken), "DEBUG")
+        return true
+    end
+
+    -- Additional checks for follower dungeon AI characteristics
+    -- Check if unit has player-like behavior but suspicious characteristics
+    local unitFlags = UnitPVPName(unitToken) -- This might be different for AI characters
+    if unitFlags and string.find(unitFlags, "AI") then
+        Crosspaths:DebugLog("Detected AI marker in unit name: " .. tostring(unitToken), "DEBUG")
+        return true
+    end
+
+    -- Check creature type - should be nil for real players
+    local creatureType = UnitCreatureType(unitToken)
+    if creatureType and creatureType ~= "" then
+        Crosspaths:DebugLog("Unit has creature type (not a player): " .. creatureType .. " for unit: " .. tostring(unitToken), "DEBUG")
+        return true
+    end
+
+    return false -- Appears to be a real player
+end
+
 -- Initialize tracker
 function Tracker:Initialize()
     Crosspaths:DebugLog("Initializing Tracker module...", "INFO")
@@ -169,6 +218,12 @@ function Tracker:HandleNameplateAdded(unitToken)
         return
     end
 
+    -- Check if this is an NPC/AI character (e.g., follower dungeon AI)
+    if self:IsNPCorAICharacter(unitToken) then
+        Crosspaths:DebugLog("Unit is NPC/AI character, ignoring: " .. tostring(unitToken), "DEBUG")
+        return
+    end
+
     -- Additional validation: check if unit is actually visible and interactable
     if UnitIsDead(unitToken) and not UnitIsGhost(unitToken) then
         Crosspaths:DebugLog("Unit is dead (not ghost), skipping: " .. tostring(unitToken), "DEBUG")
@@ -312,6 +367,11 @@ function Tracker:HandleMouseoverUnit()
         return
     end
 
+    -- Check if this is an NPC/AI character
+    if self:IsNPCorAICharacter(unit) then
+        return
+    end
+
     local name, realm = UnitNameUnmodified(unit)
     if not name or name == "" then
         return
@@ -342,6 +402,11 @@ function Tracker:HandleTargetChanged()
         return
     end
 
+    -- Check if this is an NPC/AI character
+    if self:IsNPCorAICharacter(unit) then
+        return
+    end
+
     local name, realm = UnitNameUnmodified(unit)
     if not name or name == "" then
         return
@@ -360,6 +425,11 @@ function Tracker:HandleFocusChanged()
 
     local unit = "focus"
     if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then
+        return
+    end
+
+    -- Check if this is an NPC/AI character
+    if self:IsNPCorAICharacter(unit) then
         return
     end
 
