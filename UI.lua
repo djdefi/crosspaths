@@ -1483,10 +1483,16 @@ end
 
 -- Hook into game tooltips to show encounter data
 function UI:HookGameTooltips()
-    -- Hook GameTooltip for unit tooltips (nameplates, target frames, etc.)
-    GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip)
-        self:AddEncounterInfoToTooltip(tooltip)
-    end)
+    -- Check if GameTooltip has the OnTooltipSetUnit script before hooking
+    if GameTooltip:HasScript("OnTooltipSetUnit") then
+        -- Hook GameTooltip for unit tooltips (nameplates, target frames, etc.)
+        GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip)
+            self:AddEncounterInfoToTooltip(tooltip)
+        end)
+        Crosspaths:DebugLog("GameTooltip OnTooltipSetUnit hook registered successfully", "DEBUG")
+    else
+        Crosspaths:DebugLog("GameTooltip does not have OnTooltipSetUnit script - tooltip integration disabled", "WARN")
+    end
 end
 
 -- Add encounter information to game tooltips
