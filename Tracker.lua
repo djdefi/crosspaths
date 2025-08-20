@@ -19,29 +19,10 @@ function Tracker:IsNPCorAICharacter(unitToken)
         return true -- Treat invalid units as NPCs for safety
     end
 
-    -- Check GUID prefix - most reliable method
-    local guid = UnitGUID(unitToken)
-    if guid then
-        -- Player GUIDs start with "Player-", NPCs start with "Creature-", "Pet-", "Vehicle-", etc.
-        local guidType = string.match(guid, "^([^-]+)-")
-        if guidType and guidType ~= "Player" then
-            Crosspaths:DebugLog("Detected non-player GUID type: " .. guidType .. " for unit: " .. tostring(unitToken), "DEBUG")
-            return true
-        end
-    end
-
-    -- Check if unit is connected (NPCs are typically not "connected")
-    -- This helps catch AI companions and follower dungeon NPCs
+    -- Primary check: Connection status
+    -- Real players are connected, NPCs and AI companions typically are not
     if not UnitIsConnected(unitToken) then
         Crosspaths:DebugLog("Unit is not connected (likely NPC/AI): " .. tostring(unitToken), "DEBUG")
-        return true
-    end
-
-    -- Additional checks for follower dungeon AI characteristics
-    -- Check if unit has player-like behavior but suspicious characteristics
-    local unitFlags = UnitPVPName(unitToken) -- This might be different for AI characters
-    if unitFlags and string.find(unitFlags, "AI") then
-        Crosspaths:DebugLog("Detected AI marker in unit name: " .. tostring(unitToken), "DEBUG")
         return true
     end
 
@@ -50,6 +31,41 @@ function Tracker:IsNPCorAICharacter(unitToken)
     if creatureType and creatureType ~= "" then
         Crosspaths:DebugLog("Unit has creature type (not a player): " .. creatureType .. " for unit: " .. tostring(unitToken), "DEBUG")
         return true
+    end
+
+    -- Guild-based detection (suggested by user feedback)
+    -- Follower dungeon NPCs often have suspicious or missing guild info
+    local guildName = GetGuildInfo(unitToken)
+    if guildName then
+        -- Check for typical NPC guild markers or patterns
+        local suspiciousGuildNames = {
+            "AI", "Bot", "NPC", "Companion", "Follower", "Computer"
+        }
+        local guildLower = string.lower(guildName)
+        for _, suspicious in ipairs(suspiciousGuildNames) do
+            if string.find(guildLower, string.lower(suspicious)) then
+                Crosspaths:DebugLog("Detected suspicious guild name: " .. guildName .. " for unit: " .. tostring(unitToken), "DEBUG")
+                return true
+            end
+        end
+    end
+
+    -- Check for AI markers in unit name/flags
+    local unitFlags = UnitPVPName(unitToken)
+    if unitFlags and string.find(unitFlags, "AI") then
+        Crosspaths:DebugLog("Detected AI marker in unit name: " .. tostring(unitToken), "DEBUG")
+        return true
+    end
+
+    -- Secondary check: GUID prefix analysis
+    -- Note: Follower dungeon NPCs may have Player- GUIDs, so this is less reliable
+    local guid = UnitGUID(unitToken)
+    if guid then
+        local guidType = string.match(guid, "^([^-]+)-")
+        if guidType and guidType ~= "Player" then
+            Crosspaths:DebugLog("Detected non-player GUID type: " .. guidType .. " for unit: " .. tostring(unitToken), "DEBUG")
+            return true
+        end
     end
 
     return false -- Appears to be a real player

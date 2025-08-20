@@ -39,6 +39,8 @@ function MockWoW.setupMockAPI()
             return "Creature-0-1234-56789DEF" -- Mock NPC GUID
         elseif unit == "testai1" then  
             return "Vehicle-0-1234-56789GHI" -- Mock AI/Vehicle GUID
+        elseif unit == "testfollower1" then
+            return "Player-1234-56789XYZ" -- Follower dungeon NPCs may have Player GUIDs!
         else
             return "Player-1234-56789ABC" -- Default to player for existing tests
         end
@@ -46,7 +48,7 @@ function MockWoW.setupMockAPI()
 
     _G.UnitIsConnected = function(unit)
         -- NPCs and AI characters are not "connected" 
-        if unit == "testnpc1" or unit == "testai1" then
+        if unit == "testnpc1" or unit == "testai1" or unit == "testfollower1" then
             return false -- NPCs are not connected
         end
         return true -- Real players are connected
@@ -58,6 +60,8 @@ function MockWoW.setupMockAPI()
             return "Humanoid" -- NPCs have creature types
         elseif unit == "testai1" then
             return "Mechanical" -- AI might have different types
+        elseif unit == "testfollower1" then
+            return nil -- Follower dungeon NPCs might not have creature types
         end
         return nil -- Players don't have creature types
     end
@@ -68,6 +72,28 @@ function MockWoW.setupMockAPI()
             return "TestAI (AI)" -- Mock AI marker
         end
         return nil -- Normal for most units
+    end
+
+    -- Mock GetGuildInfo for guild-based NPC detection
+    _G.GetGuildInfo = function(unit)
+        -- Return suspicious guild names for test NPCs/AI
+        if unit == "testnpc1" then
+            return "NPC Guild", nil, nil, nil -- Suspicious guild name
+        elseif unit == "testai1" then
+            return "AI Companions", nil, nil, nil -- Suspicious guild name
+        elseif unit == "testfollower1" then
+            return "Follower Dungeon Bots", nil, nil, nil -- Suspicious guild name
+        end
+        return nil -- Most real players have no guild or normal guild names
+    end
+
+    -- Mock UnitExists for unit validation
+    _G.UnitExists = function(unit)
+        -- Return false for completely invalid units
+        if not unit or unit == "nonexistent" or unit == "" then
+            return false
+        end
+        return true -- Most units exist in our mock environment
     end
 end
 

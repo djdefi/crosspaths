@@ -62,26 +62,41 @@ echo ""
 echo "🚀 Running Engine function tests..."
 echo "-----------------------------------"
 
-# Make test file executable and run it
+# Make test files executable and run them
 chmod +x tests/test_engine.lua
+chmod +x tests/test_tracker.lua
 
-# Run the tests
+# Run the Engine tests
 if lua tests/test_engine.lua; then
     echo ""
-    echo "🎉 All tests completed successfully!"
-    echo "✅ Test coverage verification: PASSED"
-    echo ""
-    echo "📊 Test Summary:"
-    echo "  - Engine functions: ✓ Tested"
-    echo "  - Analytics functions: ✓ Tested"  
-    echo "  - Edge cases: ✓ Tested"
-    echo "  - Error handling: ✓ Tested"
-    echo ""
-    echo "🔧 Ready for continuous integration!"
-    exit 0
+    echo "🚀 Running Tracker function tests..."
+    echo "------------------------------------"
+    
+    # Run the Tracker tests
+    if lua tests/test_tracker.lua; then
+        echo ""
+        echo "🎉 All tests completed successfully!"
+        echo "✅ Test coverage verification: PASSED"
+        echo ""
+        echo "📊 Test Summary:"
+        echo "  - Engine functions: ✓ Tested"
+        echo "  - Tracker functions: ✓ Tested"
+        echo "  - NPC/AI detection: ✓ Tested"
+        echo "  - Analytics functions: ✓ Tested"  
+        echo "  - Edge cases: ✓ Tested"
+        echo "  - Error handling: ✓ Tested"
+        echo ""
+        echo "🔧 Ready for continuous integration!"
+        exit 0
+    else
+        echo ""
+        echo "❌ Tracker tests failed!"
+        echo "Please review the test output above and fix any issues."
+        exit 1
+    fi
 else
     echo ""
-    echo "❌ Tests failed!"
+    echo "❌ Engine tests failed!"
     echo "Please review the test output above and fix any issues."
     exit 1
 fi
