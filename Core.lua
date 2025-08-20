@@ -400,7 +400,6 @@ function Crosspaths:OnInitialize()
         if self.TitanPanel then
             local success = self.TitanPanel:Initialize()
             if success then
-                self.TitanPanel:StartUpdateTimer()
                 self:DebugLog("Titan Panel module initialized successfully")
             else
                 self:DebugLog("Titan Panel module initialization failed", "WARN")

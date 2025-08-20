@@ -4,6 +4,9 @@
 local addonName, Crosspaths = ...
 
 -- Check if Titan Panel is available and provide user feedback
+Crosspaths.TitanPanel = {}
+local TitanPanel = Crosspaths.TitanPanel
+
 if not TitanPanelUtils then
     -- Delay the check to ensure all addons are loaded
     local checkFrame = CreateFrame("Frame")
@@ -21,11 +24,8 @@ if not TitanPanelUtils then
     if Crosspaths then
         Crosspaths:DebugLog("TitanPanel not detected during load - will check again when addons load", "INFO")
     end
-    return
+    -- Don't return - still create the TitanPanel object
 end
-
-Crosspaths.TitanPanel = {}
-local TitanPanel = Crosspaths.TitanPanel
 
 local TITAN_CROSSPATHS_ID = "Crosspaths"
 local TITAN_CROSSPATHS_FREQUENCY = 30 -- Update every 30 seconds
