@@ -1483,15 +1483,19 @@ end
 
 -- Hook into game tooltips to show encounter data
 function UI:HookGameTooltips()
-    -- Check if GameTooltip has the OnTooltipSetUnit script before hooking
-    if GameTooltip:HasScript("OnTooltipSetUnit") then
-        -- Hook GameTooltip for unit tooltips (nameplates, target frames, etc.)
-        GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip)
-            self:AddEncounterInfoToTooltip(tooltip)
+    -- Use documented WoW APIs for tooltip integration
+    -- Hook the OnShow script (documented API) and check if displaying unit data
+    if GameTooltip:HasScript("OnShow") then
+        GameTooltip:HookScript("OnShow", function(tooltip)
+            -- Use GetUnit() - documented function to check if tooltip shows a unit
+            local unitName, unitID = tooltip:GetUnit()
+            if unitName and unitID then
+                self:AddEncounterInfoToTooltip(tooltip)
+            end
         end)
-        Crosspaths:DebugLog("GameTooltip OnTooltipSetUnit hook registered successfully", "DEBUG")
+        Crosspaths:DebugLog("GameTooltip OnShow hook registered successfully using documented WoW API", "DEBUG")
     else
-        Crosspaths:DebugLog("GameTooltip does not have OnTooltipSetUnit script - tooltip integration disabled", "WARN")
+        Crosspaths:DebugLog("GameTooltip does not have OnShow script - tooltip integration disabled", "WARN")
     end
 end
 
