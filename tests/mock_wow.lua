@@ -29,6 +29,72 @@ function MockWoW.setupMockAPI()
             return 1519 -- Stormwind City
         end
     }
+
+    -- Mock Unit functions for NPC detection
+    _G.UnitGUID = function(unit)
+        -- Return mock player GUIDs for test units, NPC GUIDs for test NPCs
+        if unit == "target" or unit == "focus" or unit == "mouseover" or string.match(unit or "", "^nameplate") then
+            return "Player-1234-56789ABC" -- Mock player GUID
+        elseif unit == "testnpc1" then
+            return "Creature-0-1234-56789DEF" -- Mock NPC GUID
+        elseif unit == "testai1" then  
+            return "Vehicle-0-1234-56789GHI" -- Mock AI/Vehicle GUID
+        elseif unit == "testfollower1" then
+            return "Player-1234-56789XYZ" -- Follower dungeon NPCs may have Player GUIDs!
+        else
+            return "Player-1234-56789ABC" -- Default to player for existing tests
+        end
+    end
+
+    _G.UnitIsConnected = function(unit)
+        -- NPCs and AI characters are not "connected" 
+        if unit == "testnpc1" or unit == "testai1" or unit == "testfollower1" then
+            return false -- NPCs are not connected
+        end
+        return true -- Real players are connected
+    end
+
+    _G.UnitCreatureType = function(unit)
+        -- Real players should return nil, NPCs return creature type
+        if unit == "testnpc1" then
+            return "Humanoid" -- NPCs have creature types
+        elseif unit == "testai1" then
+            return "Mechanical" -- AI might have different types
+        elseif unit == "testfollower1" then
+            return nil -- Follower dungeon NPCs might not have creature types
+        end
+        return nil -- Players don't have creature types
+    end
+
+    _G.UnitPVPName = function(unit)
+        -- Mock function - AI units might have special markers
+        if unit == "testai1" then
+            return "TestAI (AI)" -- Mock AI marker
+        end
+        return nil -- Normal for most units
+    end
+
+    -- Mock GetGuildInfo for guild-based NPC detection
+    _G.GetGuildInfo = function(unit)
+        -- Return suspicious guild names for test NPCs/AI
+        if unit == "testnpc1" then
+            return "NPC Guild", nil, nil, nil -- Suspicious guild name
+        elseif unit == "testai1" then
+            return "AI Companions", nil, nil, nil -- Suspicious guild name
+        elseif unit == "testfollower1" then
+            return "Follower Dungeon Bots", nil, nil, nil -- Suspicious guild name
+        end
+        return nil -- Most real players have no guild or normal guild names
+    end
+
+    -- Mock UnitExists for unit validation
+    _G.UnitExists = function(unit)
+        -- Return false for completely invalid units
+        if not unit or unit == "nonexistent" or unit == "" then
+            return false
+        end
+        return true -- Most units exist in our mock environment
+    end
 end
 
 -- Generate comprehensive mock player data

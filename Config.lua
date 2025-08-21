@@ -301,6 +301,25 @@ function Config:CreateTrackingSettings(parent)
     parent.locationCheck = locationCheck
     yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
 
+    -- NPC/AI filtering
+    local npcFilterCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    npcFilterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
+    npcFilterCheck.Text:SetText("Filter Out NPCs/AI Characters")
+    npcFilterCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.tracking.filterNPCs = self:GetChecked()
+    end)
+    -- Add tooltip for accessibility
+    npcFilterCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Prevent tracking of NPCs and AI companions from follower dungeons", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    npcFilterCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    parent.npcFilterCheck = npcFilterCheck
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
+
     -- Minimum move distance
     local distanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     distanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CHECKBOX_INDENT + CONFIG_SPACING.CONTENT_MARGIN, yOffset)
@@ -906,6 +925,9 @@ function Config:RefreshSettings()
     end
     if content.locationCheck then
         content.locationCheck:SetChecked(Crosspaths.db.settings.tracking.locationBasedThrottling)
+    end
+    if content.npcFilterCheck then
+        content.npcFilterCheck:SetChecked(Crosspaths.db.settings.tracking.filterNPCs ~= false) -- Default to true
     end
     if content.distanceEditBox then
         content.distanceEditBox:SetText(string.format("%.3f", Crosspaths.db.settings.tracking.minimumMoveDistance or 0.01))

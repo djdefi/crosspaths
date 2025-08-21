@@ -1322,6 +1322,7 @@ function UI:ShowHelp()
         "• Advanced analytics: activity patterns, social networks, progression",
         "• Quest line & path analysis: detect players following similar routes",
         "• Zone progression insights and quest line correlations",
+        "• NPC/AI filtering: prevents tracking of follower dungeon companions",
         "• Enhanced deduplication for dungeons, raids, cinematics, and phases",
         "• Comprehensive data cleanup and duplicate detection",
         "• Titan Panel integration (if available)",

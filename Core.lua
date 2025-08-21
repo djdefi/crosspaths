@@ -28,6 +28,7 @@ local defaults = {
         enableTargetTracking = true, -- New: target change detection
         enableCombatLogTracking = true, -- New: combat log detection
         locationBasedThrottling = true,
+        filterNPCs = true, -- New: filter out NPCs and AI characters
         throttleMs = 500, -- Throttle encounter updates
         minimumMoveDistance = 0.01, -- Minimum distance player must move (0-1 map coordinates)
         pruneAfterDays = 180,
