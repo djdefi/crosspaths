@@ -78,6 +78,7 @@ function MinimapButton:CreateButton()
     
     -- Dragging for repositioning
     if MINIMAP_BUTTON_CONFIG.allowDragging then
+        button:SetMovable(true)
         button:SetScript("OnDragStart", function(self)
             self:StartMoving()
         end)
