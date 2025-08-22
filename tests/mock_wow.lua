@@ -14,6 +14,12 @@ end
 
 -- Mock WoW API functions
 function MockWoW.setupMockAPI()
+    -- Mock WoW's global date function (equivalent to os.date but available in WoW)
+    _G.date = function(format, timestamp)
+        -- Use Lua's os.date for testing, since we're in a regular Lua environment
+        return os.date(format, timestamp)
+    end
+    
     -- Mock C_Timer
     _G.C_Timer = {
         NewTicker = function(interval, callback)
