@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.19] - 2025-08-22
+
+### Added
+- Initial plan
+- Initial plan
+- Fix GameTooltip and TitanPanel integration issues
+- Implement NPC/AI character filtering and configuration UI
+- Revise NPC detection approach based on user feedback - prioritize connection status and guild names over GUID prefixes
+- Replace undocumented OnTooltipSetUnit with documented WoW APIs
+- Merge pull request #51 from djdefi/copilot/fix-50
+- Merge pull request #53 from djdefi/copilot/fix-52
+
+### Changed
+- 
+
+### Fixed
+- 
+
 ## [0.1.18] - 2025-08-15
 
 ### Added
