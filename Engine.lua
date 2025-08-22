@@ -954,7 +954,7 @@ function Engine:GenerateWeeklyDigest()
                     end
 
                     -- Track active days
-                    local dayKey = os.date("%Y-%m-%d", encounter.timestamp)
+                    local dayKey = date("%Y-%m-%d", encounter.timestamp)
                     activeDays[dayKey] = true
                 end
             end
@@ -1071,7 +1071,7 @@ function Engine:GenerateMonthlyDigest()
                     end
 
                     -- Track daily encounters
-                    local dayKey = os.date("%Y-%m-%d", encounter.timestamp)
+                    local dayKey = date("%Y-%m-%d", encounter.timestamp)
                     dailyEncounters[dayKey] = (dailyEncounters[dayKey] or 0) + 1
                 end
             end
@@ -2173,7 +2173,7 @@ function Engine:GetQuestLineInsights(zoneName, timeWindow)
                     end
                     
                     -- Track hourly activity
-                    local hour = tonumber(os.date("%H", encounter.timestamp))
+                    local hour = tonumber(date("%H", encounter.timestamp))
                     hourlyActivity[hour] = (hourlyActivity[hour] or 0) + 1
                 end
             end

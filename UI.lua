@@ -1872,8 +1872,8 @@ function UI:PopulateDigestContent(content, digest)
     local dateRange = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     dateRange:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_MARGIN, yOffset)
     dateRange:SetText(string.format("|cFFADD8E6Period:|r %s to %s",
-        os.date("%m/%d/%Y", digest.startTime),
-        os.date("%m/%d/%Y", digest.endTime)))
+        date("%m/%d/%Y", digest.startTime),
+        date("%m/%d/%Y", digest.endTime)))
     dateRange:SetWidth(contentWidth)
     dateRange:SetJustifyH("LEFT")
     yOffset = yOffset - (UI_CONSTANTS.SPACING.HEADER_SPACING + UI_CONSTANTS.SPACING.SUBSECTION_SPACING)
@@ -2046,7 +2046,7 @@ function UI:ExportDigest(digest, title)
     }
 
     local jsonData = self:TableToJSON(data)
-    self:ShowExportFrame(jsonData, title .. " - " .. os.date("%Y-%m-%d"))
+    self:ShowExportFrame(jsonData, title .. " - " .. date("%Y-%m-%d"))
 end
 
 -- Show export frame with digest data
@@ -2102,7 +2102,7 @@ function UI:CopyStatsToClipboard()
 
     local lines = {}
     table.insert(lines, "=== CROSSPATHS STATS SUMMARY ===")
-    table.insert(lines, "Generated: " .. os.date("%Y-%m-%d %H:%M:%S"))
+    table.insert(lines, "Generated: " .. date("%Y-%m-%d %H:%M:%S"))
     table.insert(lines, "Version: " .. (Crosspaths.version or "Unknown"))
     table.insert(lines, "")
 
