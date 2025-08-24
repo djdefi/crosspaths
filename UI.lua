@@ -124,6 +124,9 @@ local function CreateStandardFrame(name, parent, windowType, frameStrata)
         frame:SetFrameStrata(frameStrata)
     end
 
+    -- Store window type for resize handling
+    frame.windowType = windowType
+
     return frame
 end
 
@@ -136,6 +139,62 @@ local function CreateStandardCloseButton(parent, onClickCallback)
     closeBtn:SetText("Close")
     closeBtn:SetScript("OnClick", onClickCallback or function() parent:Hide() end)
     return closeBtn
+end
+
+-- Helper function to update text width dynamically
+local function UpdateTextWidth(textElement, parentFrame, margins)
+    if textElement and parentFrame then
+        margins = margins or 0
+        local newWidth = math.max(100, parentFrame:GetWidth() - margins)
+        textElement:SetWidth(newWidth)
+    end
+end
+
+-- Helper function to update content frame and child text widths
+local function UpdateContentFrameWidths(contentFrame, scrollFrame, textElements)
+    if not contentFrame or not scrollFrame then
+        return
+    end
+    
+    local newWidth = math.max(100, scrollFrame:GetWidth() - 20)
+    contentFrame:SetWidth(newWidth)
+    
+    if textElements then
+        for _, textElement in ipairs(textElements) do
+            if textElement then
+                textElement:SetWidth(newWidth)
+            end
+        end
+    end
+end
+
+-- Helper function to update tab button spacing when window resizes
+local function UpdateTabButtonSpacing(parentFrame, tabButtons)
+    if not parentFrame or not tabButtons then
+        return
+    end
+    
+    local windowWidth = parentFrame:GetWidth()
+    local availableWidth = windowWidth - (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN)
+    local totalTabs = 5 -- Summary, Players, Guilds, Advanced, Encounters
+    
+    local tabSpacing
+    -- Use default spacing if it fits, otherwise calculate needed spacing
+    if totalTabs * UI_CONSTANTS.SPACING.TAB_SPACING <= availableWidth then
+        tabSpacing = UI_CONSTANTS.SPACING.TAB_SPACING
+    else
+        -- Calculate spacing to fit all tabs, with minimum spacing being tab width
+        tabSpacing = math.max(UI_CONSTANTS.SPACING.TAB_WIDTH * 0.8, availableWidth / totalTabs)
+    end
+    
+    -- Update tab positions
+    local index = 1
+    for _, button in pairs(tabButtons) do
+        button:ClearAllPoints()
+        button:SetPoint("TOPLEFT", parentFrame, "BOTTOMLEFT",
+                       (index-1) * tabSpacing + UI_CONSTANTS.SPACING.WINDOW_MARGIN, 32)
+        index = index + 1
+    end
 end
 
 -- Initialize UI
@@ -387,6 +446,15 @@ function UI:CreateMainFrame()
     frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", UI_CONSTANTS.SPACING.WINDOW_MARGIN, -60)
     frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -UI_CONSTANTS.SPACING.WINDOW_MARGIN, UI_CONSTANTS.SPACING.WINDOW_MARGIN)
 
+    -- Add resize event handling to update tab buttons and content
+    frame:SetScript("OnSizeChanged", function(self, width, height)
+        -- Update tab button spacing
+        UpdateTabButtonSpacing(self, self.tabs)
+        
+        -- Update content in current tab if available
+        UI:UpdateCurrentTabContentWidths()
+    end)
+
     self.mainFrame = frame
 
     -- Create tab content frames
@@ -422,13 +490,14 @@ function UI:CreateTabButton(parent, index, tabData)
     button:SetSize(UI_CONSTANTS.SPACING.TAB_WIDTH, UI_CONSTANTS.SPACING.TAB_HEIGHT)
     button:SetText(tabData.text)
 
-    -- Calculate responsive tab spacing to prevent overflow
+    -- Calculate initial tab spacing - will be updated on resize
     local windowWidth = parent:GetWidth() or UI_CONSTANTS.MAIN_WINDOW.DEFAULT_WIDTH
     local availableWidth = windowWidth - (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN)
     local totalTabs = 5 -- Summary, Players, Guilds, Advanced, Encounters
 
+    local tabSpacing
     -- Use default spacing if it fits, otherwise calculate needed spacing
-    if totalTabs * UI_CONSTANTS.SPACING.TAB_SPACING + (2 * UI_CONSTANTS.SPACING.WINDOW_MARGIN) <= windowWidth then
+    if totalTabs * UI_CONSTANTS.SPACING.TAB_SPACING <= availableWidth then
         tabSpacing = UI_CONSTANTS.SPACING.TAB_SPACING
     else
         -- Calculate spacing to fit all tabs, with minimum spacing being tab width
@@ -609,6 +678,31 @@ function UI:CreateTabContent()
     end
 end
 
+-- Update content widths for current tab when window is resized
+function UI:UpdateCurrentTabContentWidths()
+    if not self.tabContent then
+        return
+    end
+    
+    local currentTab = self.tabContent[self.currentTab]
+    if not currentTab then
+        return
+    end
+    
+    -- Update different tab types based on their structure
+    if self.currentTab == "summary" and currentTab.scroll and currentTab.content and currentTab.statsText then
+        UpdateContentFrameWidths(currentTab.content, currentTab.scroll, {currentTab.statsText})
+    elseif self.currentTab == "players" and currentTab.scroll and currentTab.content and currentTab.resultsText then
+        UpdateContentFrameWidths(currentTab.content, currentTab.scroll, {currentTab.resultsText})
+    elseif self.currentTab == "guilds" and currentTab.scroll and currentTab.content and currentTab.guildsText then
+        UpdateContentFrameWidths(currentTab.content, currentTab.scroll, {currentTab.guildsText})
+    elseif self.currentTab == "encounters" and currentTab.scroll and currentTab.content and currentTab.encountersText then
+        UpdateContentFrameWidths(currentTab.content, currentTab.scroll, {currentTab.encountersText})
+    elseif self.currentTab == "advanced" and currentTab.scroll and currentTab.content and currentTab.advancedText then
+        UpdateContentFrameWidths(currentTab.content, currentTab.scroll, {currentTab.advancedText})
+    end
+end
+
 -- Create summary tab
 function UI:CreateSummaryTab()
     local frame = CreateFrame("Frame", nil, self.mainFrame.content)
@@ -629,9 +723,14 @@ function UI:CreateSummaryTab()
     frame.statsText:SetWidth(content:GetWidth())
     frame.statsText:SetJustifyH("LEFT")
     frame.statsText:SetJustifyV("TOP")
+    frame.statsText:SetWordWrap(true) -- Enable word wrapping to prevent horizontal overflow
     frame.statsText:SetText("Loading statistics...")
 
     scroll:SetScrollChild(content)
+
+    -- Store references for resize handling
+    frame.scroll = scroll
+    frame.content = content
 
     return frame
 end
@@ -670,11 +769,16 @@ function UI:CreatePlayersTab()
     frame.resultsText:SetWidth(content:GetWidth())
     frame.resultsText:SetJustifyH("LEFT")
     frame.resultsText:SetJustifyV("TOP")
+    frame.resultsText:SetWordWrap(true) -- Enable word wrapping to prevent horizontal overflow
     frame.resultsText:SetText("Top players will appear here...")
 
     scroll:SetScrollChild(content)
 
     frame.searchBox = searchBox
+
+    -- Store references for resize handling
+    frame.scroll = scroll
+    frame.content = content
 
     return frame
 end
@@ -698,9 +802,14 @@ function UI:CreateGuildsTab()
     frame.guildsText:SetWidth(content:GetWidth())
     frame.guildsText:SetJustifyH("LEFT")
     frame.guildsText:SetJustifyV("TOP")
+    frame.guildsText:SetWordWrap(true) -- Enable word wrapping to prevent horizontal overflow
     frame.guildsText:SetText("Guild statistics will appear here...")
 
     scroll:SetScrollChild(content)
+
+    -- Store references for resize handling
+    frame.scroll = scroll
+    frame.content = content
 
     return frame
 end
@@ -724,9 +833,14 @@ function UI:CreateEncountersTab()
     frame.encountersText:SetWidth(content:GetWidth())
     frame.encountersText:SetJustifyH("LEFT")
     frame.encountersText:SetJustifyV("TOP")
+    frame.encountersText:SetWordWrap(true) -- Enable word wrapping to prevent horizontal overflow
     frame.encountersText:SetText("Recent encounters will appear here...")
 
     scroll:SetScrollChild(content)
+
+    -- Store references for resize handling
+    frame.scroll = scroll
+    frame.content = content
 
     return frame
 end
@@ -961,9 +1075,14 @@ function UI:CreateAdvancedTab()
     frame.advancedText:SetWidth(content:GetWidth())
     frame.advancedText:SetJustifyH("LEFT")
     frame.advancedText:SetJustifyV("TOP")
+    frame.advancedText:SetWordWrap(true) -- Enable word wrapping to prevent horizontal overflow
     frame.advancedText:SetText("Advanced statistics will appear here...")
 
     scroll:SetScrollChild(content)
+
+    -- Store references for resize handling
+    frame.scroll = scroll
+    frame.content = content
 
     return frame
 end
