@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix main window text overflow issues with responsive design
 - Merge pull request #59 from djdefi/copilot/fix-58
 - Merge pull request #61 from djdefi/copilot/fix-60
+- Bump version from 0.1.20 to 0.1.21
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.21] - 2025-08-25
+
+### Added
+- Initial plan
+- Fix minimap button drag anchor error by clearing points before repositioning
+- Initial plan
+- Fix main window text overflow issues with responsive design
+- Merge pull request #59 from djdefi/copilot/fix-58
+- Merge pull request #61 from djdefi/copilot/fix-60
 
 ### Changed
 - 
