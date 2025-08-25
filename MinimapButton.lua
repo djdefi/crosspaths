@@ -231,6 +231,7 @@ function MinimapButton:UpdatePosition()
     local x = radius * math.cos(math.rad(position))
     local y = radius * math.sin(math.rad(position))
     
+    self.button:ClearAllPoints()
     self.button:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
 
