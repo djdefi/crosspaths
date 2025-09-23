@@ -57,6 +57,7 @@ Available on [CurseForge](https://www.curseforge.com/wow/addons/crosspaths-socia
 - `/crosspaths stats` - Display summary statistics
 - `/crosspaths search <name>` - Search for specific players
 - `/crosspaths export [json|csv]` - Export your data
+- `/crosspaths tooltip [on|off|priority <level>|delay <ms>]` - Configure tooltip integration
 - `/crosspaths minimap` - Toggle minimap button visibility
 - `/cpconfig` - Open configuration panel
 
@@ -72,9 +73,18 @@ The main interface features multiple tabs:
 Access configuration via `/cpconfig` or the main interface. Customize:
 
 - **Tracking Settings** - What types of encounters to track
+- **Tooltip Settings** - Configure integration with player tooltips
 - **Notifications** - When and how to be notified
 - **Data Management** - Pruning and storage options
 - **UI Settings** - Interface appearance and behavior
+
+### Addon Compatibility
+
+Crosspaths is designed to work alongside other addons:
+
+- **Tooltip Integration** - Configurable priority system for compatibility with Raider.io, Details!, and other tooltip-enhancing addons
+- **Smart Detection** - Avoids duplicating information already shown by other addons
+- **Delay Controls** - Customizable timing to let other addons load their content first
 
 ## Privacy & Data
 
