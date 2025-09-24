@@ -134,7 +134,14 @@ local function CreateStandardFrame(name, parent, windowType, frameStrata)
         pcall(frame.SetMaxResize, frame, constants.MAX_WIDTH, constants.MAX_HEIGHT)
     end
 
-    frame:SetPoint("CENTER")
+    -- Smart positioning to avoid overlap
+    if name == "CrosspathsMainFrame" then
+        frame:SetPoint("CENTER", -100, 50) -- Offset main window slightly left and up
+    elseif name == "CrosspathsConfigFrame" then
+        frame:SetPoint("CENTER", 100, -50) -- Offset config window slightly right and down
+    else
+        frame:SetPoint("CENTER") -- Keep other windows centered
+    end
     frame:SetMovable(true)
     frame:SetResizable(true)
     frame:EnableMouse(true)
