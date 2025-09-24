@@ -151,11 +151,14 @@ local testNames = {
 for _, test in ipairs(testNames) do
     local name, expected = test[1], test[2]
     -- Use same logic as Tracker.lua for validation
-    local maxLength = 12 -- Standard player name limit
-    if string.match(name, "[%s%-]") then -- Names with spaces or hyphens (often NPCs)
-        maxLength = 25 -- Longer limit for compound names
+    local isValid = false
+    if string.len(name) >= 2 then -- Check length first for clarity
+        local maxLength = 12 -- Standard player name limit
+        if string.match(name, "[%s%-]") then -- Names with spaces or hyphens (often NPCs)
+            maxLength = 25 -- Longer limit for compound names
+        end
+        isValid = string.match(name, "^[%a'%s%-]+$") ~= nil and string.len(name) <= maxLength
     end
-    local isValid = string.match(name, "^[%a'%s%-]+$") ~= nil and string.len(name) >= 2 and string.len(name) <= maxLength
     
     TestRunner.assertEqual(isValid, expected, "Name validation for: " .. (name ~= "" and name or "[empty]"))
 end

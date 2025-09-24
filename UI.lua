@@ -971,15 +971,26 @@ function UI:RefreshSummaryTab()
     local maxEncounters = math.max(activity.last24h.encounters, activity.last7d.encounters, activity.last30d.encounters)
     if maxEncounters > 0 then
         local function createBar(value, max, width)
-            local filledChars = math.floor((value / max) * width)
-            local emptyChars = width - filledChars
+            if max == 0 then return string.rep("░", width) end
+            local filledChars = value > 0 and math.max(1, math.floor((value / max) * width)) or 0 -- Ensure at least 1 character for non-zero values only
+            local emptyChars = math.max(0, width - filledChars)
             return string.rep("█", filledChars) .. string.rep("░", emptyChars)
         end
         
         local barWidth = 20
-        table.insert(lines, string.format("  24h: |cFF00FF00%s|r %d encounters", createBar(activity.last24h.encounters, maxEncounters, barWidth), activity.last24h.encounters))
-        table.insert(lines, string.format("  7d:  |cFFFFFF00%s|r %d encounters", createBar(activity.last7d.encounters, maxEncounters, barWidth), activity.last7d.encounters))
-        table.insert(lines, string.format("  30d: |cFFFF8000%s|r %d encounters", createBar(activity.last30d.encounters, maxEncounters, barWidth), activity.last30d.encounters))
+        -- Show bars with improved scaling and percentage indicators
+        table.insert(lines, string.format("  24h: |cFF00FF00%s|r %d encounters (%d%%)", 
+            createBar(activity.last24h.encounters, maxEncounters, barWidth), 
+            activity.last24h.encounters,
+            math.floor((activity.last24h.encounters / maxEncounters) * 100)))
+        table.insert(lines, string.format("  7d:  |cFFFFFF00%s|r %d encounters (%d%%)", 
+            createBar(activity.last7d.encounters, maxEncounters, barWidth), 
+            activity.last7d.encounters,
+            math.floor((activity.last7d.encounters / maxEncounters) * 100)))
+        table.insert(lines, string.format("  30d: |cFFFF8000%s|r %d encounters (%d%%)", 
+            createBar(activity.last30d.encounters, maxEncounters, barWidth), 
+            activity.last30d.encounters,
+            math.floor((activity.last30d.encounters / maxEncounters) * 100)))
     else
         table.insert(lines, "  No recent activity data available")
     end
@@ -1016,14 +1027,16 @@ function UI:RefreshSummaryTab()
     if #topZones > 0 then
         local maxZoneCount = topZones[1].encounterCount
         for i, zone in ipairs(topZones) do
-            local barLength = math.floor((zone.encounterCount / maxZoneCount) * 15)
+            local barLength = zone.encounterCount > 0 and math.max(1, math.floor((zone.encounterCount / maxZoneCount) * 15)) or 0 -- Ensure at least 1 char for non-zero only
             local bar = string.rep("█", barLength) .. string.rep("░", 15 - barLength)
             -- Truncate zone names to prevent overflow
             local zoneName = zone.name
             if string.len(zoneName) > 20 then
                 zoneName = string.sub(zoneName, 1, 17) .. "..."
             end
-            table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d", i, zoneName, bar, zone.encounterCount))
+            table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d (%d%%)", 
+                i, zoneName, bar, zone.encounterCount,
+                math.floor((zone.encounterCount / maxZoneCount) * 100)))
         end
     else
         table.insert(lines, "  No zone data available")
@@ -1036,7 +1049,7 @@ function UI:RefreshSummaryTab()
     if #topPlayers > 0 then
         local maxPlayerCount = topPlayers[1].count
         for i, player in ipairs(topPlayers) do
-            local barLength = math.floor((player.count / maxPlayerCount) * 12)
+            local barLength = player.count > 0 and math.max(1, math.floor((player.count / maxPlayerCount) * 12)) or 0 -- Ensure at least 1 char for non-zero only
             local bar = string.rep("█", barLength) .. string.rep("░", 12 - barLength)
             local guildText = player.guild and player.guild ~= "" and (" <" .. player.guild .. ">") or ""
             
@@ -1046,7 +1059,9 @@ function UI:RefreshSummaryTab()
                 playerName = string.sub(playerName, 1, 12) .. "..."
             end
             
-            table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d%s", i, playerName, bar, player.count, guildText))
+            table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d (%d%%)%s", 
+                i, playerName, bar, player.count,
+                math.floor((player.count / maxPlayerCount) * 100), guildText))
         end
     else
         table.insert(lines, "  No player data available")
