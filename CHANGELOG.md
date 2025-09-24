@@ -14,6 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add toast notification customization options and professional color scheme
 - Fix code review issues: centralize toast settings and add null safety
 - Merge pull request #65 from djdefi/copilot/fix-b7878064-5fec-4d1a-a257-64bfddfab579
+- Bump version from 0.1.23 to 0.1.24
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.24] - 2025-09-24
+
+### Added
+- Initial plan
+- Implement compact toast notifications and visual data charts
+- Add toast notification customization options and professional color scheme
+- Fix code review issues: centralize toast settings and add null safety
+- Merge pull request #65 from djdefi/copilot/fix-b7878064-5fec-4d1a-a257-64bfddfab579
 
 ### Changed
 - 
