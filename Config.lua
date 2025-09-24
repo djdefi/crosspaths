@@ -96,6 +96,7 @@ function Config:CreateConfigFrame()
     -- Create config sections
     self:CreateGeneralSettings(content)
     self:CreateTrackingSettings(content)
+    self:CreateTooltipSettings(content)
     self:CreateNotificationSettings(content)
     self:CreateDigestSettings(content)
     self:CreateUISettings(content)
@@ -366,9 +367,123 @@ function Config:CreateTrackingSettings(parent)
     parent.trackingYOffset = yOffset
 end
 
+-- Create tooltip settings
+function Config:CreateTooltipSettings(parent)
+    local yOffset = parent.trackingYOffset or -400
+    
+    -- Section header
+    local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
+    header:SetText("|cFFFFD700Tooltip Settings|r")
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
+    
+    -- Enable tooltip integration
+    local tooltipCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    tooltipCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
+    tooltipCheck.Text:SetText("Enable Tooltip Integration")
+    tooltipCheck:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.tooltip.enabled = self:GetChecked()
+    end)
+    -- Add tooltip for accessibility
+    tooltipCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Show encounter information in player tooltips", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    tooltipCheck:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    parent.tooltipCheck = tooltipCheck
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
+    
+    -- Priority setting dropdown
+    local priorityLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    priorityLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN + CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
+    priorityLabel:SetText("Integration Priority:")
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
+    
+    local priorityDropdown = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    priorityDropdown:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN + CONFIG_SPACING.CHECKBOX_INDENT - 16, yOffset)
+    
+    UIDropDownMenu_SetWidth(priorityDropdown, 120)
+    UIDropDownMenu_SetText(priorityDropdown, "Low Priority")
+    
+    UIDropDownMenu_Initialize(priorityDropdown, function(self, level)
+        local info = UIDropDownMenu_CreateInfo()
+        
+        info.text = "High Priority (50ms)"
+        info.value = "high"
+        info.func = function()
+            Crosspaths.db.settings.tooltip.priority = "high"
+            UIDropDownMenu_SetText(priorityDropdown, "High Priority")
+        end
+        UIDropDownMenu_AddButton(info)
+        
+        info.text = "Normal Priority (100ms)"
+        info.value = "normal"
+        info.func = function()
+            Crosspaths.db.settings.tooltip.priority = "normal"
+            UIDropDownMenu_SetText(priorityDropdown, "Normal Priority")
+        end
+        UIDropDownMenu_AddButton(info)
+        
+        info.text = "Low Priority (200ms)"
+        info.value = "low"
+        info.func = function()
+            Crosspaths.db.settings.tooltip.priority = "low"
+            UIDropDownMenu_SetText(priorityDropdown, "Low Priority")
+        end
+        UIDropDownMenu_AddButton(info)
+    end)
+    
+    parent.priorityDropdown = priorityDropdown
+    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING - 10
+    
+    -- Help text for priority setting
+    local helpText = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    helpText:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN + CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
+    helpText:SetText("|cFF888888High: Shows immediately, may conflict with other addons|r\n|cFF888888Normal: Short delay, good balance for most users|r\n|cFF888888Low: Longer delay, lets other addons add content first|r")
+    helpText:SetJustifyH("LEFT")
+    helpText:SetWidth(400)
+    yOffset = yOffset - 60
+    
+    -- Custom delay setting
+    local delayLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    delayLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN + CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
+    delayLabel:SetText("Custom delay (ms):")
+    yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
+    
+    local delayEditBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    delayEditBox:SetSize(60, 20)
+    delayEditBox:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN + CONFIG_SPACING.CHECKBOX_INDENT, yOffset)
+    delayEditBox:SetAutoFocus(false)
+    delayEditBox:SetNumeric(true)
+    delayEditBox:SetScript("OnEnterPressed", function(self)
+        local value = tonumber(self:GetText()) or 100
+        if value < 0 then value = 0 end
+        if value > 1000 then value = 1000 end
+        Crosspaths.db.settings.tooltip.delayMs = value
+        self:SetText(tostring(value))
+        self:ClearFocus()
+    end)
+    -- Add tooltip for accessibility
+    delayEditBox:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Custom delay in milliseconds (0-1000). Used when priority is set via slash commands.", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    delayEditBox:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    parent.delayEditBox = delayEditBox
+    yOffset = yOffset - CONFIG_SPACING.SUBSECTION_SPACING
+    
+    parent.tooltipYOffset = yOffset
+end
+
 -- Create notification settings
 function Config:CreateNotificationSettings(parent)
-    local yOffset = parent.trackingYOffset or -300
+    local yOffset = parent.tooltipYOffset or -500
 
     -- Section header
     local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -934,6 +1049,25 @@ function Config:RefreshSettings()
     end
     if content.pruneEditBox then
         content.pruneEditBox:SetText(tostring(Crosspaths.db.settings.tracking.pruneAfterDays or 180))
+    end
+
+    -- Tooltip settings
+    if content.tooltipCheck then
+        content.tooltipCheck:SetChecked(Crosspaths.db.settings.tooltip and Crosspaths.db.settings.tooltip.enabled ~= false)
+    end
+    if content.priorityDropdown then
+        local priority = (Crosspaths.db.settings.tooltip and Crosspaths.db.settings.tooltip.priority) or "low"
+        if priority == "high" then
+            UIDropDownMenu_SetText(content.priorityDropdown, "High Priority")
+        elseif priority == "normal" then
+            UIDropDownMenu_SetText(content.priorityDropdown, "Normal Priority")
+        else
+            UIDropDownMenu_SetText(content.priorityDropdown, "Low Priority")
+        end
+    end
+    if content.delayEditBox then
+        local delay = (Crosspaths.db.settings.tooltip and Crosspaths.db.settings.tooltip.delayMs) or 100
+        content.delayEditBox:SetText(tostring(delay))
     end
 
     -- Notification settings

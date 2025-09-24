@@ -20,6 +20,11 @@ local defaults = {
         showNotifications = true,
         notificationDuration = 3,
     },
+    tooltip = {
+        enabled = true, -- Enable/disable tooltip integration
+        delayMs = 100, -- Delay in milliseconds to allow other addons to modify tooltip first
+        priority = "low", -- Priority level: "high" (immediate), "normal" (short delay), "low" (longer delay)
+    },
     tracking = {
         enableGroupTracking = true,
         enableNameplateTracking = true,

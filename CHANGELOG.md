@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+- Enhanced tooltip integration system with priority-based delays for better compatibility with other addons
+- New tooltip settings configuration panel with enable/disable toggle and priority controls
+- Slash commands for tooltip management (`/crosspaths tooltip`)
+- Smart content detection to avoid duplicating information from other addons
+- Customizable delay settings (high: 50ms, normal: 100ms, low: 200ms)
+
+### Changed
+- Tooltip integration now uses delayed execution to allow other addons (like Raider.io) to modify tooltips first
+- Default tooltip priority set to "low" for maximum compatibility
+- Improved tooltip content layout with better spacing and information prioritization
+- Only shows encounter information when player data exists (removes "never encountered" clutter)
+
+### Fixed
+- Tooltip conflicts with Raider.io and other tooltip-modifying addons
+- Tooltip overcrowding by limiting content and detecting existing information
+- Compatibility issues with multiple addons trying to modify the same tooltip
 ## [0.1.22] - 2025-08-25
 
 ### Added

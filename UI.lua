@@ -374,6 +374,52 @@ function UI:HandleSlashCommand(msg)
         end
     elseif command == "titanpanel" or command == "titan" then
         self:ShowTitanPanelStatus()
+    elseif command == "tooltip" then
+        if args[2] == "on" then
+            if not Crosspaths.db.settings.tooltip then
+                Crosspaths.db.settings.tooltip = {}
+            end
+            Crosspaths.db.settings.tooltip.enabled = true
+            Crosspaths:Message("Tooltip integration enabled")
+        elseif args[2] == "off" then
+            if not Crosspaths.db.settings.tooltip then
+                Crosspaths.db.settings.tooltip = {}
+            end
+            Crosspaths.db.settings.tooltip.enabled = false
+            Crosspaths:Message("Tooltip integration disabled")
+        elseif args[2] == "priority" then
+            if args[3] == "high" or args[3] == "normal" or args[3] == "low" then
+                if not Crosspaths.db.settings.tooltip then
+                    Crosspaths.db.settings.tooltip = {}
+                end
+                Crosspaths.db.settings.tooltip.priority = args[3]
+                Crosspaths:Message("Tooltip priority set to " .. args[3])
+            else
+                Crosspaths:Message("Usage: /crosspaths tooltip priority [high|normal|low]")
+            end
+        elseif args[2] == "delay" then
+            local delay = tonumber(args[3])
+            if delay and delay >= 0 and delay <= 1000 then
+                if not Crosspaths.db.settings.tooltip then
+                    Crosspaths.db.settings.tooltip = {}
+                end
+                Crosspaths.db.settings.tooltip.delayMs = delay
+                Crosspaths:Message("Tooltip delay set to " .. delay .. "ms")
+            else
+                Crosspaths:Message("Usage: /crosspaths tooltip delay <0-1000>")
+            end
+        else
+            local enabled = (Crosspaths.db.settings.tooltip and Crosspaths.db.settings.tooltip.enabled ~= false) and "enabled" or "disabled"
+            local priority = (Crosspaths.db.settings.tooltip and Crosspaths.db.settings.tooltip.priority) or "low"
+            local delay = (Crosspaths.db.settings.tooltip and Crosspaths.db.settings.tooltip.delayMs) or 100
+            Crosspaths:Message("Tooltip integration: " .. enabled)
+            Crosspaths:Message("Priority: " .. priority .. " (" .. self:GetTooltipDelay() .. "ms)")
+            Crosspaths:Message("Custom delay: " .. delay .. "ms")
+            Crosspaths:Message("Commands:")
+            Crosspaths:Message("  /crosspaths tooltip on/off - Enable/disable tooltip integration")
+            Crosspaths:Message("  /crosspaths tooltip priority [high|normal|low] - Set priority")
+            Crosspaths:Message("  /crosspaths tooltip delay <0-1000> - Set custom delay in ms")
+        end
     elseif command == "help" then
         self:ShowHelp()
     else
@@ -1429,6 +1475,7 @@ function UI:ShowHelp()
         "/crosspaths cleanup duplicates - Detect potential duplicate players",
         "/crosspaths analytics [activity|social|progression|questlines|similar <player>|zone <zone>] - Advanced analysis",
         "/crosspaths debug [on|off] - Toggle debug mode",
+        "/crosspaths tooltip [on|off|priority <level>|delay <ms>] - Configure tooltip integration",
         "/crosspaths status - Show addon status",
         "/crosspaths digest [daily|weekly|monthly] - Generate digest report",
         "/crosspaths minimap - Toggle minimap button",
@@ -1610,7 +1657,8 @@ function UI:HookGameTooltips()
             -- Use GetUnit() - documented function to check if tooltip shows a unit
             local unitName, unitID = tooltip:GetUnit()
             if unitName and unitID then
-                self:AddEncounterInfoToTooltip(tooltip)
+                -- Use delayed execution to allow other addons to modify tooltip first
+                self:DelayedAddEncounterInfo(tooltip)
             end
         end)
         Crosspaths:DebugLog("GameTooltip OnShow hook registered successfully using documented WoW API", "DEBUG")
@@ -1619,9 +1667,79 @@ function UI:HookGameTooltips()
     end
 end
 
+-- Delayed tooltip modification to allow other addons to add their content first
+function UI:DelayedAddEncounterInfo(tooltip)
+    -- Check if tooltip integration is enabled
+    if not Crosspaths.db or not Crosspaths.db.settings.tooltip or not Crosspaths.db.settings.tooltip.enabled then
+        return
+    end
+    
+    -- Get delay based on priority setting
+    local delayMs = self:GetTooltipDelay()
+    
+    -- Use C_Timer if available (modern WoW), otherwise use frame-based delay
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delayMs / 1000, function()
+            -- Check if tooltip is still showing the same unit
+            if tooltip:IsShown() then
+                local currentUnit = select(2, tooltip:GetUnit())
+                if currentUnit then
+                    self:AddEncounterInfoToTooltip(tooltip)
+                end
+            end
+        end)
+    else
+        -- Fallback for older WoW versions using frame update
+        local delayFrame = self.delayFrame or CreateFrame("Frame")
+        self.delayFrame = delayFrame
+        
+        delayFrame.tooltip = tooltip
+        delayFrame.elapsed = 0
+        delayFrame.delay = delayMs / 1000
+        
+        delayFrame:SetScript("OnUpdate", function(frame, elapsed)
+            frame.elapsed = frame.elapsed + elapsed
+            if frame.elapsed >= frame.delay then
+                frame:SetScript("OnUpdate", nil)
+                if frame.tooltip:IsShown() then
+                    local currentUnit = select(2, frame.tooltip:GetUnit())
+                    if currentUnit then
+                        self:AddEncounterInfoToTooltip(frame.tooltip)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- Get tooltip delay based on priority setting
+function UI:GetTooltipDelay()
+    if not Crosspaths.db or not Crosspaths.db.settings.tooltip then
+        return 100 -- Default fallback
+    end
+    
+    local priority = Crosspaths.db.settings.tooltip.priority
+    local customDelay = Crosspaths.db.settings.tooltip.delayMs
+    
+    if priority == "high" then
+        return 50 -- Quick response for high priority
+    elseif priority == "normal" then
+        return 100 -- Standard delay for normal priority
+    elseif priority == "low" then
+        return 200 -- Longer delay for low priority to ensure other addons go first
+    else
+        return customDelay or 100 -- Use custom delay or default
+    end
+end
+
 -- Add encounter information to game tooltips
 function UI:AddEncounterInfoToTooltip(tooltip)
     if not Crosspaths.db or not Crosspaths.db.settings.enabled then
+        return
+    end
+    
+    -- Check if tooltip integration is disabled
+    if not Crosspaths.db.settings.tooltip or not Crosspaths.db.settings.tooltip.enabled then
         return
     end
 
@@ -1637,103 +1755,99 @@ function UI:AddEncounterInfoToTooltip(tooltip)
 
     local fullName = realm and realm ~= "" and (name .. "-" .. realm) or (name .. "-" .. GetRealmName())
     local playerData = Crosspaths.db.players[fullName]
+    
+    -- Check if we have data to display
+    if not playerData or not playerData.count or playerData.count <= 0 then
+        return -- Don't add anything if we have no data
+    end
 
-    -- Add a separator line
-    tooltip:AddLine(" ")
+    -- Check if there are already lines in the tooltip to determine spacing
+    local hasExistingContent = false
+    for i = 1, tooltip:NumLines() do
+        local line = _G[tooltip:GetName().."TextLeft"..i]
+        if line and line:GetText() and line:GetText() ~= "" then
+            hasExistingContent = true
+            break
+        end
+    end
+    
+    -- Add appropriate spacing - only add separator if there's existing content
+    if hasExistingContent then
+        tooltip:AddLine(" ") -- Separator line
+    end
 
-    -- Add Crosspaths header
+    -- Add Crosspaths header with subtle styling to complement other addons
     tooltip:AddLine("|cFF7B68EECrosspaths|r", 0.4, 0.4, 1)
 
-    if playerData and playerData.count and playerData.count > 0 then
-        local encounterCount = playerData.count
+    local encounterCount = playerData.count
 
-        -- Show encounter status with clear feedback
-        local statusText = "|cFF00FF00Previously Encountered|r"
-        local countColor = encounterCount >= 10 and "|cFFFFD700" or encounterCount >= 5 and "|cFF00FF00" or "|cFFFFFFFF"
-        tooltip:AddDoubleLine("Status:", statusText, 0.8, 0.8, 0.8, 0, 1, 0)
-        tooltip:AddDoubleLine("Encounters:", countColor .. tostring(encounterCount) .. "|r", 0.8, 0.8, 0.8, 1, 1, 1)
+    -- Show encounter status with clear feedback
+    local statusText = "|cFF00FF00Previously Encountered|r"
+    local countColor = encounterCount >= 10 and "|cFFFFD700" or encounterCount >= 5 and "|cFF00FF00" or "|cFFFFFFFF"
+    tooltip:AddDoubleLine("Status:", statusText, 0.8, 0.8, 0.8, 0, 1, 0)
+    tooltip:AddDoubleLine("Encounters:", countColor .. tostring(encounterCount) .. "|r", 0.8, 0.8, 0.8, 1, 1, 1)
 
-        -- Add class and race info
-        if playerData.class and playerData.class ~= "" then
-            local classInfo = playerData.class
-            if playerData.race and playerData.race ~= "" then
-                classInfo = playerData.race .. " " .. playerData.class
+    -- Only show additional details if we have limited space or if it's valuable info
+    -- Prioritize the most important information to avoid cluttering tooltips from other addons
+    
+    -- Add grouped status first (high priority info)
+    if playerData.grouped then
+        tooltip:AddDoubleLine("Group Status:", "|cFF00FF00Previously Grouped With You|r", 0.8, 0.8, 0.8, 0, 1, 0)
+    end
+
+    -- Add class and race info only if not already present in tooltip
+    if playerData.class and playerData.class ~= "" and not self:TooltipContainsClass(tooltip, playerData.class) then
+        local classInfo = playerData.class
+        if playerData.race and playerData.race ~= "" then
+            classInfo = playerData.race .. " " .. playerData.class
+        end
+        tooltip:AddDoubleLine("Class:", classInfo, 0.8, 0.8, 0.8, 1, 1, 0.8)
+    end
+
+    -- Add level info with progression indicator (only if not already shown)
+    if playerData.level and playerData.level > 0 and not self:TooltipContainsLevel(tooltip) then
+        local levelText = tostring(playerData.level)
+        -- Show level progression if available
+        if playerData.levelHistory and #playerData.levelHistory > 0 then
+            local lastProgress = playerData.levelHistory[#playerData.levelHistory]
+            if lastProgress and lastProgress.previousLevel then
+                levelText = levelText .. " (was " .. lastProgress.previousLevel .. ")"
             end
-            tooltip:AddDoubleLine("Class:", classInfo, 0.8, 0.8, 0.8, 1, 1, 0.8)
         end
+        tooltip:AddDoubleLine("Level:", levelText, 0.8, 0.8, 0.8, 0.6, 1, 0.6)
+    end
 
-        -- Add level info with progression indicator
-        if playerData.level and playerData.level > 0 then
-            local levelText = tostring(playerData.level)
-            -- Show level progression if available
-            if playerData.levelHistory and #playerData.levelHistory > 0 then
-                local lastProgress = playerData.levelHistory[#playerData.levelHistory]
-                if lastProgress and lastProgress.previousLevel then
-                    levelText = levelText .. " (was " .. lastProgress.previousLevel .. ")"
-                end
-            end
-            tooltip:AddDoubleLine("Level:", levelText, 0.8, 0.8, 0.8, 0.6, 1, 0.6)
+    -- Add specialization if available and not redundant
+    if playerData.specialization and playerData.specialization ~= "" then
+        tooltip:AddDoubleLine("Spec:", playerData.specialization, 0.8, 0.8, 0.8, 1, 0.8, 1)
+    end
+
+    -- Add last seen info (valuable social context)
+    if playerData.lastSeen then
+        local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
+        tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
+    end
+
+    -- Add guild info if available and different from what might already be shown
+    if playerData.guild and playerData.guild ~= "" then
+        tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
+    end
+
+    -- Add notes if available (truncated for tooltip) - valuable personal info
+    if playerData.notes and playerData.notes ~= "" then
+        local notes = playerData.notes
+        if string.len(notes) > 40 then
+            notes = string.sub(notes, 1, 37) .. "..."
         end
+        tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
+    end
 
-        -- Add specialization if available
-        if playerData.specialization and playerData.specialization ~= "" then
-            tooltip:AddDoubleLine("Spec:", playerData.specialization, 0.8, 0.8, 0.8, 1, 0.8, 1)
-        end
-
-        -- Add item level if available
-        if playerData.itemLevel and playerData.itemLevel > 0 then
-            tooltip:AddDoubleLine("Item Level:", tostring(playerData.itemLevel), 0.8, 0.8, 0.8, 1, 1, 0.6)
-        end
-
-        -- Add achievement points if available
-        if playerData.achievementPoints and playerData.achievementPoints > 0 then
-            tooltip:AddDoubleLine("Achievements:", tostring(playerData.achievementPoints) .. " points", 0.8, 0.8, 0.8, 1, 0.8, 0.6)
-        end
-
-        -- Add last seen info
-        if playerData.lastSeen then
-            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
-            tooltip:AddDoubleLine("Last seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
-        end
-
-        -- Add first seen info
-        if playerData.firstSeen then
-            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
-            tooltip:AddDoubleLine("First seen:", timeAgo, 0.8, 0.8, 0.8, 1, 1, 1)
-        end
-
-        -- Add grouped status with enhanced visibility
-        if playerData.grouped then
-            tooltip:AddDoubleLine("Group Status:", "|cFF00FF00Previously Grouped With You|r", 0.8, 0.8, 0.8, 0, 1, 0)
-        else
-            tooltip:AddDoubleLine("Group Status:", "|cFF888888Never Grouped|r", 0.8, 0.8, 0.8, 0.5, 0.5, 0.5)
-        end
-
-        -- Add guild info if available
-        if playerData.guild and playerData.guild ~= "" then
-            tooltip:AddDoubleLine("Guild:", playerData.guild, 0.8, 0.8, 0.8, 1, 0.8, 0)
-        end
-
-        -- Add location info if available
-        if playerData.subzone and playerData.subzone ~= "" then
-            tooltip:AddDoubleLine("Last location:", playerData.subzone, 0.8, 0.8, 0.8, 0.8, 0.8, 1)
-        end
-
-        -- Add notes if available (truncated for tooltip)
-        if playerData.notes and playerData.notes ~= "" then
-            local notes = playerData.notes
-            if string.len(notes) > 40 then
-                notes = string.sub(notes, 1, 37) .. "..."
-            end
-            tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
-        end
-
+    -- Only show additional context if tooltip isn't already crowded
+    if tooltip:NumLines() < 15 then -- Reasonable limit to avoid overcrowding
         -- Add encounter context information
         if playerData.contexts and next(playerData.contexts) then
             local contexts = {}
-            local totalContexts = 0
             for context, count in pairs(playerData.contexts) do
-                totalContexts = totalContexts + count
                 table.insert(contexts, context .. " (" .. count .. ")")
             end
             -- Sort by frequency
@@ -1754,32 +1868,41 @@ function UI:AddEncounterInfoToTooltip(tooltip)
             end
             tooltip:AddDoubleLine("Contexts:", contextText, 0.8, 0.8, 0.8, 0.8, 1, 0.8)
         end
-
-        -- Add top zones information
-        if playerData.zones and next(playerData.zones) then
-            local zones = {}
-            for zone, count in pairs(playerData.zones) do
-                table.insert(zones, {zone = zone, count = count})
-            end
-            table.sort(zones, function(a, b) return a.count > b.count end)
-
-            -- Show top zone
-            if zones[1] then
-                local zoneText = zones[1].zone .. " (" .. zones[1].count .. ")"
-                if zones[2] then
-                    zoneText = zoneText .. ", " .. zones[2].zone .. " (" .. zones[2].count .. ")"
-                end
-                tooltip:AddDoubleLine("Top zones:", zoneText, 0.8, 0.8, 0.8, 1, 0.8, 0.6)
-            end
-        end
-
-        tooltip:Show()
-    else
-        -- Show clear indication for never encountered players
-        tooltip:AddDoubleLine("Status:", "|cFFFF6B6BNever Encountered|r", 0.8, 0.8, 0.8, 1, 0.4, 0.4)
-        tooltip:AddDoubleLine("Encounters:", "|cFF888888None|r", 0.8, 0.8, 0.8, 0.5, 0.5, 0.5)
-        tooltip:Show()
     end
+
+    tooltip:Show()
+end
+
+-- Helper function to check if tooltip already contains class information
+function UI:TooltipContainsClass(tooltip, className)
+    for i = 1, tooltip:NumLines() do
+        local leftText = _G[tooltip:GetName().."TextLeft"..i]
+        local rightText = _G[tooltip:GetName().."TextRight"..i]
+        
+        if leftText and leftText:GetText() and string.find(string.lower(leftText:GetText()), string.lower(className)) then
+            return true
+        end
+        if rightText and rightText:GetText() and string.find(string.lower(rightText:GetText()), string.lower(className)) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Helper function to check if tooltip already contains level information
+function UI:TooltipContainsLevel(tooltip)
+    for i = 1, tooltip:NumLines() do
+        local leftText = _G[tooltip:GetName().."TextLeft"..i]
+        local rightText = _G[tooltip:GetName().."TextRight"..i]
+        
+        if leftText and leftText:GetText() and string.find(leftText:GetText(), "Level") then
+            return true
+        end
+        if rightText and rightText:GetText() and string.find(rightText:GetText(), "Level") then
+            return true
+        end
+    end
+    return false
 end
 
 -- Show player encounter tooltip
