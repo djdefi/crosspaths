@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement tooltip integration improvements for addon compatibility
 - Update documentation for tooltip integration improvements
 - Merge pull request #63 from djdefi/copilot/fix-a70688e6-2533-482d-8521-1a92274b5a19
+- Bump version from 0.1.22 to 0.1.23
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.1.23] - 2025-09-24
+
+### Added
+- Initial plan
+- Implement tooltip integration improvements for addon compatibility
+- Update documentation for tooltip integration improvements
+- Merge pull request #63 from djdefi/copilot/fix-a70688e6-2533-482d-8521-1a92274b5a19
 
 ### Changed
 - 
