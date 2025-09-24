@@ -2547,7 +2547,7 @@ function UI:CopyStatsToClipboard()
     local formattedStats = table.concat(lines, "\n")
 
     -- Show the stats in an export window for easy copying
-    self:ShowExportWindow("Crosspaths Stats Summary", formattedStats)
+    self:ShowExportFrame(formattedStats, "Crosspaths Stats Summary")
     Crosspaths:Message("Stats summary opened in copyable format")
 end
 
