@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.1.23] - 2025-09-24
+
+### Added
+- Initial plan
+- Implement tooltip integration improvements for addon compatibility
+- Update documentation for tooltip integration improvements
+- Merge pull request #63 from djdefi/copilot/fix-a70688e6-2533-482d-8521-1a92274b5a19
+
+### Changed
+- 
+
+### Fixed
+- 
+
 
 ### Added
 - Enhanced tooltip integration system with priority-based delays for better compatibility with other addons
