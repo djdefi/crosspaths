@@ -31,8 +31,46 @@ function MinimapButton:Initialize()
     
     self:CreateButton()
     self:LoadPosition()
+    self:SetupSearchDialog()
     
     Crosspaths:DebugLog("Minimap button initialized", "INFO")
+end
+
+-- Setup player search dialog
+function MinimapButton:SetupSearchDialog()
+    StaticPopupDialogs["CROSSPATHS_SEARCH_PLAYER"] = {
+        text = "Search for player:",
+        button1 = "Search",
+        button2 = "Cancel",
+        hasEditBox = true,
+        maxLetters = 50,
+        OnAccept = function(self)
+            local input = self.editBox:GetText()
+            if input and input ~= "" then
+                if Crosspaths.UI then
+                    Crosspaths.UI:SearchPlayers(input)
+                    Crosspaths.UI:Show()
+                end
+            end
+        end,
+        EditBoxOnEnterPressed = function(self)
+            local input = self:GetText()
+            if input and input ~= "" then
+                if Crosspaths.UI then
+                    Crosspaths.UI:SearchPlayers(input)
+                    Crosspaths.UI:Show()
+                end
+            end
+            self:GetParent():Hide()
+        end,
+        EditBoxOnEscapePressed = function(self)
+            self:GetParent():Hide()
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
 end
 
 -- Create the minimap button
@@ -146,73 +184,117 @@ function MinimapButton:ShowTooltip(frame)
     GameTooltip:Show()
 end
 
--- Show context menu
+-- Show context menu with improved organization
 function MinimapButton:ShowContextMenu()
     local menu = CreateFrame("Frame", "CrosspathsMinimapMenu", UIParent, "UIDropDownMenuTemplate")
     
-    local function AddMenuItem(text, func, hasArrow)
+    local function AddMenuItem(text, func, hasArrow, disabled, tooltipText)
         local info = UIDropDownMenu_CreateInfo()
         info.text = text
         info.func = func
         info.hasArrow = hasArrow
+        info.disabled = disabled
+        info.tooltipTitle = tooltipText
         info.notCheckable = true
         UIDropDownMenu_AddButton(info)
     end
     
     UIDropDownMenu_Initialize(menu, function(self, level)
         if level == 1 then
-            AddMenuItem("Open Crosspaths", function()
+            -- Main interface access
+            AddMenuItem("|cFF00FF00Open Crosspaths|r", function()
                 if Crosspaths.UI then
                     Crosspaths.UI:Show()
                 end
-            end)
-            
-            AddMenuItem("Configuration", function()
-                if Crosspaths.Config then
-                    Crosspaths.Config:Show()
-                end
-            end)
+                CloseDropDownMenus()
+            end, false, false, "Open main interface with all features")
             
             UIDropDownMenu_AddSeparator()
             
-            AddMenuItem("Generate Digest", nil, true)
-            
-            UIDropDownMenu_AddSeparator()
-            
+            -- Quick access features
             AddMenuItem("Quick Stats", function()
                 if Crosspaths.UI then
                     Crosspaths.UI:ShowStatus()
                 end
-            end)
+                CloseDropDownMenus()
+            end, false, false, "Show basic statistics summary")
             
-            AddMenuItem("Export Data", function()
+            AddMenuItem("Reports", nil, true, false, "Generate digest reports")
+            
+            UIDropDownMenu_AddSeparator()
+            
+            -- Direct access to tools that are commonly used
+            AddMenuItem("Search Player", function()
+                -- Create a simple search dialog
+                StaticPopup_Show("CROSSPATHS_SEARCH_PLAYER")
+                CloseDropDownMenus()
+            end, false, false, "Search for a specific player")
+            
+            AddMenuItem("Analytics", nil, true, false, "Advanced analytics and insights")
+            
+            UIDropDownMenu_AddSeparator()
+            
+            -- Settings moved to main UI indication
+            AddMenuItem("|cFFAAAAFFSettings (Use Main UI)|r", function()
                 if Crosspaths.UI then
-                    Crosspaths.UI:ExportData("json")
+                    Crosspaths.UI:Show()
+                    -- Focus on the main UI for settings access
                 end
-            end)
+                CloseDropDownMenus()
+            end, false, false, "All settings are now in the main interface")
             
         elseif level == 2 then
-            -- Digest submenu
-            AddMenuItem("Daily Digest", function()
-                if Crosspaths.Engine and Crosspaths.UI then
-                    local digest = Crosspaths.Engine:GenerateDailyDigest()
-                    Crosspaths.UI:ShowDigestReport("Daily Digest", digest)
-                end
-            end)
+            -- Get the parent button text to determine submenu
+            local parentText = UIDROPDOWNMENU_MENU_VALUE or ""
             
-            AddMenuItem("Weekly Digest", function()
-                if Crosspaths.Engine and Crosspaths.UI then
-                    local digest = Crosspaths.Engine:GenerateWeeklyDigest()
-                    Crosspaths.UI:ShowDigestReport("Weekly Digest", digest)
-                end
-            end)
-            
-            AddMenuItem("Monthly Digest", function()
-                if Crosspaths.Engine and Crosspaths.UI then
-                    local digest = Crosspaths.Engine:GenerateMonthlyDigest()
-                    Crosspaths.UI:ShowDigestReport("Monthly Digest", digest)
-                end
-            end)
+            if parentText == "Reports" then
+                AddMenuItem("Daily Digest", function()
+                    if Crosspaths.Engine and Crosspaths.UI then
+                        local digest = Crosspaths.Engine:GenerateDailyDigest()
+                        Crosspaths.UI:ShowDigestReport("Daily Digest", digest)
+                    end
+                    CloseDropDownMenus()
+                end)
+                
+                AddMenuItem("Weekly Digest", function()
+                    if Crosspaths.Engine and Crosspaths.UI then
+                        local digest = Crosspaths.Engine:GenerateWeeklyDigest()
+                        Crosspaths.UI:ShowDigestReport("Weekly Digest", digest)
+                    end
+                    CloseDropDownMenus()
+                end)
+                
+                AddMenuItem("Monthly Digest", function()
+                    if Crosspaths.Engine and Crosspaths.UI then
+                        local digest = Crosspaths.Engine:GenerateMonthlyDigest()
+                        Crosspaths.UI:ShowDigestReport("Monthly Digest", digest)
+                    end
+                    CloseDropDownMenus()
+                end)
+                
+            elseif parentText == "Analytics" then
+                AddMenuItem("Zone Analytics", function()
+                    if Crosspaths.UI then
+                        Crosspaths.UI:Show()
+                        -- Could add logic to focus on analytics tab when implemented
+                    end
+                    CloseDropDownMenus()
+                end)
+                
+                AddMenuItem("Class Distribution", function()
+                    if Crosspaths.UI then
+                        Crosspaths.UI:ShowClassStats()
+                    end
+                    CloseDropDownMenus()
+                end)
+                
+                AddMenuItem("Activity Patterns", function()
+                    if Crosspaths.UI then
+                        Crosspaths.UI:ShowActivityStats()
+                    end
+                    CloseDropDownMenus()
+                end)
+            end
         end
     end)
     
