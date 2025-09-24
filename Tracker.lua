@@ -263,13 +263,19 @@ function Tracker:HandleNameplateAdded(unitToken)
     end
 
     -- Validate name format before proceeding
-    if string.len(name) < 2 or string.len(name) > 12 then
-        Crosspaths:DebugLog("Invalid name length from unit token: " .. tostring(name), "WARN")
+    -- Use different length limits for different name types
+    local maxLength = 12 -- Standard player name limit
+    if string.match(name, "[%s%-]") then -- Names with spaces or hyphens (often NPCs)
+        maxLength = 25 -- Longer limit for compound names
+    end
+    
+    if string.len(name) < 2 or string.len(name) > maxLength then
+        Crosspaths:DebugLog("Invalid name length from unit token: " .. tostring(name) .. " (limit: " .. maxLength .. ")", "WARN")
         return
     end
 
     -- Check for invalid characters in name
-    if not string.match(name, "^[%a']+$") then -- Allow apostrophes for names like Mal'Ganis
+    if not string.match(name, "^[%a'%s%-]+$") then -- Allow apostrophes, spaces, and hyphens for names like Mal'Ganis or Crenna Earth-Daughter
         Crosspaths:DebugLog("Invalid characters in name: " .. tostring(name), "WARN")
         return
     end
