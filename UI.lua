@@ -42,15 +42,15 @@ local UI_CONSTANTS = {
         MAX_HEIGHT = 900
     },
 
-    -- Colors for consistent UI theming
+    -- Colors for consistent UI theming (Professional ElvUI-inspired palette)
     COLORS = {
-        -- Tab button colors
-        TAB_NORMAL = {0.25, 0.25, 0.25, 0.9},
-        TAB_HOVER = {0.4, 0.4, 0.4, 0.9},
-        TAB_PRESSED = {0.15, 0.15, 0.15, 0.9},
-        TAB_SELECTED = {0.2, 0.4, 0.8, 0.95},
-        TAB_BORDER = {0.6, 0.6, 0.6, 0.8},
-        TAB_BORDER_SELECTED = {0.8, 0.8, 0.8, 1.0},
+        -- Tab button colors - more professional gradients
+        TAB_NORMAL = {0.15, 0.15, 0.15, 0.95},
+        TAB_HOVER = {0.25, 0.25, 0.25, 0.95},
+        TAB_PRESSED = {0.1, 0.1, 0.1, 0.95},
+        TAB_SELECTED = {0.1, 0.3, 0.6, 0.98},
+        TAB_BORDER = {0.4, 0.4, 0.4, 0.9},
+        TAB_BORDER_SELECTED = {0.6, 0.8, 1.0, 1.0},
 
         -- Toast notification colors (ElvUI-inspired modern styling)
         TOAST_BG = {0.07, 0.07, 0.07, 0.95},
@@ -60,7 +60,14 @@ local UI_CONSTANTS = {
         TOAST_ACCENT_FREQUENT = {0.2, 0.8, 0.2, 1},
         TOAST_ACCENT_GROUP = {0.2, 0.6, 1.0, 1},
         TOAST_ACCENT_REPEAT = {1.0, 0.8, 0.2, 1},
-        TOAST_ACCENT_DEFAULT = {0.6, 0.6, 0.6, 1}
+        TOAST_ACCENT_DEFAULT = {0.6, 0.6, 0.6, 1},
+        
+        -- Content area colors for better readability
+        CONTENT_BG = {0.05, 0.05, 0.05, 0.8},
+        SECTION_HEADER = {0.9, 0.9, 0.3, 1},
+        HIGHLIGHT_TEXT = {0.3, 0.8, 1.0, 1},
+        SUCCESS_TEXT = {0.3, 1.0, 0.3, 1},
+        WARNING_TEXT = {1.0, 0.8, 0.3, 1}
     },
 
     -- Spacing and layout
@@ -1358,29 +1365,50 @@ function UI:ShowToast(title, message, notificationType)
 
     -- Calculate position based on existing toasts to prevent overlap
     local yOffset = -80
-    yOffset = yOffset - (activeToasts * UI_CONSTANTS.SPACING.TOAST_SPACING)
+    
+    -- Get toast size from settings
+    local toastSize = Crosspaths.db.settings.notifications.toastSize or "compact"
+    local width = toastSize == "large" and 320 or UI_CONSTANTS.SPACING.TOAST_WIDTH
+    local height = toastSize == "large" and 70 or UI_CONSTANTS.SPACING.TOAST_HEIGHT
+    local spacing = toastSize == "large" and 75 or UI_CONSTANTS.SPACING.TOAST_SPACING
+    
+    yOffset = yOffset - (activeToasts * spacing)
 
     -- Create compact toast notification
     local toast = CreateFrame("Frame", nil, UIParent)
-    toast:SetSize(UI_CONSTANTS.SPACING.TOAST_WIDTH, UI_CONSTANTS.SPACING.TOAST_HEIGHT)
+    toast:SetSize(width, height)
     toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
+
+    -- Get toast style from settings
+    local toastStyle = Crosspaths.db.settings.notifications.toastStyle or "modern"
+    local bgColor, borderColor, titleColor
+    
+    if toastStyle == "classic" then
+        bgColor = {0, 0, 0, 0.8}
+        borderColor = {0.3, 0.3, 0.3, 0.8}
+        titleColor = {1, 1, 0, 1}
+    else -- modern
+        bgColor = UI_CONSTANTS.COLORS.TOAST_BG
+        borderColor = UI_CONSTANTS.COLORS.TOAST_BORDER
+        titleColor = UI_CONSTANTS.COLORS.TOAST_TITLE
+    end
 
     -- Modern background with subtle rounded corners effect
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
-    toast.bg:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BG))
+    toast.bg:SetColorTexture(unpack(bgColor))
 
     -- Sleek border
     toast.border = toast:CreateTexture(nil, "BORDER")
     toast.border:SetAllPoints()
-    toast.border:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BORDER))
+    toast.border:SetColorTexture(unpack(borderColor))
     toast.border:SetPoint("TOPLEFT", toast, "TOPLEFT", -1, 1)
     toast.border:SetPoint("BOTTOMRIGHT", toast, "BOTTOMRIGHT", 1, -1)
 
     -- Colored accent strip on the left side based on notification type
     toast.accent = toast:CreateTexture(nil, "OVERLAY")
-    toast.accent:SetSize(3, UI_CONSTANTS.SPACING.TOAST_HEIGHT - 2)
+    toast.accent:SetSize(3, height - 2)
     toast.accent:SetPoint("LEFT", toast, "LEFT", 1, 0)
     
     local accentColor = UI_CONSTANTS.COLORS.TOAST_ACCENT_DEFAULT
@@ -1393,32 +1421,40 @@ function UI:ShowToast(title, message, notificationType)
     end
     toast.accent:SetColorTexture(unpack(accentColor))
 
-    -- Compact title (smaller, left-aligned for better space usage)
-    toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    toast.title:SetPoint("TOPLEFT", toast, "TOPLEFT", 10, -8)
-    toast.title:SetWidth(UI_CONSTANTS.SPACING.TOAST_WIDTH - 20)
+    -- Title positioning depends on size
+    local fontTemplate = toastSize == "large" and "GameFontNormalLarge" or "GameFontNormal"
+    local topMargin = toastSize == "large" and -8 or -6
+    local maxTitleChars = toastSize == "large" and 35 or 28
+    
+    toast.title = toast:CreateFontString(nil, "OVERLAY", fontTemplate)
+    toast.title:SetPoint("TOPLEFT", toast, "TOPLEFT", 10, topMargin)
+    toast.title:SetWidth(width - 20)
     toast.title:SetJustifyH("LEFT")
     toast.title:SetJustifyV("TOP")
     
     -- Smart title truncation
     local displayTitle = title
-    if string.len(title) > 28 then
-        displayTitle = string.sub(title, 1, 25) .. "..."
+    if string.len(title) > maxTitleChars then
+        displayTitle = string.sub(title, 1, maxTitleChars - 3) .. "..."
     end
     toast.title:SetText(displayTitle)
-    toast.title:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TITLE))
+    toast.title:SetTextColor(unpack(titleColor))
 
-    -- Compact message (smaller font, left-aligned)
-    toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    toast.message:SetPoint("TOPLEFT", toast.title, "BOTTOMLEFT", 0, -2)
-    toast.message:SetWidth(UI_CONSTANTS.SPACING.TOAST_WIDTH - 20)
+    -- Message positioning depends on size
+    local messageFontTemplate = toastSize == "large" and "GameFontNormal" or "GameFontNormalSmall"
+    local messageMargin = toastSize == "large" and -3 or -2
+    local maxMessageChars = toastSize == "large" and 60 or 45
+    
+    toast.message = toast:CreateFontString(nil, "OVERLAY", messageFontTemplate)
+    toast.message:SetPoint("TOPLEFT", toast.title, "BOTTOMLEFT", 0, messageMargin)
+    toast.message:SetWidth(width - 20)
     toast.message:SetJustifyH("LEFT")
     toast.message:SetJustifyV("TOP")
     
     -- Smart message truncation
     local displayMessage = message
-    if string.len(message) > 45 then
-        displayMessage = string.sub(message, 1, 42) .. "..."
+    if string.len(message) > maxMessageChars then
+        displayMessage = string.sub(message, 1, maxMessageChars - 3) .. "..."
     end
     toast.message:SetText(displayMessage)
     toast.message:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TEXT))

@@ -632,6 +632,91 @@ function Config:CreateNotificationSettings(parent)
     parent.notificationDurationEditBox = durationEditBox
     yOffset = yOffset - 35
 
+    -- Toast appearance subsection
+    local appearanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    appearanceLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
+    appearanceLabel:SetText("|cFFADD8E6Toast Appearance:|r")
+    yOffset = yOffset - 20
+
+    -- Toast size option
+    local sizeLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    sizeLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    sizeLabel:SetText("Toast size:")
+    yOffset = yOffset - 18
+    
+    local compactRadio = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    compactRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    compactRadio.Text:SetText("Compact (280x50)")
+    compactRadio:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.toastSize = "compact"
+        -- Update the UI constants
+        UI_CONSTANTS.SPACING.TOAST_WIDTH = 280
+        UI_CONSTANTS.SPACING.TOAST_HEIGHT = 50
+        parent.largeRadio:SetChecked(false)
+    end)
+    parent.compactRadio = compactRadio
+    yOffset = yOffset - 20
+    
+    local largeRadio = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    largeRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    largeRadio.Text:SetText("Large (320x70)")
+    largeRadio:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.toastSize = "large"
+        -- Update the UI constants
+        UI_CONSTANTS.SPACING.TOAST_WIDTH = 320
+        UI_CONSTANTS.SPACING.TOAST_HEIGHT = 70
+        parent.compactRadio:SetChecked(false)
+    end)
+    parent.largeRadio = largeRadio
+    yOffset = yOffset - 25
+
+    -- Toast style option
+    local styleLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    styleLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    styleLabel:SetText("Visual style:")
+    yOffset = yOffset - 18
+    
+    local modernRadio = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    modernRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    modernRadio.Text:SetText("Modern (ElvUI-style)")
+    modernRadio:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.toastStyle = "modern"
+        -- Update colors to modern style
+        UI_CONSTANTS.COLORS.TOAST_BG = {0.07, 0.07, 0.07, 0.95}
+        UI_CONSTANTS.COLORS.TOAST_BORDER = {0.4, 0.4, 0.4, 1.0}
+        UI_CONSTANTS.COLORS.TOAST_TITLE = {0.95, 0.95, 0.95, 1}
+        parent.classicRadio:SetChecked(false)
+    end)
+    parent.modernRadio = modernRadio
+    yOffset = yOffset - 20
+    
+    local classicRadio = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    classicRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
+    classicRadio.Text:SetText("Classic (WoW-style)")
+    classicRadio:SetScript("OnClick", function(self)
+        Crosspaths.db.settings.notifications.toastStyle = "classic"
+        -- Update colors to classic style
+        UI_CONSTANTS.COLORS.TOAST_BG = {0, 0, 0, 0.8}
+        UI_CONSTANTS.COLORS.TOAST_BORDER = {0.3, 0.3, 0.3, 0.8}
+        UI_CONSTANTS.COLORS.TOAST_TITLE = {1, 1, 0, 1}
+        parent.modernRadio:SetChecked(false)
+    end)
+    parent.classicRadio = classicRadio
+    yOffset = yOffset - 25
+
+    -- Test toast button
+    local testButton = CreateFrame("Button", nil, parent, "GameMenuButtonTemplate")
+    testButton:SetSize(120, 22)
+    testButton:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOffset)
+    testButton:SetText("Test Notification")
+    testButton:SetScript("OnClick", function(self)
+        if Crosspaths.UI then
+            Crosspaths.UI:ShowToast("Test Notification", "This is how your notifications will look!", "test")
+        end
+    end)
+    parent.testButton = testButton
+    yOffset = yOffset - 35
+
     -- Thresholds subsection
     local thresholdLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     thresholdLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, yOffset)
@@ -1103,6 +1188,23 @@ function Config:RefreshSettings()
     end
     if content.thresholdEditBox then
         content.thresholdEditBox:SetText(tostring(Crosspaths.db.settings.notifications.frequentPlayerThreshold or 10))
+    end
+    
+    -- Toast appearance settings
+    local toastSize = Crosspaths.db.settings.notifications.toastSize or "compact"
+    if content.compactRadio then
+        content.compactRadio:SetChecked(toastSize == "compact")
+    end
+    if content.largeRadio then
+        content.largeRadio:SetChecked(toastSize == "large")
+    end
+    
+    local toastStyle = Crosspaths.db.settings.notifications.toastStyle or "modern"
+    if content.modernRadio then
+        content.modernRadio:SetChecked(toastStyle == "modern")
+    end
+    if content.classicRadio then
+        content.classicRadio:SetChecked(toastStyle == "classic")
     end
 
     -- Digest settings
