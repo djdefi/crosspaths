@@ -52,10 +52,15 @@ local UI_CONSTANTS = {
         TAB_BORDER = {0.6, 0.6, 0.6, 0.8},
         TAB_BORDER_SELECTED = {0.8, 0.8, 0.8, 1.0},
 
-        -- Toast notification colors
-        TOAST_BG = {0, 0, 0, 0.8},
-        TOAST_TITLE = {1, 1, 0, 1},
-        TOAST_TEXT = {1, 1, 1, 1}
+        -- Toast notification colors (ElvUI-inspired modern styling)
+        TOAST_BG = {0.07, 0.07, 0.07, 0.95},
+        TOAST_BORDER = {0.4, 0.4, 0.4, 1.0},
+        TOAST_TITLE = {0.95, 0.95, 0.95, 1},
+        TOAST_TEXT = {0.8, 0.8, 0.8, 1},
+        TOAST_ACCENT_FREQUENT = {0.2, 0.8, 0.2, 1},
+        TOAST_ACCENT_GROUP = {0.2, 0.6, 1.0, 1},
+        TOAST_ACCENT_REPEAT = {1.0, 0.8, 0.2, 1},
+        TOAST_ACCENT_DEFAULT = {0.6, 0.6, 0.6, 1}
     },
 
     -- Spacing and layout
@@ -75,7 +80,13 @@ local UI_CONSTANTS = {
         SECTION_SPACING = 20,
         LIST_ITEM_SPACING = 15,
         HEADER_SPACING = 25,
-        SUBSECTION_SPACING = 10
+        SUBSECTION_SPACING = 10,
+        -- Compact toast notification spacing
+        TOAST_WIDTH = 280,
+        TOAST_HEIGHT = 50,
+        TOAST_SPACING = 55,
+        TOAST_MARGIN = 6,
+        TOAST_ICON_SIZE = 16
     }
 }
 
@@ -923,23 +934,50 @@ function UI:RefreshSummaryTab()
     table.insert(lines, "|cFFFFD700Crosspaths Statistics Overview|r")
     table.insert(lines, "")
 
-    -- Overall statistics
+    -- Overall statistics with visual elements
     table.insert(lines, "|cFFFF8080Overall Statistics:|r")
     table.insert(lines, string.format("  Total Players: |cFF00FF00%d|r", stats.totalPlayers))
     table.insert(lines, string.format("  Total Encounters: |cFF00FF00%d|r", stats.totalEncounters))
-    table.insert(lines, string.format("  Grouped Players: |cFF00FF00%d|r", stats.groupedPlayers))
+    table.insert(lines, string.format("  Grouped Players: |cFF00FF00%d|r (%d%% of total)", stats.groupedPlayers, stats.totalPlayers > 0 and math.floor((stats.groupedPlayers / stats.totalPlayers) * 100) or 0))
     table.insert(lines, string.format("  Guilds Encountered: |cFF00FF00%d|r", stats.totalGuilds))
 
     if stats.totalPlayers > 0 then
         table.insert(lines, string.format("  Average Encounters per Player: |cFF00FF00%.1f|r", stats.averageEncounters))
     end
 
-    -- Recent activity
+    -- Activity chart with visual bars
     table.insert(lines, "")
-    table.insert(lines, "|cFF80FF80Recent Activity:|r")
-    table.insert(lines, string.format("  Last 24 Hours: |cFFFFFFFF%d players, %d encounters|r", activity.last24h.players, activity.last24h.encounters))
-    table.insert(lines, string.format("  Last 7 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last7d.players, activity.last7d.encounters))
-    table.insert(lines, string.format("  Last 30 Days: |cFFFFFFFF%d players, %d encounters|r", activity.last30d.players, activity.last30d.encounters))
+    table.insert(lines, "|cFF80FF80Recent Activity Chart:|r")
+    
+    -- Create simple bar chart for activity
+    local maxEncounters = math.max(activity.last24h.encounters, activity.last7d.encounters, activity.last30d.encounters)
+    if maxEncounters > 0 then
+        local function createBar(value, max, width)
+            local filledChars = math.floor((value / max) * width)
+            local emptyChars = width - filledChars
+            return string.rep("█", filledChars) .. string.rep("░", emptyChars)
+        end
+        
+        local barWidth = 20
+        table.insert(lines, string.format("  24h: |cFF00FF00%s|r %d encounters", createBar(activity.last24h.encounters, maxEncounters, barWidth), activity.last24h.encounters))
+        table.insert(lines, string.format("  7d:  |cFFFFFF00%s|r %d encounters", createBar(activity.last7d.encounters, maxEncounters, barWidth), activity.last7d.encounters))
+        table.insert(lines, string.format("  30d: |cFFFF8000%s|r %d encounters", createBar(activity.last30d.encounters, maxEncounters, barWidth), activity.last30d.encounters))
+    else
+        table.insert(lines, "  No recent activity data available")
+    end
+
+    -- Player distribution
+    table.insert(lines, "")
+    table.insert(lines, "|cFF8080FFPlayer Distribution:|r")
+    if stats.totalPlayers > 0 then
+        local groupedPercent = math.floor((stats.groupedPlayers / stats.totalPlayers) * 100)
+        local ungroupedPercent = 100 - groupedPercent
+        local groupedBar = math.floor(groupedPercent / 5) -- Scale to fit in 20 chars
+        local ungroupedBar = 20 - groupedBar
+        
+        table.insert(lines, string.format("  Grouped:    |cFF00FF00%s|r %d%%", string.rep("█", groupedBar) .. string.rep("░", ungroupedBar), groupedPercent))
+        table.insert(lines, string.format("  Solo Encounters: |cFFAAAAFF%s|r %d%%", string.rep("░", groupedBar) .. string.rep("█", ungroupedBar), ungroupedPercent))
+    end
 
     -- Time range information
     if stats.oldestEncounter then
@@ -947,46 +985,75 @@ function UI:RefreshSummaryTab()
         table.insert(lines, "|cFF8080FFTime Range:|r")
         table.insert(lines, string.format("  Oldest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.oldestEncounter)))
         table.insert(lines, string.format("  Newest Encounter: |cFFFFFFFF%s|r", date("%Y-%m-%d %H:%M", stats.newestEncounter)))
+        
+        -- Add data span information
+        local daysDiff = math.floor((stats.newestEncounter - stats.oldestEncounter) / 86400)
+        table.insert(lines, string.format("  Data Span: |cFFFFFFFF%d days|r", daysDiff))
     end
 
-    -- Top zones
+    -- Top zones with visual representation
     table.insert(lines, "")
     table.insert(lines, "|cFF80FFFF Top Zones:|r")
     local topZones = Crosspaths.Engine:GetTopZones(5)
     if #topZones > 0 then
+        local maxZoneCount = topZones[1].encounterCount
         for i, zone in ipairs(topZones) do
-            table.insert(lines, string.format("  %d. %s (%d encounters)", i, zone.name, zone.encounterCount))
+            local barLength = math.floor((zone.encounterCount / maxZoneCount) * 15)
+            local bar = string.rep("█", barLength) .. string.rep("░", 15 - barLength)
+            -- Truncate zone names to prevent overflow
+            local zoneName = zone.name
+            if string.len(zoneName) > 20 then
+                zoneName = string.sub(zoneName, 1, 17) .. "..."
+            end
+            table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d", i, zoneName, bar, zone.encounterCount))
         end
     else
         table.insert(lines, "  No zone data available")
     end
 
-    -- Top players
+    -- Top players with enhanced display
     table.insert(lines, "")
     table.insert(lines, "|cFFFFD700Top Players:|r")
     local topPlayers = Crosspaths.Engine:GetTopPlayers(5)
     if #topPlayers > 0 then
+        local maxPlayerCount = topPlayers[1].count
         for i, player in ipairs(topPlayers) do
+            local barLength = math.floor((player.count / maxPlayerCount) * 12)
+            local bar = string.rep("█", barLength) .. string.rep("░", 12 - barLength)
             local guildText = player.guild and player.guild ~= "" and (" <" .. player.guild .. ">") or ""
-            table.insert(lines, string.format("  %d. %s%s (%d encounters)", i, player.name, guildText, player.count))
+            
+            -- Truncate names to prevent overflow
+            local playerName = player.name
+            if string.len(playerName) > 15 then
+                playerName = string.sub(playerName, 1, 12) .. "..."
+            end
+            
+            table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d%s", i, playerName, bar, player.count, guildText))
         end
     else
         table.insert(lines, "  No player data available")
     end
 
-    -- Current session statistics
+    -- Current session statistics with progress indicators
     local sessionStats = Crosspaths.Engine:GetSessionStats()
     table.insert(lines, "")
     table.insert(lines, "|cFFFF80FF Current Session:|r")
     table.insert(lines, string.format("  Players Encountered: |cFFFFFFFF%d|r", sessionStats.playersEncountered))
-    table.insert(lines, string.format("  New Players: |cFFFFFFFF%d|r", sessionStats.newPlayers))
+    table.insert(lines, string.format("  New Players: |cFFFFFFFF%d|r (%d%% of session)", sessionStats.newPlayers, sessionStats.playersEncountered > 0 and math.floor((sessionStats.newPlayers / sessionStats.playersEncountered) * 100) or 0))
     table.insert(lines, string.format("  Total Encounters: |cFFFFFFFF%d|r", sessionStats.totalEncounters))
+    
     if sessionStats.sessionDuration > 60 then
         local minutes = math.floor(sessionStats.sessionDuration / 60)
         local seconds = sessionStats.sessionDuration % 60
         table.insert(lines, string.format("  Session Duration: |cFFFFFFFF%dm %ds|r", minutes, seconds))
     else
         table.insert(lines, string.format("  Session Duration: |cFFFFFFFF%ds|r", sessionStats.sessionDuration))
+    end
+    
+    -- Session activity rate
+    if sessionStats.sessionDuration > 0 then
+        local encountersPerMinute = (sessionStats.totalEncounters / sessionStats.sessionDuration) * 60
+        table.insert(lines, string.format("  Activity Rate: |cFFFFFFFF%.1f encounters/min|r", encountersPerMinute))
     end
 
     self.tabContent.summary.statsText:SetText(table.concat(lines, "\n"))
@@ -1240,7 +1307,7 @@ function UI:RefreshAdvancedTab()
     self.tabContent.advanced.advancedText:SetText(table.concat(lines, "\n"))
 end
 
--- Show toast notification
+-- Show toast notification with compact, modern design
 function UI:ShowToast(title, message, notificationType)
     -- Check master notification settings
     if not Crosspaths.db or not Crosspaths.db.settings.ui.showNotifications then
@@ -1290,64 +1357,100 @@ function UI:ShowToast(title, message, notificationType)
     end
 
     -- Calculate position based on existing toasts to prevent overlap
-    local yOffset = -100
-    yOffset = yOffset - (activeToasts * 70) -- 70 pixels per notification (60 height + 10 spacing)
+    local yOffset = -80
+    yOffset = yOffset - (activeToasts * UI_CONSTANTS.SPACING.TOAST_SPACING)
 
-    -- Create toast notification
+    -- Create compact toast notification
     local toast = CreateFrame("Frame", nil, UIParent)
-    toast:SetSize(320, 70) -- Slightly larger for better text display
+    toast:SetSize(UI_CONSTANTS.SPACING.TOAST_WIDTH, UI_CONSTANTS.SPACING.TOAST_HEIGHT)
     toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
 
-    -- Background with border
+    -- Modern background with subtle rounded corners effect
     toast.bg = toast:CreateTexture(nil, "BACKGROUND")
     toast.bg:SetAllPoints()
     toast.bg:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BG))
 
-    -- Add subtle border for better visibility
+    -- Sleek border
     toast.border = toast:CreateTexture(nil, "BORDER")
     toast.border:SetAllPoints()
-    toast.border:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+    toast.border:SetColorTexture(unpack(UI_CONSTANTS.COLORS.TOAST_BORDER))
     toast.border:SetPoint("TOPLEFT", toast, "TOPLEFT", -1, 1)
     toast.border:SetPoint("BOTTOMRIGHT", toast, "BOTTOMRIGHT", 1, -1)
 
-    -- Title with proper width constraints
-    toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    toast.title:SetPoint("TOP", toast, "TOP", 0, -8)
-    toast.title:SetWidth(300) -- Constrain width to prevent overflow
-    toast.title:SetJustifyH("CENTER")
-    -- Truncate title if too long
+    -- Colored accent strip on the left side based on notification type
+    toast.accent = toast:CreateTexture(nil, "OVERLAY")
+    toast.accent:SetSize(3, UI_CONSTANTS.SPACING.TOAST_HEIGHT - 2)
+    toast.accent:SetPoint("LEFT", toast, "LEFT", 1, 0)
+    
+    local accentColor = UI_CONSTANTS.COLORS.TOAST_ACCENT_DEFAULT
+    if notificationType == "frequent" then
+        accentColor = UI_CONSTANTS.COLORS.TOAST_ACCENT_FREQUENT
+    elseif notificationType == "group" then
+        accentColor = UI_CONSTANTS.COLORS.TOAST_ACCENT_GROUP
+    elseif notificationType == "repeat" then
+        accentColor = UI_CONSTANTS.COLORS.TOAST_ACCENT_REPEAT
+    end
+    toast.accent:SetColorTexture(unpack(accentColor))
+
+    -- Compact title (smaller, left-aligned for better space usage)
+    toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    toast.title:SetPoint("TOPLEFT", toast, "TOPLEFT", 10, -8)
+    toast.title:SetWidth(UI_CONSTANTS.SPACING.TOAST_WIDTH - 20)
+    toast.title:SetJustifyH("LEFT")
+    toast.title:SetJustifyV("TOP")
+    
+    -- Smart title truncation
     local displayTitle = title
-    if string.len(title) > 35 then
-        displayTitle = string.sub(title, 1, 32) .. "..."
+    if string.len(title) > 28 then
+        displayTitle = string.sub(title, 1, 25) .. "..."
     end
     toast.title:SetText(displayTitle)
     toast.title:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TITLE))
 
-    -- Message with proper width constraints and word wrapping
-    toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    toast.message:SetPoint("TOP", toast.title, "BOTTOM", 0, -5)
-    toast.message:SetWidth(300) -- Constrain width to prevent overflow
-    toast.message:SetJustifyH("CENTER")
-    toast.message:SetWordWrap(true)
-    -- Truncate message if too long
+    -- Compact message (smaller font, left-aligned)
+    toast.message = toast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    toast.message:SetPoint("TOPLEFT", toast.title, "BOTTOMLEFT", 0, -2)
+    toast.message:SetWidth(UI_CONSTANTS.SPACING.TOAST_WIDTH - 20)
+    toast.message:SetJustifyH("LEFT")
+    toast.message:SetJustifyV("TOP")
+    
+    -- Smart message truncation
     local displayMessage = message
-    if string.len(message) > 60 then
-        displayMessage = string.sub(message, 1, 57) .. "..."
+    if string.len(message) > 45 then
+        displayMessage = string.sub(message, 1, 42) .. "..."
     end
     toast.message:SetText(displayMessage)
     toast.message:SetTextColor(unpack(UI_CONSTANTS.COLORS.TOAST_TEXT))
+
+    -- Subtle fade-in animation
+    toast:SetAlpha(0)
+    local fadeIn = toast:CreateAnimationGroup()
+    local fade = fadeIn:CreateAnimation("Alpha")
+    fade:SetFromAlpha(0)
+    fade:SetToAlpha(1)
+    fade:SetDuration(0.3)
+    fade:SetSmoothing("OUT")
+    fadeIn:Play()
 
     -- Play sound if enabled
     if notifications.playSound then
         PlaySound(SOUNDKIT.FRIEND_JOIN_GAME or 5633)
     end
 
-    -- Auto-hide
+    -- Auto-hide with fade-out
     local duration = notifications.duration or Crosspaths.db.settings.ui.notificationDuration or 3
     C_Timer.After(duration, function()
-        if toast then
-            toast:Hide()
+        if toast and toast:IsShown() then
+            local fadeOut = toast:CreateAnimationGroup()
+            local fadeOutAnim = fadeOut:CreateAnimation("Alpha")
+            fadeOutAnim:SetFromAlpha(1)
+            fadeOutAnim:SetToAlpha(0)
+            fadeOutAnim:SetDuration(0.5)
+            fadeOut:SetScript("OnFinished", function()
+                toast:Hide()
+            end)
+            fadeOut:Play()
         end
     end)
 
