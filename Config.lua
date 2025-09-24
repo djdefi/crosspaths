@@ -648,11 +648,12 @@ function Config:CreateNotificationSettings(parent)
     compactRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
     compactRadio.Text:SetText("Compact (280x50)")
     compactRadio:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.notifications.toastSize = "compact"
-        -- Update the UI constants
-        UI_CONSTANTS.SPACING.TOAST_WIDTH = 280
-        UI_CONSTANTS.SPACING.TOAST_HEIGHT = 50
-        parent.largeRadio:SetChecked(false)
+        if self:GetChecked() then
+            Config:UpdateToastSettings("size", "compact")
+            parent.largeRadio:SetChecked(false)
+        else
+            self:SetChecked(true) -- Prevent unchecking
+        end
     end)
     parent.compactRadio = compactRadio
     yOffset = yOffset - 20
@@ -661,11 +662,12 @@ function Config:CreateNotificationSettings(parent)
     largeRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
     largeRadio.Text:SetText("Large (320x70)")
     largeRadio:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.notifications.toastSize = "large"
-        -- Update the UI constants
-        UI_CONSTANTS.SPACING.TOAST_WIDTH = 320
-        UI_CONSTANTS.SPACING.TOAST_HEIGHT = 70
-        parent.compactRadio:SetChecked(false)
+        if self:GetChecked() then
+            Config:UpdateToastSettings("size", "large")
+            parent.compactRadio:SetChecked(false)
+        else
+            self:SetChecked(true) -- Prevent unchecking
+        end
     end)
     parent.largeRadio = largeRadio
     yOffset = yOffset - 25
@@ -680,12 +682,12 @@ function Config:CreateNotificationSettings(parent)
     modernRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
     modernRadio.Text:SetText("Modern (ElvUI-style)")
     modernRadio:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.notifications.toastStyle = "modern"
-        -- Update colors to modern style
-        UI_CONSTANTS.COLORS.TOAST_BG = {0.07, 0.07, 0.07, 0.95}
-        UI_CONSTANTS.COLORS.TOAST_BORDER = {0.4, 0.4, 0.4, 1.0}
-        UI_CONSTANTS.COLORS.TOAST_TITLE = {0.95, 0.95, 0.95, 1}
-        parent.classicRadio:SetChecked(false)
+        if self:GetChecked() then
+            Config:UpdateToastSettings("style", "modern")
+            parent.classicRadio:SetChecked(false)
+        else
+            self:SetChecked(true) -- Prevent unchecking
+        end
     end)
     parent.modernRadio = modernRadio
     yOffset = yOffset - 20
@@ -694,12 +696,12 @@ function Config:CreateNotificationSettings(parent)
     classicRadio:SetPoint("TOPLEFT", parent, "TOPLEFT", 30, yOffset)
     classicRadio.Text:SetText("Classic (WoW-style)")
     classicRadio:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.notifications.toastStyle = "classic"
-        -- Update colors to classic style
-        UI_CONSTANTS.COLORS.TOAST_BG = {0, 0, 0, 0.8}
-        UI_CONSTANTS.COLORS.TOAST_BORDER = {0.3, 0.3, 0.3, 0.8}
-        UI_CONSTANTS.COLORS.TOAST_TITLE = {1, 1, 0, 1}
-        parent.modernRadio:SetChecked(false)
+        if self:GetChecked() then
+            Config:UpdateToastSettings("style", "classic")
+            parent.modernRadio:SetChecked(false)
+        else
+            self:SetChecked(true) -- Prevent unchecking
+        end
     end)
     parent.classicRadio = classicRadio
     yOffset = yOffset - 25
@@ -746,6 +748,43 @@ function Config:CreateNotificationSettings(parent)
     yOffset = yOffset - 50
 
     parent.notificationsYOffset = yOffset
+end
+
+-- Centralized toast settings update function
+function Config:UpdateToastSettings(settingType, value)
+    -- Ensure settings structure exists
+    if not Crosspaths.db or not Crosspaths.db.settings then
+        return
+    end
+    if not Crosspaths.db.settings.notifications then
+        Crosspaths.db.settings.notifications = {}
+    end
+
+    if settingType == "size" then
+        Crosspaths.db.settings.notifications.toastSize = value
+        -- Update UI constants atomically
+        if value == "large" then
+            UI_CONSTANTS.SPACING.TOAST_WIDTH = UI_CONSTANTS.SPACING.TOAST_LARGE_WIDTH
+            UI_CONSTANTS.SPACING.TOAST_HEIGHT = UI_CONSTANTS.SPACING.TOAST_LARGE_HEIGHT
+            UI_CONSTANTS.SPACING.TOAST_SPACING = UI_CONSTANTS.SPACING.TOAST_LARGE_SPACING
+        else -- compact (restore defaults)
+            UI_CONSTANTS.SPACING.TOAST_WIDTH = 280
+            UI_CONSTANTS.SPACING.TOAST_HEIGHT = 50
+            UI_CONSTANTS.SPACING.TOAST_SPACING = 55
+        end
+    elseif settingType == "style" then
+        Crosspaths.db.settings.notifications.toastStyle = value
+        -- Update colors atomically
+        if value == "classic" then
+            UI_CONSTANTS.COLORS.TOAST_BG = {0, 0, 0, 0.8}
+            UI_CONSTANTS.COLORS.TOAST_BORDER = {0.3, 0.3, 0.3, 0.8}
+            UI_CONSTANTS.COLORS.TOAST_TITLE = {1, 1, 0, 1}
+        else -- modern
+            UI_CONSTANTS.COLORS.TOAST_BG = {0.07, 0.07, 0.07, 0.95}
+            UI_CONSTANTS.COLORS.TOAST_BORDER = {0.4, 0.4, 0.4, 1.0}
+            UI_CONSTANTS.COLORS.TOAST_TITLE = {0.95, 0.95, 0.95, 1}
+        end
+    end
 end
 
 -- Create digest settings

@@ -93,7 +93,11 @@ local UI_CONSTANTS = {
         TOAST_HEIGHT = 50,
         TOAST_SPACING = 55,
         TOAST_MARGIN = 6,
-        TOAST_ICON_SIZE = 16
+        TOAST_ICON_SIZE = 16,
+        -- Toast size constants for consistency
+        TOAST_LARGE_WIDTH = 320,
+        TOAST_LARGE_HEIGHT = 70,
+        TOAST_LARGE_SPACING = 75
     }
 }
 
@@ -1366,11 +1370,15 @@ function UI:ShowToast(title, message, notificationType)
     -- Calculate position based on existing toasts to prevent overlap
     local yOffset = -80
     
-    -- Get toast size from settings
-    local toastSize = Crosspaths.db.settings.notifications.toastSize or "compact"
-    local width = toastSize == "large" and 320 or UI_CONSTANTS.SPACING.TOAST_WIDTH
-    local height = toastSize == "large" and 70 or UI_CONSTANTS.SPACING.TOAST_HEIGHT
-    local spacing = toastSize == "large" and 75 or UI_CONSTANTS.SPACING.TOAST_SPACING
+    -- Get toast size from settings with safe access
+    local toastSize = "compact" -- default
+    if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.notifications then
+        toastSize = Crosspaths.db.settings.notifications.toastSize or "compact"
+    end
+    
+    local width = toastSize == "large" and UI_CONSTANTS.SPACING.TOAST_LARGE_WIDTH or UI_CONSTANTS.SPACING.TOAST_WIDTH
+    local height = toastSize == "large" and UI_CONSTANTS.SPACING.TOAST_LARGE_HEIGHT or UI_CONSTANTS.SPACING.TOAST_HEIGHT
+    local spacing = toastSize == "large" and UI_CONSTANTS.SPACING.TOAST_LARGE_SPACING or UI_CONSTANTS.SPACING.TOAST_SPACING
     
     yOffset = yOffset - (activeToasts * spacing)
 
@@ -1380,8 +1388,12 @@ function UI:ShowToast(title, message, notificationType)
     toast:SetPoint("TOP", UIParent, "TOP", 0, yOffset)
     toast:SetFrameStrata("HIGH")
 
-    -- Get toast style from settings
-    local toastStyle = Crosspaths.db.settings.notifications.toastStyle or "modern"
+    -- Get toast style from settings with safe access
+    local toastStyle = "modern" -- default
+    if Crosspaths.db and Crosspaths.db.settings and Crosspaths.db.settings.notifications then
+        toastStyle = Crosspaths.db.settings.notifications.toastStyle or "modern"
+    end
+    
     local bgColor, borderColor, titleColor
     
     if toastStyle == "classic" then
