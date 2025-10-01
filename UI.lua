@@ -979,16 +979,16 @@ function UI:RefreshSummaryTab()
         
         local barWidth = 20
         -- Show bars with improved scaling and percentage indicators
-        table.insert(lines, string.format("  24h: |cFF00FF00%s|r %d encounters (%d%%)", 
-            createBar(activity.last24h.encounters, maxEncounters, barWidth), 
+        table.insert(lines, string.format("  24h: |cFF00FF00%s|r %d encounters (%d%%)",
+            createBar(activity.last24h.encounters, maxEncounters, barWidth),
             activity.last24h.encounters,
             math.floor((activity.last24h.encounters / maxEncounters) * 100)))
-        table.insert(lines, string.format("  7d:  |cFFFFFF00%s|r %d encounters (%d%%)", 
-            createBar(activity.last7d.encounters, maxEncounters, barWidth), 
+        table.insert(lines, string.format("  7d:  |cFFFFFF00%s|r %d encounters (%d%%)",
+            createBar(activity.last7d.encounters, maxEncounters, barWidth),
             activity.last7d.encounters,
             math.floor((activity.last7d.encounters / maxEncounters) * 100)))
-        table.insert(lines, string.format("  30d: |cFFFF8000%s|r %d encounters (%d%%)", 
-            createBar(activity.last30d.encounters, maxEncounters, barWidth), 
+        table.insert(lines, string.format("  30d: |cFFFF8000%s|r %d encounters (%d%%)",
+            createBar(activity.last30d.encounters, maxEncounters, barWidth),
             activity.last30d.encounters,
             math.floor((activity.last30d.encounters / maxEncounters) * 100)))
     else
@@ -1034,7 +1034,7 @@ function UI:RefreshSummaryTab()
             if string.len(zoneName) > 20 then
                 zoneName = string.sub(zoneName, 1, 17) .. "..."
             end
-            table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d (%d%%)", 
+            table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d (%d%%)",
                 i, zoneName, bar, zone.encounterCount,
                 math.floor((zone.encounterCount / maxZoneCount) * 100)))
         end
@@ -1059,7 +1059,7 @@ function UI:RefreshSummaryTab()
                 playerName = string.sub(playerName, 1, 12) .. "..."
             end
             
-            table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d (%d%%)%s", 
+            table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d (%d%%)%s",
                 i, playerName, bar, player.count,
                 math.floor((player.count / maxPlayerCount) * 100), guildText))
         end
