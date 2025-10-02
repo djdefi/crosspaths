@@ -135,6 +135,34 @@ TestRunner.assertEqual(result10, true, "Unit with AI guild name should be detect
 local result11 = IsNPCorAICharacter("testfollower1")
 TestRunner.assertEqual(result11, true, "Unit with follower guild name should be detected as NPC")
 
+-- Test name validation with various character combinations
+print("Running test: Name Validation - Character patterns")
+local testNames = {
+    {"John", true},                    -- Simple name
+    {"Mal'Ganis", true},              -- Name with apostrophe
+    {"Crenna Earth-Daughter", true},   -- Name with space and hyphen
+    {"Blood-Elf", true},              -- Name with hyphen
+    {"Anna Marie", true},             -- Name with space
+    {"L33tH4x0r", false},             -- Name with numbers (should be rejected)
+    {"Test@Name", false},             -- Name with special characters
+    {"", false},                      -- Empty name
+}
+
+for _, test in ipairs(testNames) do
+    local name, expected = test[1], test[2]
+    -- Use same logic as Tracker.lua for validation
+    local isValid = false
+    if string.len(name) >= 2 then -- Check length first for clarity
+        local maxLength = 12 -- Standard player name limit
+        if string.match(name, "[%s%-]") then -- Names with spaces or hyphens (often NPCs)
+            maxLength = 25 -- Longer limit for compound names
+        end
+        isValid = string.match(name, "^[%a'%s%-]+$") ~= nil and string.len(name) <= maxLength
+    end
+    
+    TestRunner.assertEqual(isValid, expected, "Name validation for: " .. (name ~= "" and name or "[empty]"))
+end
+
 -- Display results
 print("")
 TestRunner.printResults()

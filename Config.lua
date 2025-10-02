@@ -66,7 +66,12 @@ function Config:CreateConfigFrame()
         pcall(frame.SetMaxResize, frame, 800, 900)
     end
 
-    frame:SetPoint("CENTER")
+    -- Smart positioning to avoid overlap with main window
+    if CrosspathsMainFrame and CrosspathsMainFrame:IsShown() then
+        frame:SetPoint("CENTER", 150, -50) -- Offset further if main window is visible
+    else
+        frame:SetPoint("CENTER", 100, -50) -- Standard offset
+    end
     frame:SetMovable(true)
     frame:SetResizable(true)
     frame:EnableMouse(true)
