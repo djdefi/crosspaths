@@ -5,7 +5,7 @@ local addonName, Crosspaths = ...
 
 -- Create the main addon object
 Crosspaths = Crosspaths or {}
-Crosspaths.version = "0.1.24"
+Crosspaths.version = "0.2.0"
 Crosspaths.debug = false
 
 -- Default settings
