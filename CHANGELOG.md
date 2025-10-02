@@ -16,6 +16,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix trailing whitespace linting issues
 - Addressing PR comments
 - Merge pull request #67 from djdefi/copilot/fix-8250fccc-f657-4906-b81d-a70561b9e7a6
+- Bump version from 0.1.24 to 0.2.0
+
+### Changed
+- 
+
+### Fixed
+- 
+
+## [0.2.0] - 2025-10-02
+
+### Added
+- Initial plan
+- Fix ShowExportWindow method name causing crashes
+- Fix NPC name validation and window overlap issues
+- Improve graph bar rendering and address code review feedback
+- Fix trailing whitespace linting issues
+- Addressing PR comments
+- Merge pull request #67 from djdefi/copilot/fix-8250fccc-f657-4906-b81d-a70561b9e7a6
 
 ### Changed
 - 
