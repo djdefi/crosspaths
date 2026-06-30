@@ -96,8 +96,8 @@ Crosspaths respects your privacy and Blizzard's social contract:
 
 ## System Requirements
 
-- **World of Warcraft** - Retail version (11.0.7+)
-- **Interface Version** - 110107 or higher
+- **World of Warcraft** - Retail version (12.0.7+)
+- **Interface Version** - 120007 or higher
 - **Memory** - Minimal impact on game performance
 - **Disk Space** - Very small footprint
 

@@ -86,7 +86,11 @@ if [ -f "CHANGELOG.md" ]; then
     cp CHANGELOG.md CHANGELOG.md.backup
     
     # Find the line with [Unreleased] and insert after it
-    if grep -q "## \[Unreleased\]" CHANGELOG.md; then
+    if grep -q "## \[$TO_VERSION\]" CHANGELOG.md; then
+        # ponytail: idempotency guard — bump-toc and release workflows both call
+        # this for the same version; without it every release gets duplicated.
+        echo "Changelog already has an entry for $TO_VERSION; skipping insert."
+    elif grep -q "## \[Unreleased\]" CHANGELOG.md; then
         # Insert after [Unreleased] section
         sed -i '/## \[Unreleased\]/r '"$TEMP_FILE" CHANGELOG.md
     else

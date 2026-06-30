@@ -5,7 +5,7 @@ local addonName, Crosspaths = ...
 
 -- Create the main addon object
 Crosspaths = Crosspaths or {}
-Crosspaths.version = "0.2.0"
+Crosspaths.version = "0.3.0"
 Crosspaths.debug = false
 
 -- Default settings
@@ -481,18 +481,3 @@ end)
 
 -- Make Crosspaths globally accessible
 _G[addonName] = Crosspaths
-
--- Cleanup function for addon disable/reload
-function Crosspaths:Cleanup()
-    self:SafeCall(function()
-        if self.UI then
-            self.UI:Hide()
-        end
-
-        if self.Tracker then
-            self.Tracker:Stop()
-        end
-
-        self:Print("Crosspaths cleanup completed")
-    end)
-end
