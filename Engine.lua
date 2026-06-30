@@ -40,14 +40,6 @@ function Engine:StartUpdateLoop()
     end)
 end
 
--- Stop update loop
-function Engine:StopUpdateLoop()
-    if self.updateTimer then
-        self.updateTimer:Cancel()
-        self.updateTimer = nil
-    end
-end
-
 -- Refresh data cache
 function Engine:RefreshCache()
     local now = time()
@@ -218,7 +210,9 @@ end
 
 -- Get cached or calculate top players
 function Engine:GetTopPlayers(limit)
-    if #self.cache.topPlayers == 0 then
+    -- Recompute when the cache is empty or can't satisfy the requested size
+    -- (cache is built at a fixed size; a larger UI request must not be silently capped).
+    if #self.cache.topPlayers == 0 or (limit and #self.cache.topPlayers < limit) then
         return self:CalculateTopPlayers(limit)
     end
 
@@ -233,7 +227,7 @@ end
 
 -- Get cached or calculate top guilds
 function Engine:GetTopGuilds(limit)
-    if #self.cache.topGuilds == 0 then
+    if #self.cache.topGuilds == 0 or (limit and #self.cache.topGuilds < limit) then
         return self:CalculateTopGuilds(limit)
     end
 
@@ -248,7 +242,7 @@ end
 
 -- Get cached or calculate top zones
 function Engine:GetTopZones(limit)
-    if #self.cache.topZones == 0 then
+    if #self.cache.topZones == 0 or (limit and #self.cache.topZones < limit) then
         return self:CalculateTopZones(limit)
     end
 
@@ -527,64 +521,6 @@ function Engine:SearchPlayers(query, limit)
     return results
 end
 
--- Get player details
-function Engine:GetPlayerDetails(playerName)
-    if not Crosspaths.db or not Crosspaths.db.players then
-        return nil
-    end
-
-    local player = Crosspaths.db.players[playerName]
-    if not player then
-        return nil
-    end
-
-    -- Calculate additional details
-    local details = {
-        name = playerName,
-        count = player.count,
-        firstSeen = player.firstSeen,
-        lastSeen = player.lastSeen,
-        guild = player.guild,
-        grouped = player.grouped,
-        notes = player.notes,
-        zones = player.zones or {},
-        contexts = player.contexts or {},
-        daysSinceFirstSeen = 0,
-        daysSinceLastSeen = 0,
-        topZone = "",
-        topContext = "",
-    }
-
-    -- Calculate days
-    local now = time()
-    if player.firstSeen then
-        details.daysSinceFirstSeen = math.floor((now - player.firstSeen) / (24 * 60 * 60))
-    end
-    if player.lastSeen then
-        details.daysSinceLastSeen = math.floor((now - player.lastSeen) / (24 * 60 * 60))
-    end
-
-    -- Find top zone
-    local maxZoneCount = 0
-    for zone, count in pairs(player.zones or {}) do
-        if count > maxZoneCount then
-            maxZoneCount = count
-            details.topZone = zone
-        end
-    end
-
-    -- Find top context
-    local maxContextCount = 0
-    for context, count in pairs(player.contexts or {}) do
-        if count > maxContextCount then
-            maxContextCount = count
-            details.topContext = context
-        end
-    end
-
-    return details
-end
-
 -- Export data
 function Engine:ExportData(format)
     format = format or "json"
@@ -805,6 +741,12 @@ end
 -- Get specific advanced stat by type
 function Engine:GetTopPlayersByType(statType, limit)
     limit = limit or 10
+
+    -- Top players by raw encounter count (not a role/advanced stat)
+    if statType == "encounters" then
+        return self:GetTopPlayers(limit)
+    end
+
     local advancedStats = self:GetAdvancedStats()
 
     if statType == "tanks" then

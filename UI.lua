@@ -101,6 +101,10 @@ local UI_CONSTANTS = {
     }
 }
 
+-- Expose constants so sibling modules (e.g. Config) can read and update shared
+-- layout/colors. They share the same table reference, so updates are seen here.
+Crosspaths.UI_CONSTANTS = UI_CONSTANTS
+
 -- Helper function to get responsive window size based on screen dimensions
 local function GetResponsiveSize(windowType)
     local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
@@ -1811,12 +1815,6 @@ end
 
 -- Initialize tooltip functionality
 function UI:InitializeTooltips()
-    -- Create custom tooltip frame for showing player encounter history
-    if not self.tooltip then
-        self.tooltip = CreateFrame("GameTooltip", "CrosspathsTooltip", UIParent, "GameTooltipTemplate")
-        self.tooltip:SetFrameStrata("TOOLTIP")
-    end
-
     -- Hook into the game's tooltip system to show encounter info
     self:HookGameTooltips()
 end
@@ -2076,109 +2074,6 @@ function UI:TooltipContainsLevel(tooltip)
         end
     end
     return false
-end
-
--- Show player encounter tooltip
-function UI:ShowPlayerTooltip(playerName, anchor)
-    if not self.tooltip or not Crosspaths.db then
-        return
-    end
-
-    local playerData = Crosspaths.db.players[playerName]
-    if not playerData then
-        return
-    end
-
-    self.tooltip:SetOwner(anchor, "ANCHOR_RIGHT")
-    self.tooltip:ClearLines()
-
-    -- Player name header
-    self.tooltip:AddLine(playerName, 1, 1, 1)
-
-    -- Basic encounter info
-    local encounterCount = playerData.count or 0
-    if encounterCount > 0 then
-        self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
-
-        -- Show class and race info
-        if playerData.class and playerData.class ~= "" then
-            local classInfo = playerData.class
-            if playerData.race and playerData.race ~= "" then
-                classInfo = playerData.race .. " " .. playerData.class
-            end
-            self.tooltip:AddLine("Class: " .. classInfo, 1, 1, 0.8)
-        end
-
-        -- Show level with progression
-        if playerData.level and playerData.level > 0 then
-            local levelText = "Level: " .. playerData.level
-            if playerData.levelHistory and #playerData.levelHistory > 0 then
-                local progressCount = #playerData.levelHistory
-                levelText = levelText .. " (+" .. progressCount .. " level" .. (progressCount > 1 and "s" or "") .. " tracked)"
-            end
-            self.tooltip:AddLine(levelText, 0.6, 1, 0.6)
-        end
-
-        -- Show specialization if available
-        if playerData.specialization and playerData.specialization ~= "" then
-            self.tooltip:AddLine("Specialization: " .. playerData.specialization, 1, 0.8, 1)
-        end
-
-        -- Show item level if available
-        if playerData.itemLevel and playerData.itemLevel > 0 then
-            self.tooltip:AddLine("Item Level: " .. playerData.itemLevel, 1, 1, 0.6)
-        end
-
-        -- Show achievement points if available
-        if playerData.achievementPoints and playerData.achievementPoints > 0 then
-            self.tooltip:AddLine("Achievement Points: " .. playerData.achievementPoints, 1, 0.8, 0.6)
-        end
-
-        -- Show last seen info
-        if playerData.lastSeen then
-            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
-            self.tooltip:AddLine("Last seen: " .. timeAgo, 0.8, 0.8, 0.8)
-        end
-
-        -- Show first seen info
-        if playerData.firstSeen then
-            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
-            self.tooltip:AddLine("First seen: " .. timeAgo, 0.8, 0.8, 0.8)
-        end
-
-        -- Show grouped status
-        if playerData.grouped then
-            self.tooltip:AddLine("Status: Previously grouped", 0.6, 1, 0.6)
-        end
-
-        -- Show guild if available
-        if playerData.guild and playerData.guild ~= "" then
-            self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
-        end
-
-        -- Show location if available
-        if playerData.subzone and playerData.subzone ~= "" then
-            self.tooltip:AddLine("Last location: " .. playerData.subzone, 0.8, 0.8, 1)
-        end
-
-        -- Show notes if available
-        if playerData.notes and playerData.notes ~= "" then
-            self.tooltip:AddLine(" ", 1, 1, 1)  -- Blank line
-            self.tooltip:AddLine("Notes:", 0.8, 0.8, 1)
-            self.tooltip:AddLine(playerData.notes, 1, 1, 0.8, true)  -- Wrap text
-        end
-    else
-        self.tooltip:AddLine("No encounter data", 0.5, 0.5, 0.5)
-    end
-
-    self.tooltip:Show()
-end
-
--- Hide player tooltip
-function UI:HidePlayerTooltip()
-    if self.tooltip then
-        self.tooltip:Hide()
-    end
 end
 
 -- Format time ago helper
@@ -2460,7 +2355,7 @@ function UI:ExportDigest(digest, title)
         exportTime = time()
     }
 
-    local jsonData = self:TableToJSON(data)
+    local jsonData = Crosspaths:TableToJSON(data)
     self:ShowExportFrame(jsonData, title .. " - " .. date("%Y-%m-%d"))
 end
 

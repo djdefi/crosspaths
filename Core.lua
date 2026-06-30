@@ -74,12 +74,6 @@ function Crosspaths:InitializeDB()
         self:Message("Crosspaths database was corrupted, resetting to defaults", true)
     end
 
-    -- Check for version upgrade
-    if CrosspathsDB.version ~= self.version then
-        self:OnVersionUpgrade(CrosspathsDB.version, self.version)
-        CrosspathsDB.version = self.version
-    end
-
     -- Initialize main data structures
     if not CrosspathsDB.players then
         CrosspathsDB.players = {}
@@ -111,6 +105,14 @@ function Crosspaths:InitializeDB()
     end
 
     self.db = CrosspathsDB
+
+    -- Check for version upgrade after self.db and players exist, so cleanup routines
+    -- (CleanupSelfEncounters / Engine:ValidateAndCleanData) can actually read the data.
+    if CrosspathsDB.version ~= self.version then
+        self:OnVersionUpgrade(CrosspathsDB.version, self.version)
+        CrosspathsDB.version = self.version
+    end
+
     self:Print("Database initialized with " .. self:CountPlayers() .. " players tracked")
 end
 
@@ -468,6 +470,42 @@ function Crosspaths:OnPlayerEnteringWorld()
         self.db.settings.enabled = true
         self:Message("Crosspaths active - tracking social encounters")
     end)
+end
+
+-- ponytail: minimal JSON encoder — WoW ships no JSON library and Engine's escaper
+-- is a file-local. Handles nested tables/strings/numbers/booleans; no cycle
+-- detection (export/digest data is acyclic). Upgrade path: swap for a library if
+-- exports ever need to round-trip arbitrary data.
+function Crosspaths:EncodeJSONString(str)
+    str = tostring(str or "")
+    str = str:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n"):gsub("\r", "\\r"):gsub("\t", "\\t")
+    return '"' .. str .. '"'
+end
+
+function Crosspaths:TableToJSON(value)
+    local valueType = type(value)
+    if valueType == "table" then
+        local count = 0
+        for _ in pairs(value) do count = count + 1 end
+        local parts = {}
+        if count > 0 and #value == count then
+            -- Contiguous 1..n keys: encode as a JSON array
+            for _, item in ipairs(value) do
+                parts[#parts + 1] = self:TableToJSON(item)
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
+        for key, item in pairs(value) do
+            parts[#parts + 1] = self:EncodeJSONString(key) .. ":" .. self:TableToJSON(item)
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    elseif valueType == "number" then
+        return tostring(value)
+    elseif valueType == "boolean" then
+        return value and "true" or "false"
+    else
+        return self:EncodeJSONString(value)
+    end
 end
 
 -- Create event frame

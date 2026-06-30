@@ -194,8 +194,12 @@ function Tracker:HandleGroupRosterUpdate()
 
     if IsInGroup() then
         local numMembers = GetNumGroupMembers()
-        for i = 1, numMembers - 1 do
-            local unit = IsInRaid() and "raid" .. i or "party" .. i
+        local inRaid = IsInRaid()
+        -- Raid units are raid1..raidN and include you (filtered out in RecordEncounter);
+        -- party units are party1..party(N-1) and already exclude you.
+        local lastIndex = inRaid and numMembers or (numMembers - 1)
+        for i = 1, lastIndex do
+            local unit = inRaid and ("raid" .. i) or ("party" .. i)
 
             if UnitExists(unit) then
                 local name, realm = UnitNameUnmodified(unit)

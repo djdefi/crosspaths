@@ -769,25 +769,25 @@ function Config:UpdateToastSettings(settingType, value)
         Crosspaths.db.settings.notifications.toastSize = value
         -- Update UI constants atomically
         if value == "large" then
-            UI_CONSTANTS.SPACING.TOAST_WIDTH = UI_CONSTANTS.SPACING.TOAST_LARGE_WIDTH
-            UI_CONSTANTS.SPACING.TOAST_HEIGHT = UI_CONSTANTS.SPACING.TOAST_LARGE_HEIGHT
-            UI_CONSTANTS.SPACING.TOAST_SPACING = UI_CONSTANTS.SPACING.TOAST_LARGE_SPACING
+            Crosspaths.UI_CONSTANTS.SPACING.TOAST_WIDTH = Crosspaths.UI_CONSTANTS.SPACING.TOAST_LARGE_WIDTH
+            Crosspaths.UI_CONSTANTS.SPACING.TOAST_HEIGHT = Crosspaths.UI_CONSTANTS.SPACING.TOAST_LARGE_HEIGHT
+            Crosspaths.UI_CONSTANTS.SPACING.TOAST_SPACING = Crosspaths.UI_CONSTANTS.SPACING.TOAST_LARGE_SPACING
         else -- compact (restore defaults)
-            UI_CONSTANTS.SPACING.TOAST_WIDTH = 280
-            UI_CONSTANTS.SPACING.TOAST_HEIGHT = 50
-            UI_CONSTANTS.SPACING.TOAST_SPACING = 55
+            Crosspaths.UI_CONSTANTS.SPACING.TOAST_WIDTH = 280
+            Crosspaths.UI_CONSTANTS.SPACING.TOAST_HEIGHT = 50
+            Crosspaths.UI_CONSTANTS.SPACING.TOAST_SPACING = 55
         end
     elseif settingType == "style" then
         Crosspaths.db.settings.notifications.toastStyle = value
         -- Update colors atomically
         if value == "classic" then
-            UI_CONSTANTS.COLORS.TOAST_BG = {0, 0, 0, 0.8}
-            UI_CONSTANTS.COLORS.TOAST_BORDER = {0.3, 0.3, 0.3, 0.8}
-            UI_CONSTANTS.COLORS.TOAST_TITLE = {1, 1, 0, 1}
+            Crosspaths.UI_CONSTANTS.COLORS.TOAST_BG = {0, 0, 0, 0.8}
+            Crosspaths.UI_CONSTANTS.COLORS.TOAST_BORDER = {0.3, 0.3, 0.3, 0.8}
+            Crosspaths.UI_CONSTANTS.COLORS.TOAST_TITLE = {1, 1, 0, 1}
         else -- modern
-            UI_CONSTANTS.COLORS.TOAST_BG = {0.07, 0.07, 0.07, 0.95}
-            UI_CONSTANTS.COLORS.TOAST_BORDER = {0.4, 0.4, 0.4, 1.0}
-            UI_CONSTANTS.COLORS.TOAST_TITLE = {0.95, 0.95, 0.95, 1}
+            Crosspaths.UI_CONSTANTS.COLORS.TOAST_BG = {0.07, 0.07, 0.07, 0.95}
+            Crosspaths.UI_CONSTANTS.COLORS.TOAST_BORDER = {0.4, 0.4, 0.4, 1.0}
+            Crosspaths.UI_CONSTANTS.COLORS.TOAST_TITLE = {0.95, 0.95, 0.95, 1}
         end
     end
 end
