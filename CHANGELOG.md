@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-30
+
 ### Changed
 - Bump WoW interface version to 120007 (retail 12.0.7, Midnight)
+
+### Removed
+- Remove unused changelog tooling (AI "WoW flair" scripts, bump-version.sh) and the dead .pkgmeta packaging config
+- Remove dead Lua methods (Cleanup, LogInfo, LogWarn) and orphaned planning docs (UI_REVIEW, UI_IMPROVEMENTS, ACTIVITY_DETECTION)
 
 ### Fixed
 - De-duplicate CHANGELOG entries and add idempotency guard to changelog generator so future releases are not duplicated

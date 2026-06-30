@@ -2,7 +2,7 @@
 ## Title: Crosspaths
 ## Notes: Social memory tracker for World of Warcraft
 ## Author: djdefi
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: CrosspathsDB
 ## DefaultState: enabled
 
