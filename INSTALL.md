@@ -73,7 +73,7 @@ Once installed, you can verify the addon is working by:
 - Verify you're running WoW retail (not Classic)
 
 ### Interface Version Errors
-- The addon requires WoW interface version 110107 or higher
+- The addon requires WoW interface version 120007 or higher
 - Update your WoW client to the latest version
 - Check [releases](https://github.com/djdefi/crosspaths/releases) for addon updates
 
