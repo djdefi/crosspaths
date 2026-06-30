@@ -481,18 +481,3 @@ end)
 
 -- Make Crosspaths globally accessible
 _G[addonName] = Crosspaths
-
--- Cleanup function for addon disable/reload
-function Crosspaths:Cleanup()
-    self:SafeCall(function()
-        if self.UI then
-            self.UI:Hide()
-        end
-
-        if self.Tracker then
-            self.Tracker:Stop()
-        end
-
-        self:Print("Crosspaths cleanup completed")
-    end)
-end

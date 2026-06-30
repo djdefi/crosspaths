@@ -72,7 +72,6 @@ Since this is a WoW addon, you cannot run it outside of World of Warcraft. Howev
 
 ### Documentation & Build
 - **.github/workflows/** - CI/CD pipelines (test.yml, release.yml, bump-toc.yml)
-- **.pkgmeta** - CurseForge packaging configuration
 - **README.md** - User documentation and installation guide
 - **CONTRIBUTING.md** - Development guidelines and setup instructions
 - **DESIGN.md** - Technical architecture and data model design

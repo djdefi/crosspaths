@@ -188,15 +188,3 @@ function Crosspaths:LogError(message)
         self.Logging:Error(message)
     end
 end
-
-function Crosspaths:LogInfo(message)
-    if self.Logging then
-        self.Logging:Info(message)
-    end
-end
-
-function Crosspaths:LogWarn(message)
-    if self.Logging then
-        self.Logging:Warn(message)
-    end
-end
