@@ -103,10 +103,31 @@ function MockWoW.setupMockAPI()
     end
 
     -- Generic frame factory: real modules call CreateFrame at load time. Return a
-    -- frame whose every method is a no-op so load-time UI wiring doesn't error.
-    _G.CreateFrame = _G.CreateFrame or function()
-        return setmetatable({}, { __index = function() return function() end end })
+    -- frame whose every field access yields another frame-like and whose every method
+    -- call returns one too, so load-time UI wiring and simple builders don't error.
+    local FrameMeta
+    local function makeFrame()
+        return setmetatable({}, FrameMeta)
     end
+    FrameMeta = {
+        __index = function(t, k)
+            local v = makeFrame()
+            rawset(t, k, v)
+            return v
+        end,
+        __call = function() return makeFrame() end,
+    }
+    MockWoW._makeFrame = makeFrame
+    _G.CreateFrame = _G.CreateFrame or function() return makeFrame() end
+
+    -- Assorted globals referenced by UI.lua / Config.lua at load or build time.
+    _G.UIParent = _G.UIParent or makeFrame()
+    _G.GetScreenWidth = _G.GetScreenWidth or function() return 1920 end
+    _G.GetScreenHeight = _G.GetScreenHeight or function() return 1080 end
+    _G.UISpecialFrames = _G.UISpecialFrames or {}
+    _G.StaticPopupDialogs = _G.StaticPopupDialogs or {}
+    _G.GameFontNormal = _G.GameFontNormal or makeFrame()
+    _G.GameTooltip = _G.GameTooltip or makeFrame()
 
     -- WoW globals that real modules rely on. Lua 5.3+ moved unpack to table.unpack
     -- and provides no strtrim/strsplit/wipe, so supply them for real-module loading.

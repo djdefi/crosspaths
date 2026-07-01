@@ -79,7 +79,7 @@ if lua tests/test_engine.lua; then
         echo "------------------------------------"
 
         # Run the real-Engine tests (load actual Engine.lua, not stubs)
-        if lua tests/test_engine_real.lua; then
+        if lua tests/test_engine_real.lua && lua tests/test_load_smoke.lua; then
             echo ""
             echo "🎉 All tests completed successfully!"
             echo "✅ Test coverage verification: PASSED"
