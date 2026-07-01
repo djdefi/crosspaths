@@ -277,7 +277,7 @@ function Engine:GetStatsSummary()
 
     for name, player in pairs(Crosspaths.db.players) do
         stats.totalPlayers = stats.totalPlayers + 1
-        stats.totalEncounters = stats.totalEncounters + player.count
+        stats.totalEncounters = stats.totalEncounters + (player.count or 0)
 
         if player.grouped then
             stats.groupedPlayers = stats.groupedPlayers + 1
@@ -287,12 +287,12 @@ function Engine:GetStatsSummary()
             guilds[player.guild] = true
         end
 
-        if player.firstSeen < oldestTime then
+        if player.firstSeen and player.firstSeen < oldestTime then
             oldestTime = player.firstSeen
             stats.oldestEncounter = player.firstSeen
         end
 
-        if player.lastSeen > newestTime then
+        if player.lastSeen and player.lastSeen > newestTime then
             newestTime = player.lastSeen
             stats.newestEncounter = player.lastSeen
         end
@@ -498,10 +498,6 @@ function Engine:SearchPlayers(query, limit)
                 notes = player.notes,
             })
         end
-
-        if #results >= limit then
-            break
-        end
     end
 
     -- Sort by relevance (name matches first, then by encounter count)
@@ -517,6 +513,16 @@ function Engine:SearchPlayers(query, limit)
             return a.count > b.count
         end
     end)
+
+    -- Truncate to the requested limit only AFTER ranking, so the highest-relevance
+    -- matches survive (previously we broke out of the scan at `limit` pre-sort).
+    if limit and #results > limit then
+        local trimmed = {}
+        for i = 1, limit do
+            trimmed[i] = results[i]
+        end
+        results = trimmed
+    end
 
     return results
 end
@@ -1824,6 +1830,13 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
         end
     end
     
+    -- Count distinct players that actually have a tracked path. playerPaths is keyed
+    -- by name, so `#playerPaths` is 0 -- use this count for percentages and totals.
+    local playerPathCount = 0
+    for _ in pairs(playerPaths) do
+        playerPathCount = playerPathCount + 1
+    end
+
     -- Find common quest line patterns
     local commonPaths = {}
     for sequence, count in pairs(zoneSequences) do
@@ -1831,7 +1844,7 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
             table.insert(commonPaths, {
                 path = sequence,
                 playerCount = count,
-                likelihood = count / #playerPaths * 100
+                likelihood = count / math.max(playerPathCount, 1) * 100
             })
         end
     end
@@ -1853,7 +1866,7 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
                     fromZone = zones[1],
                     toZone = zones[2],
                     playerCount = count,
-                    strength = count / #playerPaths * 100
+                    strength = count / math.max(playerPathCount, 1) * 100
                 })
             end
         end
@@ -1864,7 +1877,7 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
     
     return {
         patterns = playerPaths,
-        totalPlayers = 0,
+        totalPlayers = playerPathCount,
         commonPaths = {unpack(commonPaths, 1, 10)}, -- Top 10
         questLineCorrelations = {unpack(questLineCorrelations, 1, 15)} -- Top 15
     }

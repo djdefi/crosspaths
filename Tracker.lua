@@ -1092,7 +1092,7 @@ function Tracker:PruneOldData()
         -- Remove oldest players
         local sortedPlayers = {}
         for name, player in pairs(Crosspaths.db.players) do
-            table.insert(sortedPlayers, {name = name, lastSeen = player.lastSeen})
+            table.insert(sortedPlayers, {name = name, lastSeen = player.lastSeen or 0})
         end
 
         table.sort(sortedPlayers, function(a, b)
