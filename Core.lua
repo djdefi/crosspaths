@@ -508,6 +508,35 @@ function Crosspaths:TableToJSON(value)
     end
 end
 
+-- Sort `list` in place and return its first `limit` items. `comparator` is either a
+-- Lua sort function, or a string naming a numeric field to sort by descending.
+-- Centralizes the repeated "table.sort + copy top-N" blocks across Engine/UI.
+function Crosspaths:SortAndSlice(list, comparator, limit)
+    if type(comparator) == "string" then
+        local key = comparator
+        comparator = function(a, b) return (a[key] or 0) > (b[key] or 0) end
+    end
+    table.sort(list, comparator)
+    if not limit or limit >= #list then
+        return list
+    end
+    local result = {}
+    for i = 1, limit do
+        result[i] = list[i]
+    end
+    return result
+end
+
+-- Shared string helper: truncate with an ellipsis. Replaces the inlined
+-- `if #s > n then s = s:sub(1, n-3).."..." end` blocks duplicated across the UI.
+function Crosspaths:Truncate(text, maxLength)
+    text = tostring(text or "")
+    if maxLength and #text > maxLength then
+        return text:sub(1, math.max(maxLength - 3, 0)) .. "..."
+    end
+    return text
+end
+
 -- Create event frame
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")

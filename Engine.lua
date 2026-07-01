@@ -103,21 +103,12 @@ function Engine:CalculateTopPlayers(limit)
         })
     end
 
-    -- Sort by encounter count
-    table.sort(players, function(a, b)
-        if a.count == b.count then
-            return a.lastSeen > b.lastSeen -- More recent if same count
+    return Crosspaths:SortAndSlice(players, function(a, b)
+        if (a.count or 0) == (b.count or 0) then
+            return (a.lastSeen or 0) > (b.lastSeen or 0) -- More recent if same count
         end
-        return a.count > b.count
-    end)
-
-    -- Limit results
-    local result = {}
-    for i = 1, math.min(limit, #players) do
-        table.insert(result, players[i])
-    end
-
-    return result
+        return (a.count or 0) > (b.count or 0)
+    end, limit)
 end
 
 -- Get top guilds by member count
@@ -152,18 +143,7 @@ function Engine:CalculateTopGuilds(limit)
         })
     end
 
-    -- Sort by member count
-    table.sort(guilds, function(a, b)
-        return a.memberCount > b.memberCount
-    end)
-
-    -- Limit results
-    local result = {}
-    for i = 1, math.min(limit, #guilds) do
-        table.insert(result, guilds[i])
-    end
-
-    return result
+    return Crosspaths:SortAndSlice(guilds, "memberCount", limit)
 end
 
 -- Get top zones by encounter count
@@ -194,18 +174,7 @@ function Engine:CalculateTopZones(limit)
         })
     end
 
-    -- Sort by encounter count
-    table.sort(zones, function(a, b)
-        return a.encounterCount > b.encounterCount
-    end)
-
-    -- Limit results
-    local result = {}
-    for i = 1, math.min(limit, #zones) do
-        table.insert(result, zones[i])
-    end
-
-    return result
+    return Crosspaths:SortAndSlice(zones, "encounterCount", limit)
 end
 
 -- Get cached or calculate top players
@@ -889,6 +858,7 @@ function Engine:GenerateWeeklyDigest()
     local zones = {}
     local classes = {}
     local guilds = {}
+    local newGuildsSeen = {}
     local activeDays = {}
 
     for playerName, player in pairs(Crosspaths.db.players) do
@@ -924,10 +894,12 @@ function Engine:GenerateWeeklyDigest()
             classes[player.class] = (classes[player.class] or 0) + 1
         end
 
-        -- Aggregate guild data
+        -- Aggregate guild data (a "new guild" is counted once even if several of
+        -- its members are new this period)
         if player.guild then
             guilds[player.guild] = (guilds[player.guild] or 0) + 1
-            if player.firstSeen and player.firstSeen >= oneWeekAgo then
+            if player.firstSeen and player.firstSeen >= oneWeekAgo and not newGuildsSeen[player.guild] then
+                newGuildsSeen[player.guild] = true
                 weeklyStats.newGuilds = weeklyStats.newGuilds + 1
             end
         end
@@ -1002,6 +974,7 @@ function Engine:GenerateMonthlyDigest()
     local zones = {}
     local classes = {}
     local guilds = {}
+    local newGuildsSeen = {}
     local players = {}
     local dailyEncounters = {}
 
@@ -1046,10 +1019,12 @@ function Engine:GenerateMonthlyDigest()
             classes[player.class] = (classes[player.class] or 0) + 1
         end
 
-        -- Aggregate guild data
+        -- Aggregate guild data (a "new guild" is counted once even if several of
+        -- its members are new this period)
         if player.guild then
             guilds[player.guild] = (guilds[player.guild] or 0) + 1
-            if player.firstSeen and player.firstSeen >= oneMonthAgo then
+            if player.firstSeen and player.firstSeen >= oneMonthAgo and not newGuildsSeen[player.guild] then
+                newGuildsSeen[player.guild] = true
                 monthlyStats.newGuilds = monthlyStats.newGuilds + 1
             end
         end

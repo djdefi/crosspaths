@@ -1035,9 +1035,7 @@ function UI:RefreshSummaryTab()
             local bar = string.rep("█", barLength) .. string.rep("░", 15 - barLength)
             -- Truncate zone names to prevent overflow
             local zoneName = zone.name
-            if string.len(zoneName) > 20 then
-                zoneName = string.sub(zoneName, 1, 17) .. "..."
-            end
+            zoneName = Crosspaths:Truncate(zoneName, 20)
             table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d (%d%%)",
                 i, zoneName, bar, zone.encounterCount,
                 math.floor((zone.encounterCount / maxZoneCount) * 100)))
@@ -1059,9 +1057,7 @@ function UI:RefreshSummaryTab()
             
             -- Truncate names to prevent overflow
             local playerName = player.name
-            if string.len(playerName) > 15 then
-                playerName = string.sub(playerName, 1, 12) .. "..."
-            end
+            playerName = Crosspaths:Truncate(playerName, 15)
             
             table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d (%d%%)%s",
                 i, playerName, bar, player.count,
@@ -1583,9 +1579,7 @@ function UI:SearchPlayers(query)
 
             -- Truncate player name if too long to prevent overflow
             local playerName = player.name
-            if string.len(playerName) > 20 then
-                playerName = string.sub(playerName, 1, 17) .. "..."
-            end
+            playerName = Crosspaths:Truncate(playerName, 20)
 
             -- Truncate guild name if too long
             if player.guild and string.len(player.guild) > 15 then
@@ -2007,9 +2001,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
     -- Add notes if available (truncated for tooltip) - valuable personal info
     if playerData.notes and playerData.notes ~= "" then
         local notes = playerData.notes
-        if string.len(notes) > 40 then
-            notes = string.sub(notes, 1, 37) .. "..."
-        end
+        notes = Crosspaths:Truncate(notes, 40)
         tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
     end
 
@@ -2254,9 +2246,7 @@ function UI:PopulateDigestContent(content, digest)
                 zoneText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate zone name if too long to prevent overflow
                 local zoneName = zone.zone
-                if string.len(zoneName) > 30 then
-                    zoneName = string.sub(zoneName, 1, 27) .. "..."
-                end
+                zoneName = Crosspaths:Truncate(zoneName, 30)
                 zoneText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, zoneName, zone.count))
                 zoneText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 zoneText:SetJustifyH("LEFT")
@@ -2281,9 +2271,7 @@ function UI:PopulateDigestContent(content, digest)
                 classText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate class name if too long to prevent overflow
                 local className = class.class
-                if string.len(className) > 25 then
-                    className = string.sub(className, 1, 22) .. "..."
-                end
+                className = Crosspaths:Truncate(className, 25)
                 classText:SetText(string.format("%d. %s |cFFFFFFFF(%d players)|r", i, className, class.count))
                 classText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 classText:SetJustifyH("LEFT")
@@ -2308,9 +2296,7 @@ function UI:PopulateDigestContent(content, digest)
                 guildText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate guild name if too long to prevent overflow
                 local guildName = guild.guild
-                if string.len(guildName) > 25 then
-                    guildName = string.sub(guildName, 1, 22) .. "..."
-                end
+                guildName = Crosspaths:Truncate(guildName, 25)
                 guildText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, guildName, guild.count))
                 guildText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 guildText:SetJustifyH("LEFT")
@@ -2335,9 +2321,7 @@ function UI:PopulateDigestContent(content, digest)
                 playerText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate player name if too long to prevent overflow
                 local playerName = player.name
-                if string.len(playerName) > 20 then
-                    playerName = string.sub(playerName, 1, 17) .. "..."
-                end
+                playerName = Crosspaths:Truncate(playerName, 20)
                 playerText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, playerName, player.count))
                 playerText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 playerText:SetJustifyH("LEFT")

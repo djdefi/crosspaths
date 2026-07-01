@@ -9,8 +9,9 @@ package.path = package.path .. ";./?.lua;./tests/?.lua"
 local TestRunner = require("test_runner")
 local MockWoW = require("mock_wow")
 
--- Fresh mock environment, then load the real Engine into it
+-- Fresh mock environment, then load the real Core (utilities) + Engine into it
 local Crosspaths = MockWoW.setupMockEnvironment()
+MockWoW.loadAddonModule("Core.lua", Crosspaths)
 MockWoW.loadAddonModule("Engine.lua", Crosspaths)
 local Engine = Crosspaths.Engine
 Engine:Initialize()
@@ -106,6 +107,46 @@ TestRunner.runTest("GetZoneProgressionPatterns real math (#7)", function()
     TestRunner.assertTrue(likelihood == likelihood, "likelihood is not NaN") -- NaN ~= NaN
     TestRunner.assertTrue(likelihood ~= math.huge and likelihood <= 100, "likelihood finite and <= 100%")
     resetDB()
+end)
+
+-- SortAndSlice powers the top guilds/zones lists
+TestRunner.runTest("SortAndSlice: top guilds ordered/limited", function()
+    resetDB()
+    local guilds = Engine:GetTopGuilds(2)
+    TestRunner.assertEqual(#guilds, 2, "limit respected")
+    TestRunner.assertTrue(guilds[1].memberCount >= guilds[2].memberCount, "sorted by memberCount desc")
+end)
+
+TestRunner.runTest("SortAndSlice: top zones ordered", function()
+    resetDB()
+    local zones = Engine:GetTopZones(3)
+    TestRunner.assertEqual(#zones, 3, "limit respected")
+    TestRunner.assertTrue(zones[1].encounterCount >= zones[2].encounterCount, "sorted by encounterCount desc")
+end)
+
+-- Bug #9: a guild with several new members counts once, not per member
+TestRunner.runTest("weekly newGuilds counts unique guilds (#9)", function()
+    local now = 1640995200
+    local recent = now - 3600
+    Crosspaths.db = {
+        players = {
+            ["A-R"] = { count = 1, firstSeen = recent, lastSeen = recent, guild = "SameGuild" },
+            ["B-R"] = { count = 1, firstSeen = recent, lastSeen = recent, guild = "SameGuild" },
+            ["C-R"] = { count = 1, firstSeen = recent, lastSeen = recent, guild = "SameGuild" },
+            ["D-R"] = { count = 1, firstSeen = recent, lastSeen = recent, guild = "OtherGuild" },
+        },
+    }
+    local digest = Engine:GenerateWeeklyDigest()
+    TestRunner.assertEqual(digest.newGuilds, 2, "3 members of SameGuild + 1 OtherGuild => 2 new guilds, not 4")
+    resetDB()
+end)
+
+-- Shared Truncate helper (replaces inlined string.sub truncation)
+TestRunner.runTest("Crosspaths:Truncate", function()
+    TestRunner.assertEqual(Crosspaths:Truncate("short", 20), "short", "short strings unchanged")
+    TestRunner.assertEqual(Crosspaths:Truncate("abcdefghij", 8), "abcde...", "long strings truncated with ellipsis")
+    TestRunner.assertEqual(#Crosspaths:Truncate("abcdefghij", 8), 8, "result respects max length")
+    TestRunner.assertEqual(Crosspaths:Truncate(nil, 8), "", "nil-safe")
 end)
 
 os.exit(TestRunner.printResults())

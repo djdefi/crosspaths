@@ -102,6 +102,12 @@ function MockWoW.setupMockAPI()
         return true -- Most units exist in our mock environment
     end
 
+    -- Generic frame factory: real modules call CreateFrame at load time. Return a
+    -- frame whose every method is a no-op so load-time UI wiring doesn't error.
+    _G.CreateFrame = _G.CreateFrame or function()
+        return setmetatable({}, { __index = function() return function() end end })
+    end
+
     -- WoW globals that real modules rely on. Lua 5.3+ moved unpack to table.unpack
     -- and provides no strtrim/strsplit/wipe, so supply them for real-module loading.
     _G.unpack = _G.unpack or table.unpack
