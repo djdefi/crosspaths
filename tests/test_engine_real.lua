@@ -149,4 +149,11 @@ TestRunner.runTest("Crosspaths:Truncate", function()
     TestRunner.assertEqual(Crosspaths:Truncate(nil, 8), "", "nil-safe")
 end)
 
+-- Design-system colour helper
+TestRunner.runTest("Crosspaths:Colorize", function()
+    TestRunner.assertEqual(Crosspaths:Colorize("Hi", "GOLD"), "|cFFFFD700Hi|r", "wraps in gold escape code")
+    TestRunner.assertEqual(Crosspaths:Colorize("x", "GREEN"), "|cFF00FF00x|r", "green")
+    TestRunner.assertEqual(Crosspaths:Colorize("x", "NOPE"), "|cFFFFFFFFx|r", "unknown name falls back to white")
+end)
+
 os.exit(TestRunner.printResults())

@@ -537,6 +537,23 @@ function Crosspaths:Truncate(text, maxLength)
     return text
 end
 
+-- Design-system colour palette: named text colours (WoW |cAARRGGBB..|r escape codes)
+-- so the ~20 hex literals scattered across the UI have one source of truth.
+Crosspaths.Colors = {
+    WHITE = "FFFFFF", GREEN = "00FF00", GOLD = "FFD700", LIGHTBLUE = "ADD8E6",
+    YELLOW = "FFFF00", RED = "FF0000", PURPLE = "7B68EE", MAGENTA = "FF80FF",
+    GRAY = "888888", AQUA = "80FFFF", BLUE = "8080FF", PALEYELLOW = "FFFF80",
+    SALMON = "FF8080", LILAC = "AAAAFF", SILVER = "AAAAAA", PALEGREEN = "80FF80",
+    BRIGHTYELLOW = "FFFF33", AMBER = "FFCC00", ORANGE = "FF8800", DARKORANGE = "FF8000",
+    CYAN = "00FFFF",
+}
+
+-- Wrap text in a named palette colour. Colorize("Hi", "GOLD") -> "|cFFFFD700Hi|r".
+function Crosspaths:Colorize(text, colorName)
+    local hex = self.Colors[colorName] or self.Colors.WHITE
+    return "|cFF" .. hex .. tostring(text) .. "|r"
+end
+
 -- Create event frame
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
