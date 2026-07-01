@@ -165,6 +165,26 @@ function Config:CreateGeneralSettings(parent)
 end
 
 -- Create tracking settings
+-- Factory: a labelled checkbox with an accessibility tooltip, wired to onClick.
+-- Stores the widget on parent[fieldName] (kept for external refresh) and returns it.
+-- Replaces ~16 lines of copy-pasted boilerplate per checkbox.
+function Config:CreateCheckbox(parent, yOffset, fieldName, label, tooltip, onClick)
+    local check = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+    check:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
+    check.Text:SetText(label)
+    check:SetScript("OnClick", onClick)
+    check:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(tooltip, 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    check:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    parent[fieldName] = check
+    return check
+end
+
 function Config:CreateTrackingSettings(parent)
     local yOffset = parent.generalYOffset or -100
 
@@ -174,157 +194,25 @@ function Config:CreateTrackingSettings(parent)
     header:SetText("|cFFFFD700Tracking Settings|r")
     yOffset = yOffset - CONFIG_SPACING.SECTION_SPACING
 
-    -- Group tracking
-    local groupCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    groupCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    groupCheck.Text:SetText("Track Group Members")
-    groupCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.enableGroupTracking = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    groupCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Track party and raid members you encounter", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    groupCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.groupCheck = groupCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- Nameplate tracking
-    local nameplateCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    nameplateCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    nameplateCheck.Text:SetText("Track Nearby Players (Nameplates)")
-    nameplateCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.enableNameplateTracking = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    nameplateCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Track players whose nameplates you see nearby", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    nameplateCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.nameplateCheck = nameplateCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- City tracking
-    local cityCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    cityCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    cityCheck.Text:SetText("Track Players in Cities")
-    cityCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.enableCityTracking = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    cityCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Track players you encounter in major cities", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    cityCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.cityCheck = cityCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- Mouseover tracking
-    local mouseoverCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    mouseoverCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    mouseoverCheck.Text:SetText("Track Mouseover Players")
-    mouseoverCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.enableMouseoverTracking = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    mouseoverCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Track players when you hover your mouse over them", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    mouseoverCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.mouseoverCheck = mouseoverCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- Target tracking
-    local targetCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    targetCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    targetCheck.Text:SetText("Track Target/Focus Changes")
-    targetCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.enableTargetTracking = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    targetCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Track players when you target or focus them", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    targetCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.targetCheck = targetCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- Combat log tracking
-    local combatCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    combatCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    combatCheck.Text:SetText("Track Combat Interactions")
-    combatCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.enableCombatLogTracking = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    combatCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Track players you encounter through combat interactions", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    combatCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.combatCheck = combatCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- Location-based throttling
-    local locationCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    locationCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    locationCheck.Text:SetText("Enable Location-Based Duplicate Detection")
-    locationCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.locationBasedThrottling = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    locationCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Prevent duplicate tracking when players haven't moved enough", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    locationCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.locationCheck = locationCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
-
-    -- NPC/AI filtering
-    local npcFilterCheck = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
-    npcFilterCheck:SetPoint("TOPLEFT", parent, "TOPLEFT", CONFIG_SPACING.CONTENT_MARGIN, yOffset)
-    npcFilterCheck.Text:SetText("Filter Out NPCs/AI Characters")
-    npcFilterCheck:SetScript("OnClick", function(self)
-        Crosspaths.db.settings.tracking.filterNPCs = self:GetChecked()
-    end)
-    -- Add tooltip for accessibility
-    npcFilterCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Prevent tracking of NPCs and AI companions from follower dungeons", 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    npcFilterCheck:SetScript("OnLeave", function(self)
-        GameTooltip:Hide()
-    end)
-    parent.npcFilterCheck = npcFilterCheck
-    yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
+    -- Encounter-source toggles: uniform checkboxes built from a spec table.
+    -- Each entry: { field, label, tooltip, settings.tracking key }.
+    local trackingChecks = {
+        { "groupCheck", "Track Group Members", "Track party and raid members you encounter", "enableGroupTracking" },
+        { "nameplateCheck", "Track Nearby Players (Nameplates)", "Track players whose nameplates you see nearby", "enableNameplateTracking" },
+        { "cityCheck", "Track Players in Cities", "Track players you encounter in major cities", "enableCityTracking" },
+        { "mouseoverCheck", "Track Mouseover Players", "Track players when you hover your mouse over them", "enableMouseoverTracking" },
+        { "targetCheck", "Track Target/Focus Changes", "Track players when you target or focus them", "enableTargetTracking" },
+        { "combatCheck", "Track Combat Interactions", "Track players you encounter through combat interactions", "enableCombatLogTracking" },
+        { "locationCheck", "Enable Location-Based Duplicate Detection", "Prevent duplicate tracking when players haven't moved enough", "locationBasedThrottling" },
+        { "npcFilterCheck", "Filter Out NPCs/AI Characters", "Prevent tracking of NPCs and AI companions from follower dungeons", "filterNPCs" },
+    }
+    for _, spec in ipairs(trackingChecks) do
+        local settingKey = spec[4]
+        self:CreateCheckbox(parent, yOffset, spec[1], spec[2], spec[3], function(check)
+            Crosspaths.db.settings.tracking[settingKey] = check:GetChecked()
+        end)
+        yOffset = yOffset - CONFIG_SPACING.ITEM_SPACING
+    end
 
     -- Minimum move distance
     local distanceLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")

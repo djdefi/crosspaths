@@ -28,4 +28,18 @@ TestRunner.runTest("modules registered", function()
     TestRunner.assertType(Crosspaths.Colorize, "function", "Colorize helper present")
 end)
 
+-- Invoke refactored Config builders under the mock to catch runtime errors in the
+-- widget factory / spec-table loop (not just load-time errors).
+TestRunner.runTest("Config builders run (factory smoke)", function()
+    Crosspaths.db.settings = Crosspaths.db.settings or {}
+    Crosspaths.db.settings.tracking = Crosspaths.db.settings.tracking or {}
+    local parent = MockWoW._makeFrame()
+    parent.generalYOffset = -100 -- numeric field the builder reads (mock returns tables otherwise)
+    local ok, err = pcall(function()
+        Crosspaths.Config:CreateTrackingSettings(parent)
+    end)
+    TestRunner.assertTrue(ok, "CreateTrackingSettings runs without error: " .. tostring(err))
+    TestRunner.assertType(Crosspaths.Config.CreateCheckbox, "function", "CreateCheckbox factory present")
+end)
+
 os.exit(TestRunner.printResults())
