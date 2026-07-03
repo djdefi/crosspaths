@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.1] - 2026-07-03
+
+### Added
+- ci: attest SLSA build provenance for release zips
+- Phase 0: fix 6 crash/correctness bugs, remove dead code
+- Phase 1: real-code test harness + 3 analytics bug fixes
+- Phase 2: DRY - SortAndSlice helper, unique newGuilds, Truncate helper
+- Phase 3a: design-system colour palette + Colorize helper
+- Phase 3b: UI load smoke-test harness
+- Phase 3c: Config checkbox factory (tracking section)
+- Merge pull request #68 from djdefi/add-build-provenance
+- Merge pull request #70 from djdefi/audit-fixes-and-refactor
+
+### Changed
+- 
+
+### Fixed
+- fix: scope id-token and attestations permissions to release job only
+
 
 ## [0.3.0] - 2026-06-30
 
