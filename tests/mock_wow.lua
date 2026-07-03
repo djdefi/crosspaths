@@ -101,6 +101,52 @@ function MockWoW.setupMockAPI()
         end
         return true -- Most units exist in our mock environment
     end
+
+    -- Generic frame factory: real modules call CreateFrame at load time. Return a
+    -- frame whose every field access yields another frame-like and whose every method
+    -- call returns one too, so load-time UI wiring and simple builders don't error.
+    local FrameMeta
+    local function makeFrame()
+        return setmetatable({}, FrameMeta)
+    end
+    FrameMeta = {
+        __index = function(t, k)
+            local v = makeFrame()
+            rawset(t, k, v)
+            return v
+        end,
+        __call = function() return makeFrame() end,
+    }
+    MockWoW._makeFrame = makeFrame
+    _G.CreateFrame = _G.CreateFrame or function() return makeFrame() end
+
+    -- Assorted globals referenced by UI.lua / Config.lua at load or build time.
+    _G.UIParent = _G.UIParent or makeFrame()
+    _G.GetScreenWidth = _G.GetScreenWidth or function() return 1920 end
+    _G.GetScreenHeight = _G.GetScreenHeight or function() return 1080 end
+    _G.UISpecialFrames = _G.UISpecialFrames or {}
+    _G.StaticPopupDialogs = _G.StaticPopupDialogs or {}
+    _G.GameFontNormal = _G.GameFontNormal or makeFrame()
+    _G.GameTooltip = _G.GameTooltip or makeFrame()
+
+    -- WoW globals that real modules rely on. Lua 5.3+ moved unpack to table.unpack
+    -- and provides no strtrim/strsplit/wipe, so supply them for real-module loading.
+    _G.unpack = _G.unpack or table.unpack
+    _G.wipe = _G.wipe or function(t)
+        for k in pairs(t) do t[k] = nil end
+        return t
+    end
+    _G.strtrim = _G.strtrim or function(s)
+        if not s then return s end
+        return (s:gsub("^%s*(.-)%s*$", "%1"))
+    end
+    _G.strsplit = _G.strsplit or function(sep, str)
+        local out = {}
+        for piece in tostring(str):gmatch("([^" .. sep .. "]+)") do
+            out[#out + 1] = piece
+        end
+        return table.unpack(out)
+    end
 end
 
 -- Generate comprehensive mock player data
@@ -449,6 +495,18 @@ function MockWoW.setupMockEnvironment()
     }
     
     return _G.Crosspaths
+end
+
+-- Load a real addon module (Engine.lua, Core.lua, ...) into the given Crosspaths
+-- table, emulating WoW's `local addonName, Crosspaths = ...` vararg load. This lets
+-- tests exercise PRODUCTION code instead of reimplemented stubs.
+function MockWoW.loadAddonModule(path, crosspaths)
+    local chunk, err = loadfile(path)
+    if not chunk then
+        error("Failed to load " .. path .. ": " .. tostring(err))
+    end
+    chunk("Crosspaths", crosspaths)
+    return crosspaths
 end
 
 return MockWoW

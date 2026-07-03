@@ -74,12 +74,6 @@ function Crosspaths:InitializeDB()
         self:Message("Crosspaths database was corrupted, resetting to defaults", true)
     end
 
-    -- Check for version upgrade
-    if CrosspathsDB.version ~= self.version then
-        self:OnVersionUpgrade(CrosspathsDB.version, self.version)
-        CrosspathsDB.version = self.version
-    end
-
     -- Initialize main data structures
     if not CrosspathsDB.players then
         CrosspathsDB.players = {}
@@ -111,6 +105,14 @@ function Crosspaths:InitializeDB()
     end
 
     self.db = CrosspathsDB
+
+    -- Check for version upgrade after self.db and players exist, so cleanup routines
+    -- (CleanupSelfEncounters / Engine:ValidateAndCleanData) can actually read the data.
+    if CrosspathsDB.version ~= self.version then
+        self:OnVersionUpgrade(CrosspathsDB.version, self.version)
+        CrosspathsDB.version = self.version
+    end
+
     self:Print("Database initialized with " .. self:CountPlayers() .. " players tracked")
 end
 
@@ -468,6 +470,88 @@ function Crosspaths:OnPlayerEnteringWorld()
         self.db.settings.enabled = true
         self:Message("Crosspaths active - tracking social encounters")
     end)
+end
+
+-- ponytail: minimal JSON encoder — WoW ships no JSON library and Engine's escaper
+-- is a file-local. Handles nested tables/strings/numbers/booleans; no cycle
+-- detection (export/digest data is acyclic). Upgrade path: swap for a library if
+-- exports ever need to round-trip arbitrary data.
+function Crosspaths:EncodeJSONString(str)
+    str = tostring(str or "")
+    str = str:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n"):gsub("\r", "\\r"):gsub("\t", "\\t")
+    return '"' .. str .. '"'
+end
+
+function Crosspaths:TableToJSON(value)
+    local valueType = type(value)
+    if valueType == "table" then
+        local count = 0
+        for _ in pairs(value) do count = count + 1 end
+        local parts = {}
+        if count > 0 and #value == count then
+            -- Contiguous 1..n keys: encode as a JSON array
+            for _, item in ipairs(value) do
+                parts[#parts + 1] = self:TableToJSON(item)
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
+        for key, item in pairs(value) do
+            parts[#parts + 1] = self:EncodeJSONString(key) .. ":" .. self:TableToJSON(item)
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    elseif valueType == "number" then
+        return tostring(value)
+    elseif valueType == "boolean" then
+        return value and "true" or "false"
+    else
+        return self:EncodeJSONString(value)
+    end
+end
+
+-- Sort `list` in place and return its first `limit` items. `comparator` is either a
+-- Lua sort function, or a string naming a numeric field to sort by descending.
+-- Centralizes the repeated "table.sort + copy top-N" blocks across Engine/UI.
+function Crosspaths:SortAndSlice(list, comparator, limit)
+    if type(comparator) == "string" then
+        local key = comparator
+        comparator = function(a, b) return (a[key] or 0) > (b[key] or 0) end
+    end
+    table.sort(list, comparator)
+    if not limit or limit >= #list then
+        return list
+    end
+    local result = {}
+    for i = 1, limit do
+        result[i] = list[i]
+    end
+    return result
+end
+
+-- Shared string helper: truncate with an ellipsis. Replaces the inlined
+-- `if #s > n then s = s:sub(1, n-3).."..." end` blocks duplicated across the UI.
+function Crosspaths:Truncate(text, maxLength)
+    text = tostring(text or "")
+    if maxLength and #text > maxLength then
+        return text:sub(1, math.max(maxLength - 3, 0)) .. "..."
+    end
+    return text
+end
+
+-- Design-system colour palette: named text colours (WoW |cAARRGGBB..|r escape codes)
+-- so the ~20 hex literals scattered across the UI have one source of truth.
+Crosspaths.Colors = {
+    WHITE = "FFFFFF", GREEN = "00FF00", GOLD = "FFD700", LIGHTBLUE = "ADD8E6",
+    YELLOW = "FFFF00", RED = "FF0000", PURPLE = "7B68EE", MAGENTA = "FF80FF",
+    GRAY = "888888", AQUA = "80FFFF", BLUE = "8080FF", PALEYELLOW = "FFFF80",
+    SALMON = "FF8080", LILAC = "AAAAFF", SILVER = "AAAAAA", PALEGREEN = "80FF80",
+    BRIGHTYELLOW = "FFFF33", AMBER = "FFCC00", ORANGE = "FF8800", DARKORANGE = "FF8000",
+    CYAN = "00FFFF",
+}
+
+-- Wrap text in a named palette colour. Colorize("Hi", "GOLD") -> "|cFFFFD700Hi|r".
+function Crosspaths:Colorize(text, colorName)
+    local hex = self.Colors[colorName] or self.Colors.WHITE
+    return "|cFF" .. hex .. tostring(text) .. "|r"
 end
 
 -- Create event frame

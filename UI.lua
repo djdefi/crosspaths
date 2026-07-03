@@ -101,6 +101,10 @@ local UI_CONSTANTS = {
     }
 }
 
+-- Expose constants so sibling modules (e.g. Config) can read and update shared
+-- layout/colors. They share the same table reference, so updates are seen here.
+Crosspaths.UI_CONSTANTS = UI_CONSTANTS
+
 -- Helper function to get responsive window size based on screen dimensions
 local function GetResponsiveSize(windowType)
     local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
@@ -1031,9 +1035,7 @@ function UI:RefreshSummaryTab()
             local bar = string.rep("█", barLength) .. string.rep("░", 15 - barLength)
             -- Truncate zone names to prevent overflow
             local zoneName = zone.name
-            if string.len(zoneName) > 20 then
-                zoneName = string.sub(zoneName, 1, 17) .. "..."
-            end
+            zoneName = Crosspaths:Truncate(zoneName, 20)
             table.insert(lines, string.format("  %d. %-20s |cFF00FFFF%s|r %d (%d%%)",
                 i, zoneName, bar, zone.encounterCount,
                 math.floor((zone.encounterCount / maxZoneCount) * 100)))
@@ -1055,9 +1057,7 @@ function UI:RefreshSummaryTab()
             
             -- Truncate names to prevent overflow
             local playerName = player.name
-            if string.len(playerName) > 15 then
-                playerName = string.sub(playerName, 1, 12) .. "..."
-            end
+            playerName = Crosspaths:Truncate(playerName, 15)
             
             table.insert(lines, string.format("  %d. %-15s |cFFFFD700%s|r %d (%d%%)%s",
                 i, playerName, bar, player.count,
@@ -1579,9 +1579,7 @@ function UI:SearchPlayers(query)
 
             -- Truncate player name if too long to prevent overflow
             local playerName = player.name
-            if string.len(playerName) > 20 then
-                playerName = string.sub(playerName, 1, 17) .. "..."
-            end
+            playerName = Crosspaths:Truncate(playerName, 20)
 
             -- Truncate guild name if too long
             if player.guild and string.len(player.guild) > 15 then
@@ -1811,12 +1809,6 @@ end
 
 -- Initialize tooltip functionality
 function UI:InitializeTooltips()
-    -- Create custom tooltip frame for showing player encounter history
-    if not self.tooltip then
-        self.tooltip = CreateFrame("GameTooltip", "CrosspathsTooltip", UIParent, "GameTooltipTemplate")
-        self.tooltip:SetFrameStrata("TOOLTIP")
-    end
-
     -- Hook into the game's tooltip system to show encounter info
     self:HookGameTooltips()
 end
@@ -2009,9 +2001,7 @@ function UI:AddEncounterInfoToTooltip(tooltip)
     -- Add notes if available (truncated for tooltip) - valuable personal info
     if playerData.notes and playerData.notes ~= "" then
         local notes = playerData.notes
-        if string.len(notes) > 40 then
-            notes = string.sub(notes, 1, 37) .. "..."
-        end
+        notes = Crosspaths:Truncate(notes, 40)
         tooltip:AddDoubleLine("Notes:", notes, 0.8, 0.8, 0.8, 1, 1, 0.8)
     end
 
@@ -2076,109 +2066,6 @@ function UI:TooltipContainsLevel(tooltip)
         end
     end
     return false
-end
-
--- Show player encounter tooltip
-function UI:ShowPlayerTooltip(playerName, anchor)
-    if not self.tooltip or not Crosspaths.db then
-        return
-    end
-
-    local playerData = Crosspaths.db.players[playerName]
-    if not playerData then
-        return
-    end
-
-    self.tooltip:SetOwner(anchor, "ANCHOR_RIGHT")
-    self.tooltip:ClearLines()
-
-    -- Player name header
-    self.tooltip:AddLine(playerName, 1, 1, 1)
-
-    -- Basic encounter info
-    local encounterCount = playerData.count or 0
-    if encounterCount > 0 then
-        self.tooltip:AddLine("Encounters: " .. encounterCount, 0.7, 0.7, 1)
-
-        -- Show class and race info
-        if playerData.class and playerData.class ~= "" then
-            local classInfo = playerData.class
-            if playerData.race and playerData.race ~= "" then
-                classInfo = playerData.race .. " " .. playerData.class
-            end
-            self.tooltip:AddLine("Class: " .. classInfo, 1, 1, 0.8)
-        end
-
-        -- Show level with progression
-        if playerData.level and playerData.level > 0 then
-            local levelText = "Level: " .. playerData.level
-            if playerData.levelHistory and #playerData.levelHistory > 0 then
-                local progressCount = #playerData.levelHistory
-                levelText = levelText .. " (+" .. progressCount .. " level" .. (progressCount > 1 and "s" or "") .. " tracked)"
-            end
-            self.tooltip:AddLine(levelText, 0.6, 1, 0.6)
-        end
-
-        -- Show specialization if available
-        if playerData.specialization and playerData.specialization ~= "" then
-            self.tooltip:AddLine("Specialization: " .. playerData.specialization, 1, 0.8, 1)
-        end
-
-        -- Show item level if available
-        if playerData.itemLevel and playerData.itemLevel > 0 then
-            self.tooltip:AddLine("Item Level: " .. playerData.itemLevel, 1, 1, 0.6)
-        end
-
-        -- Show achievement points if available
-        if playerData.achievementPoints and playerData.achievementPoints > 0 then
-            self.tooltip:AddLine("Achievement Points: " .. playerData.achievementPoints, 1, 0.8, 0.6)
-        end
-
-        -- Show last seen info
-        if playerData.lastSeen then
-            local timeAgo = self:FormatTimeAgo(playerData.lastSeen)
-            self.tooltip:AddLine("Last seen: " .. timeAgo, 0.8, 0.8, 0.8)
-        end
-
-        -- Show first seen info
-        if playerData.firstSeen then
-            local timeAgo = self:FormatTimeAgo(playerData.firstSeen)
-            self.tooltip:AddLine("First seen: " .. timeAgo, 0.8, 0.8, 0.8)
-        end
-
-        -- Show grouped status
-        if playerData.grouped then
-            self.tooltip:AddLine("Status: Previously grouped", 0.6, 1, 0.6)
-        end
-
-        -- Show guild if available
-        if playerData.guild and playerData.guild ~= "" then
-            self.tooltip:AddLine("Guild: " .. playerData.guild, 1, 0.8, 0)
-        end
-
-        -- Show location if available
-        if playerData.subzone and playerData.subzone ~= "" then
-            self.tooltip:AddLine("Last location: " .. playerData.subzone, 0.8, 0.8, 1)
-        end
-
-        -- Show notes if available
-        if playerData.notes and playerData.notes ~= "" then
-            self.tooltip:AddLine(" ", 1, 1, 1)  -- Blank line
-            self.tooltip:AddLine("Notes:", 0.8, 0.8, 1)
-            self.tooltip:AddLine(playerData.notes, 1, 1, 0.8, true)  -- Wrap text
-        end
-    else
-        self.tooltip:AddLine("No encounter data", 0.5, 0.5, 0.5)
-    end
-
-    self.tooltip:Show()
-end
-
--- Hide player tooltip
-function UI:HidePlayerTooltip()
-    if self.tooltip then
-        self.tooltip:Hide()
-    end
 end
 
 -- Format time ago helper
@@ -2359,9 +2246,7 @@ function UI:PopulateDigestContent(content, digest)
                 zoneText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate zone name if too long to prevent overflow
                 local zoneName = zone.zone
-                if string.len(zoneName) > 30 then
-                    zoneName = string.sub(zoneName, 1, 27) .. "..."
-                end
+                zoneName = Crosspaths:Truncate(zoneName, 30)
                 zoneText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, zoneName, zone.count))
                 zoneText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 zoneText:SetJustifyH("LEFT")
@@ -2386,9 +2271,7 @@ function UI:PopulateDigestContent(content, digest)
                 classText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate class name if too long to prevent overflow
                 local className = class.class
-                if string.len(className) > 25 then
-                    className = string.sub(className, 1, 22) .. "..."
-                end
+                className = Crosspaths:Truncate(className, 25)
                 classText:SetText(string.format("%d. %s |cFFFFFFFF(%d players)|r", i, className, class.count))
                 classText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 classText:SetJustifyH("LEFT")
@@ -2413,9 +2296,7 @@ function UI:PopulateDigestContent(content, digest)
                 guildText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate guild name if too long to prevent overflow
                 local guildName = guild.guild
-                if string.len(guildName) > 25 then
-                    guildName = string.sub(guildName, 1, 22) .. "..."
-                end
+                guildName = Crosspaths:Truncate(guildName, 25)
                 guildText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, guildName, guild.count))
                 guildText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 guildText:SetJustifyH("LEFT")
@@ -2440,9 +2321,7 @@ function UI:PopulateDigestContent(content, digest)
                 playerText:SetPoint("TOPLEFT", content, "TOPLEFT", UI_CONSTANTS.SPACING.CONTENT_INDENT, yOffset)
                 -- Truncate player name if too long to prevent overflow
                 local playerName = player.name
-                if string.len(playerName) > 20 then
-                    playerName = string.sub(playerName, 1, 17) .. "..."
-                end
+                playerName = Crosspaths:Truncate(playerName, 20)
                 playerText:SetText(string.format("%d. %s |cFFFFFFFF(%d encounters)|r", i, playerName, player.count))
                 playerText:SetWidth(contentWidth - UI_CONSTANTS.SPACING.CONTENT_INDENT)
                 playerText:SetJustifyH("LEFT")
@@ -2460,7 +2339,7 @@ function UI:ExportDigest(digest, title)
         exportTime = time()
     }
 
-    local jsonData = self:TableToJSON(data)
+    local jsonData = Crosspaths:TableToJSON(data)
     self:ShowExportFrame(jsonData, title .. " - " .. date("%Y-%m-%d"))
 end
 

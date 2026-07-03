@@ -40,14 +40,6 @@ function Engine:StartUpdateLoop()
     end)
 end
 
--- Stop update loop
-function Engine:StopUpdateLoop()
-    if self.updateTimer then
-        self.updateTimer:Cancel()
-        self.updateTimer = nil
-    end
-end
-
 -- Refresh data cache
 function Engine:RefreshCache()
     local now = time()
@@ -111,21 +103,12 @@ function Engine:CalculateTopPlayers(limit)
         })
     end
 
-    -- Sort by encounter count
-    table.sort(players, function(a, b)
-        if a.count == b.count then
-            return a.lastSeen > b.lastSeen -- More recent if same count
+    return Crosspaths:SortAndSlice(players, function(a, b)
+        if (a.count or 0) == (b.count or 0) then
+            return (a.lastSeen or 0) > (b.lastSeen or 0) -- More recent if same count
         end
-        return a.count > b.count
-    end)
-
-    -- Limit results
-    local result = {}
-    for i = 1, math.min(limit, #players) do
-        table.insert(result, players[i])
-    end
-
-    return result
+        return (a.count or 0) > (b.count or 0)
+    end, limit)
 end
 
 -- Get top guilds by member count
@@ -160,18 +143,7 @@ function Engine:CalculateTopGuilds(limit)
         })
     end
 
-    -- Sort by member count
-    table.sort(guilds, function(a, b)
-        return a.memberCount > b.memberCount
-    end)
-
-    -- Limit results
-    local result = {}
-    for i = 1, math.min(limit, #guilds) do
-        table.insert(result, guilds[i])
-    end
-
-    return result
+    return Crosspaths:SortAndSlice(guilds, "memberCount", limit)
 end
 
 -- Get top zones by encounter count
@@ -202,23 +174,14 @@ function Engine:CalculateTopZones(limit)
         })
     end
 
-    -- Sort by encounter count
-    table.sort(zones, function(a, b)
-        return a.encounterCount > b.encounterCount
-    end)
-
-    -- Limit results
-    local result = {}
-    for i = 1, math.min(limit, #zones) do
-        table.insert(result, zones[i])
-    end
-
-    return result
+    return Crosspaths:SortAndSlice(zones, "encounterCount", limit)
 end
 
 -- Get cached or calculate top players
 function Engine:GetTopPlayers(limit)
-    if #self.cache.topPlayers == 0 then
+    -- Recompute when the cache is empty or can't satisfy the requested size
+    -- (cache is built at a fixed size; a larger UI request must not be silently capped).
+    if #self.cache.topPlayers == 0 or (limit and #self.cache.topPlayers < limit) then
         return self:CalculateTopPlayers(limit)
     end
 
@@ -233,7 +196,7 @@ end
 
 -- Get cached or calculate top guilds
 function Engine:GetTopGuilds(limit)
-    if #self.cache.topGuilds == 0 then
+    if #self.cache.topGuilds == 0 or (limit and #self.cache.topGuilds < limit) then
         return self:CalculateTopGuilds(limit)
     end
 
@@ -248,7 +211,7 @@ end
 
 -- Get cached or calculate top zones
 function Engine:GetTopZones(limit)
-    if #self.cache.topZones == 0 then
+    if #self.cache.topZones == 0 or (limit and #self.cache.topZones < limit) then
         return self:CalculateTopZones(limit)
     end
 
@@ -283,7 +246,7 @@ function Engine:GetStatsSummary()
 
     for name, player in pairs(Crosspaths.db.players) do
         stats.totalPlayers = stats.totalPlayers + 1
-        stats.totalEncounters = stats.totalEncounters + player.count
+        stats.totalEncounters = stats.totalEncounters + (player.count or 0)
 
         if player.grouped then
             stats.groupedPlayers = stats.groupedPlayers + 1
@@ -293,12 +256,12 @@ function Engine:GetStatsSummary()
             guilds[player.guild] = true
         end
 
-        if player.firstSeen < oldestTime then
+        if player.firstSeen and player.firstSeen < oldestTime then
             oldestTime = player.firstSeen
             stats.oldestEncounter = player.firstSeen
         end
 
-        if player.lastSeen > newestTime then
+        if player.lastSeen and player.lastSeen > newestTime then
             newestTime = player.lastSeen
             stats.newestEncounter = player.lastSeen
         end
@@ -504,10 +467,6 @@ function Engine:SearchPlayers(query, limit)
                 notes = player.notes,
             })
         end
-
-        if #results >= limit then
-            break
-        end
     end
 
     -- Sort by relevance (name matches first, then by encounter count)
@@ -524,65 +483,17 @@ function Engine:SearchPlayers(query, limit)
         end
     end)
 
+    -- Truncate to the requested limit only AFTER ranking, so the highest-relevance
+    -- matches survive (previously we broke out of the scan at `limit` pre-sort).
+    if limit and #results > limit then
+        local trimmed = {}
+        for i = 1, limit do
+            trimmed[i] = results[i]
+        end
+        results = trimmed
+    end
+
     return results
-end
-
--- Get player details
-function Engine:GetPlayerDetails(playerName)
-    if not Crosspaths.db or not Crosspaths.db.players then
-        return nil
-    end
-
-    local player = Crosspaths.db.players[playerName]
-    if not player then
-        return nil
-    end
-
-    -- Calculate additional details
-    local details = {
-        name = playerName,
-        count = player.count,
-        firstSeen = player.firstSeen,
-        lastSeen = player.lastSeen,
-        guild = player.guild,
-        grouped = player.grouped,
-        notes = player.notes,
-        zones = player.zones or {},
-        contexts = player.contexts or {},
-        daysSinceFirstSeen = 0,
-        daysSinceLastSeen = 0,
-        topZone = "",
-        topContext = "",
-    }
-
-    -- Calculate days
-    local now = time()
-    if player.firstSeen then
-        details.daysSinceFirstSeen = math.floor((now - player.firstSeen) / (24 * 60 * 60))
-    end
-    if player.lastSeen then
-        details.daysSinceLastSeen = math.floor((now - player.lastSeen) / (24 * 60 * 60))
-    end
-
-    -- Find top zone
-    local maxZoneCount = 0
-    for zone, count in pairs(player.zones or {}) do
-        if count > maxZoneCount then
-            maxZoneCount = count
-            details.topZone = zone
-        end
-    end
-
-    -- Find top context
-    local maxContextCount = 0
-    for context, count in pairs(player.contexts or {}) do
-        if count > maxContextCount then
-            maxContextCount = count
-            details.topContext = context
-        end
-    end
-
-    return details
 end
 
 -- Export data
@@ -805,6 +716,12 @@ end
 -- Get specific advanced stat by type
 function Engine:GetTopPlayersByType(statType, limit)
     limit = limit or 10
+
+    -- Top players by raw encounter count (not a role/advanced stat)
+    if statType == "encounters" then
+        return self:GetTopPlayers(limit)
+    end
+
     local advancedStats = self:GetAdvancedStats()
 
     if statType == "tanks" then
@@ -941,6 +858,7 @@ function Engine:GenerateWeeklyDigest()
     local zones = {}
     local classes = {}
     local guilds = {}
+    local newGuildsSeen = {}
     local activeDays = {}
 
     for playerName, player in pairs(Crosspaths.db.players) do
@@ -976,10 +894,12 @@ function Engine:GenerateWeeklyDigest()
             classes[player.class] = (classes[player.class] or 0) + 1
         end
 
-        -- Aggregate guild data
+        -- Aggregate guild data (a "new guild" is counted once even if several of
+        -- its members are new this period)
         if player.guild then
             guilds[player.guild] = (guilds[player.guild] or 0) + 1
-            if player.firstSeen and player.firstSeen >= oneWeekAgo then
+            if player.firstSeen and player.firstSeen >= oneWeekAgo and not newGuildsSeen[player.guild] then
+                newGuildsSeen[player.guild] = true
                 weeklyStats.newGuilds = weeklyStats.newGuilds + 1
             end
         end
@@ -1054,6 +974,7 @@ function Engine:GenerateMonthlyDigest()
     local zones = {}
     local classes = {}
     local guilds = {}
+    local newGuildsSeen = {}
     local players = {}
     local dailyEncounters = {}
 
@@ -1098,10 +1019,12 @@ function Engine:GenerateMonthlyDigest()
             classes[player.class] = (classes[player.class] or 0) + 1
         end
 
-        -- Aggregate guild data
+        -- Aggregate guild data (a "new guild" is counted once even if several of
+        -- its members are new this period)
         if player.guild then
             guilds[player.guild] = (guilds[player.guild] or 0) + 1
-            if player.firstSeen and player.firstSeen >= oneMonthAgo then
+            if player.firstSeen and player.firstSeen >= oneMonthAgo and not newGuildsSeen[player.guild] then
+                newGuildsSeen[player.guild] = true
                 monthlyStats.newGuilds = monthlyStats.newGuilds + 1
             end
         end
@@ -1882,6 +1805,13 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
         end
     end
     
+    -- Count distinct players that actually have a tracked path. playerPaths is keyed
+    -- by name, so `#playerPaths` is 0 -- use this count for percentages and totals.
+    local playerPathCount = 0
+    for _ in pairs(playerPaths) do
+        playerPathCount = playerPathCount + 1
+    end
+
     -- Find common quest line patterns
     local commonPaths = {}
     for sequence, count in pairs(zoneSequences) do
@@ -1889,7 +1819,7 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
             table.insert(commonPaths, {
                 path = sequence,
                 playerCount = count,
-                likelihood = count / #playerPaths * 100
+                likelihood = count / math.max(playerPathCount, 1) * 100
             })
         end
     end
@@ -1911,7 +1841,7 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
                     fromZone = zones[1],
                     toZone = zones[2],
                     playerCount = count,
-                    strength = count / #playerPaths * 100
+                    strength = count / math.max(playerPathCount, 1) * 100
                 })
             end
         end
@@ -1922,7 +1852,7 @@ function Engine:GetZoneProgressionPatterns(timeWindow)
     
     return {
         patterns = playerPaths,
-        totalPlayers = 0,
+        totalPlayers = playerPathCount,
         commonPaths = {unpack(commonPaths, 1, 10)}, -- Top 10
         questLineCorrelations = {unpack(questLineCorrelations, 1, 15)} -- Top 15
     }

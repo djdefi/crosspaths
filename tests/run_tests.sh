@@ -75,19 +75,32 @@ if lua tests/test_engine.lua; then
     # Run the Tracker tests
     if lua tests/test_tracker.lua; then
         echo ""
-        echo "🎉 All tests completed successfully!"
-        echo "✅ Test coverage verification: PASSED"
-        echo ""
-        echo "📊 Test Summary:"
-        echo "  - Engine functions: ✓ Tested"
-        echo "  - Tracker functions: ✓ Tested"
-        echo "  - NPC/AI detection: ✓ Tested"
-        echo "  - Analytics functions: ✓ Tested"  
-        echo "  - Edge cases: ✓ Tested"
-        echo "  - Error handling: ✓ Tested"
-        echo ""
-        echo "🔧 Ready for continuous integration!"
-        exit 0
+        echo "🚀 Running real-Engine (production code) tests..."
+        echo "------------------------------------"
+
+        # Run the real-Engine tests (load actual Engine.lua, not stubs)
+        if lua tests/test_engine_real.lua && lua tests/test_load_smoke.lua; then
+            echo ""
+            echo "🎉 All tests completed successfully!"
+            echo "✅ Test coverage verification: PASSED"
+            echo ""
+            echo "📊 Test Summary:"
+            echo "  - Engine functions: ✓ Tested"
+            echo "  - Tracker functions: ✓ Tested"
+            echo "  - Real production Engine: ✓ Tested"
+            echo "  - NPC/AI detection: ✓ Tested"
+            echo "  - Analytics functions: ✓ Tested"
+            echo "  - Edge cases: ✓ Tested"
+            echo "  - Error handling: ✓ Tested"
+            echo ""
+            echo "🔧 Ready for continuous integration!"
+            exit 0
+        else
+            echo ""
+            echo "❌ Real-Engine tests failed!"
+            echo "Please review the test output above and fix any issues."
+            exit 1
+        fi
     else
         echo ""
         echo "❌ Tracker tests failed!"
